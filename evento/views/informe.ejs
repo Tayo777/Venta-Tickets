@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>Informe - <%= evento.nombre %></title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        h1 { margin-bottom: 0; }
+        .subtitulo { color: #636e72; margin-top: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 25px; }
+        .card { background: #f4f4f4; border-radius: 10px; padding: 20px; text-align: center; }
+        .card .numero { font-size: 2rem; font-weight: bold; color: #1a252c; }
+        .card .etiqueta { color: #636e72; font-size: 0.9rem; margin-top: 5px; }
+        .nota { text-align: center; color: #b2bec3; font-size: 0.8rem; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1><%= evento.nombre %></h1>
+    <p class="subtitulo"><%= evento.fecha %></p>
+
+    <div class="grid">
+        <div class="card">
+            <div class="numero"><%= resumen.total_vendidas || 0 %></div>
+            <div class="etiqueta">Entradas vendidas</div>
+        </div>
+        <div class="card">
+            <div class="numero"><%= resumen.total_ingresadas || 0 %></div>
+            <div class="etiqueta">Ya ingresaron</div>
+        </div>
+        <div class="card">
+            <div class="numero"><%= resumen.total_compradores || 0 %></div>
+            <div class="etiqueta">Compradores únicos</div>
+        </div>
+        <div class="card">
+            <div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div>
+            <div class="etiqueta">Recaudación estimada</div>
+        </div>
+    </div>
+
+    <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
+</body>
+</html>

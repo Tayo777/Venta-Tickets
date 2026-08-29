@@ -11,7 +11,7 @@
 <body>
     <h1>¡Pago realizado con éxito!</h1>
     <p>Gracias por tu compra, <strong><%= email %></strong>.</p>
-    <p>Adquiriste <strong><%= cant %></strong> entrada(s).</p>
+    <p>Adquiriste <strong><%= cant %></strong> entrada(s) para <strong><%= evento.nombre %></strong>.</p>
     
     <a class="btn" href="/descargar-pdf?email=<%= email %>&cant=<%= cant %>">Descargar mis Entradas en PDF</a>
 </body>

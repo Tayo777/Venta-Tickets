@@ -2,58 +2,35 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Venta de Entradas - Evento Genérico</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eventos disponibles</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
-        img { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-        .summary { background: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 15px; }
-        button { background: #009ee3; color: white; border: none; padding: 10px 15px; width: 100%; font-size: 16px; border-radius: 5px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; }
+        h1 { text-align: center; }
+        .evento-card { display: block; text-decoration: none; color: inherit; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; margin-bottom: 20px; transition: box-shadow 0.2s; }
+        .evento-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .evento-card img { width: 100%; max-height: 250px; object-fit: cover; display: block; }
+        .evento-info { padding: 15px; }
+        .evento-info h2 { margin: 0 0 5px 0; }
+        .evento-info p { margin: 0; color: #636e72; }
+        .vacio { text-align: center; color: #999; margin-top: 60px; }
     </style>
 </head>
 <body>
-    <h1>Evento Genérico</h1>
-    <img src="/flyer.png" alt="Flyer del evento">
+    <h1>Próximos eventos</h1>
 
-    <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">
-        <div class="form-group">
-            <label for="email">Correo Electrónico (Obligatorio para recibir tu entrada):</label>
-            <input type="email" id="email" name="email" required placeholder="tucorreo@email.com">
-        </div>
-
-        <div class="form-group">
-            <label for="cantidad">Cantidad de Entradas (Máx. 5):</label>
-            <select id="cantidad" name="cantidad" onchange="calcularTotal()">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-            </select>
-        </div>
-
-        <div class="summary">
-            <h3>Detalle del Pago:</h3>
-            <p>Valor entrada unitario: $<span id="valEntrada"><%= valorEntrada %></span></p>
-            <p>Tarifa online unitaria: $<span id="valTarifa"><%= tarifaOnline %></span></p>
-            <hr>
-            <p><strong>Total a pagar: $<span id="totalPagar"><%= valorEntrada + tarifaOnline %></span></strong></p>
-        </div>
-
-        <button type="submit" style="margin-top: 15px;">Pagar con Mercado Pago</button>
-    </form>
-
-    <script>
-        const valorEntrada = <%= valorEntrada %>;
-        const tarifaOnline = <%= tarifaOnline %>;
-
-        function calcularTotal() {
-            const cantidad = document.getElementById('cantidad').value;
-            const total = (valorEntrada + tarifaOnline) * cantidad;
-            document.getElementById('totalPagar').innerText = total;
-        }
-    </script>
+    <% if (eventos.length === 0) { %>
+        <p class="vacio">No hay eventos disponibles por el momento.</p>
+    <% } else { %>
+        <% eventos.forEach(evento => { %>
+            <a class="evento-card" href="/evento/<%= evento.id %>">
+                <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>">
+                <div class="evento-info">
+                    <h2><%= evento.nombre %></h2>
+                    <p><%= evento.fecha %></p>
+                </div>
+            </a>
+        <% }) %>
+    <% } %>
 </body>
 </html>

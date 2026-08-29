@@ -10,7 +10,7 @@ const QRCode = require('qrcode');
 const app = express();
 
 // Validamos que las variables de entorno necesarias existan antes de arrancar
-const requiredEnv = ['MP_ACCESS_TOKEN', 'GMAIL_USER', 'GMAIL_APP_PASSWORD', 'GUARDIA_CLAVE', 'BASE_URL'];
+const requiredEnv = ['MP_ACCESS_TOKEN', 'GMAIL_USER', 'GMAIL_APP_PASSWORD', 'GUARDIA_CLAVE', 'ADMIN_CLAVE', 'BASE_URL'];
 const faltantes = requiredEnv.filter((key) => !process.env[key]);
 if (faltantes.length > 0) {
     console.error(`Faltan variables de entorno: ${faltantes.join(', ')}`);
@@ -26,12 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
 
-// Precios de ejemplo
-const VALOR_ENTRADA = 1;
-const TARIFA_ONLINE = 2;
-
-// Memoria temporal para guardar los datos de la compra (en producción usa una Base de Datos)
-let ultimasEntradas = {};
+// (Los precios ahora viven por evento en la tabla "eventos", no como constantes fijas)
 
 // Configuración de correo para enviar las entradas
 const transporter = nodemailer.createTransport({
@@ -47,70 +42,122 @@ const transporter = nodemailer.createTransport({
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
-const sqlite3 = require('sqlite3').verbose();
+const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
-// Conexión a la base de datos (DB_PATH apunta al volumen persistente en producción)
-const dbPath = process.env.DB_PATH || './entradas.db';
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) console.error("Error al abrir DB:", err.message);
-    else console.log(`Base de datos conectada en: ${dbPath}`);
-});
+// Conexión a MySQL. Railway inyecta MYSQL_URL automáticamente al conectar el plugin de MySQL.
+if (!process.env.MYSQL_URL) {
+    console.error('Falta la variable MYSQL_URL. Conectá el servicio de MySQL en Railway (ver .env.example).');
+    process.exit(1);
+}
+const pool = mysql.createPool(process.env.MYSQL_URL);
 
-// Definición del esquema relacional
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS tickets (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        estado TEXT DEFAULT 'Válida',
-        fecha_compra DATETIME DEFAULT CURRENT_TIMESTAMP
+// Definición del esquema relacional: un evento tiene muchas entradas (tickets)
+async function inicializarDB() {
+    await pool.query(`CREATE TABLE IF NOT EXISTS eventos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        fecha VARCHAR(100),
+        flyer_url VARCHAR(500) DEFAULT '/flyer.png',
+        valor_entrada DECIMAL(10,2) NOT NULL DEFAULT 0,
+        tarifa_online DECIMAL(10,2) NOT NULL DEFAULT 0,
+        token_informe VARCHAR(64) NOT NULL,
+        activo TINYINT(1) NOT NULL DEFAULT 1,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS tickets (
+        id VARCHAR(20) PRIMARY KEY,
+        evento_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        estado VARCHAR(20) DEFAULT 'Válida',
+        fecha_compra DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
+    console.log('Base de datos MySQL lista (eventos + tickets).');
+}
+inicializarDB().catch((err) => {
+    console.error('Error al inicializar la base de datos:', err.message);
+    process.exit(1);
 });
 
-// Función para registrar entradas en SQLite y devolver sus IDs únicos
-function registrarEntradas(email, cantidad) {
-    return new Promise((resolve, reject) => {
-        const codigos = [];
-        const stmt = db.prepare('INSERT INTO tickets (id, email) VALUES (?, ?)');
+// Trae todos los eventos activos, para listar en la página principal
+async function obtenerEventosActivos() {
+    const [filas] = await pool.query('SELECT * FROM eventos WHERE activo = 1 ORDER BY id DESC');
+    return filas;
+}
 
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
-            for (let i = 0; i < cantidad; i++) {
-                // Generamos un código único alfanumérico corto y seguro
-                const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
-                codigos.push(id);
-                stmt.run(id, email);
-            }
-            stmt.finalize();
-            db.run('COMMIT', (err) => {
-                if (err) {
-                    db.run('ROLLBACK');
-                    return reject(err);
-                }
-                resolve(codigos);
-            });
-        });
-    });
+// Trae un evento puntual por su id
+async function obtenerEvento(id) {
+    const [filas] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
+    return filas[0] || null;
+}
+
+// Registra N entradas nuevas para un evento y devuelve sus códigos
+async function registrarEntradas(eventoId, email, cantidad) {
+    const conexion = await pool.getConnection();
+    try {
+        await conexion.beginTransaction();
+        const codigos = [];
+        for (let i = 0; i < cantidad; i++) {
+            const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
+            codigos.push(id);
+            await conexion.query('INSERT INTO tickets (id, evento_id, email) VALUES (?, ?, ?)', [id, eventoId, email]);
+        }
+        await conexion.commit();
+        return codigos;
+    } catch (err) {
+        await conexion.rollback();
+        throw err;
+    } finally {
+        conexion.release();
+    }
 }
 
 
 
-// 1. Página Principal (Formulario y Flyer)
-app.get('/', (req, res) => {
-    res.render('index', { valorEntrada: VALOR_ENTRADA, tarifaOnline: TARIFA_ONLINE });
+// 1. Página Principal: lista todos los eventos activos
+app.get('/', async (req, res) => {
+    try {
+        const eventos = await obtenerEventosActivos();
+        res.render('index', { eventos });
+    } catch (error) {
+        console.error('Error al listar eventos:', error);
+        res.status(500).send('Error al cargar los eventos.');
+    }
+});
+
+// 1b. Página de compra de un evento puntual
+app.get('/evento/:id', async (req, res) => {
+    try {
+        const evento = await obtenerEvento(req.params.id);
+        if (!evento || !evento.activo) return res.status(404).send('Evento no encontrado.');
+        res.render('evento', { evento });
+    } catch (error) {
+        console.error('Error al cargar evento:', error);
+        res.status(500).send('Error al cargar el evento.');
+    }
 });
 
 // 2. Procesar y Crear Preferencia de Pago
 app.post('/crear-pago', async (req, res) => {
-    const { email, cantidad } = req.body;
+    const { email, cantidad, evento_id } = req.body;
     const cant = parseInt(cantidad);
+    const eventoId = parseInt(evento_id);
 
     if (cant < 1 || cant > 5) {
         return res.status(400).send("Cantidad de entradas inválida (máximo 5).");
     }
 
-    const subtotal = VALOR_ENTRADA * cant;
-    const tarifaTotal = TARIFA_ONLINE * cant;
+    const evento = await obtenerEvento(eventoId);
+    if (!evento || !evento.activo) {
+        return res.status(404).send("Evento no encontrado o no disponible.");
+    }
+
+    const subtotal = Number(evento.valor_entrada) * cant;
+    const tarifaTotal = Number(evento.tarifa_online) * cant;
     const total = subtotal + tarifaTotal;
 
     try {
@@ -119,7 +166,7 @@ app.post('/crear-pago', async (req, res) => {
             body: {
                 items: [
                     {
-                        title: `Entrada Evento Genérico x ${cant}`,
+                        title: `${evento.nombre} x ${cant}`,
                         quantity: 1,
                         unit_price: total,
                         currency_id: 'ARS'
@@ -129,15 +176,14 @@ app.post('/crear-pago', async (req, res) => {
                     email: email
                 },
                 back_urls: {
-                    success: `${process.env.BASE_URL}/success?email=${encodeURIComponent(email)}&cant=${cant}`,
-                    failure: `${process.env.BASE_URL}/`,
-                    pending: `${process.env.BASE_URL}/`
+                    success: `${process.env.BASE_URL}/success?email=${encodeURIComponent(email)}&cant=${cant}&evento_id=${eventoId}`,
+                    failure: `${process.env.BASE_URL}/evento/${eventoId}`,
+                    pending: `${process.env.BASE_URL}/evento/${eventoId}`
                 },
                 auto_return: 'approved'
             }
         });
 
-        ultimasEntradas[email] = { cantidad: cant };
         // Si el Access Token es de producción (empieza con APP_USR), usamos el checkout real.
         // Si es de prueba (empieza con TEST-), usamos el checkout sandbox.
         const esProduccion = process.env.MP_ACCESS_TOKEN.startsWith('APP_USR');
@@ -151,16 +197,20 @@ app.post('/crear-pago', async (req, res) => {
 
 // 3. Página de Éxito, Registro en DB y Envío de PDF
 app.get('/success', async (req, res) => {
-    const { email, cant } = req.query;
+    const { email, cant, evento_id } = req.query;
     const cantidadEntradas = parseInt(cant) || 1;
+    const eventoId = parseInt(evento_id);
 
     try {
-        // 1. Guardamos las entradas en la base de datos
-        const listaCodigos = await registrarEntradas(email, cantidadEntradas);
-        console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email}`);
+        const evento = await obtenerEvento(eventoId);
+        if (!evento) return res.status(404).send('Evento no encontrado.');
+
+        // 1. Guardamos las entradas en la base de datos, asociadas al evento
+        const listaCodigos = await registrarEntradas(eventoId, email, cantidadEntradas);
+        console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre})`);
 
         // 2. Respondemos al navegador
-        res.render('success', { email, cant });
+        res.render('success', { email, cant, evento });
 
         // 3. Generación del PDF con los códigos de la DB
         const doc = new PDFDocument({ margin: 0, size: 'A4' });
@@ -175,7 +225,7 @@ app.get('/success', async (req, res) => {
                     from: process.env.GMAIL_USER,
                     to: email,
                     subject: '🎟️ Tus entradas oficiales',
-                    text: `¡Gracias por tu compra! Adjuntamos ${cantidadEntradas} entrada/s para el evento.`,
+                    text: `¡Gracias por tu compra! Adjuntamos ${cantidadEntradas} entrada/s para ${evento.nombre}.`,
                     attachments: [{ filename: 'Entradas_Evento.pdf', content: pdfData }]
                 };
 
@@ -183,7 +233,7 @@ app.get('/success', async (req, res) => {
                 console.log(`¡Correo enviado exitosamente a ${email}!`);
 
                 enviarNotificacionTelegram(
-                    `🎟️ <b>Nueva venta</b>\n${cantidadEntradas} entrada/s\nComprador: ${email}`
+                    `🎟️ <b>Nueva venta</b>\nEvento: ${evento.nombre}\n${cantidadEntradas} entrada/s\nComprador: ${email}`
                 );
             } catch (mailError) {
                 console.error('Error al enviar el correo:', mailError.message);
@@ -194,7 +244,7 @@ app.get('/success', async (req, res) => {
 
         // Banner Superior
         doc.rect(0, 0, pageWidth, 120).fill('#1a252c');
-        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22).text('LA RENGA - GIRA NORTE 2026', 0, 40, { align: 'center' });
+        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22).text(evento.nombre.toUpperCase(), 0, 40, { align: 'center' });
         doc.fillColor('#bdc3c7').font('Helvetica').fontSize(12).text('ENTRADAS OFICIALES', 0, 75, { align: 'center' });
 
         // Info del Comprador
@@ -245,78 +295,82 @@ app.get('/success', async (req, res) => {
 });
 
 // Ruta conectada a la Base de Datos para descargar el PDF real
-app.get('/descargar-pdf', async (req, res) => { 
+app.get('/descargar-pdf', async (req, res) => {
     const { email, cant } = req.query;
     const limit = parseInt(cant) || 1;
 
-    // Buscamos los códigos reales y seguros (UUID) generados en la DB
-    db.all("SELECT id FROM tickets WHERE email = ? ORDER BY fecha_compra DESC LIMIT ?", [email, limit], async (err, filas) => {
-        if (err || filas.length === 0) {
+    try {
+        // Buscamos los códigos reales y seguros (UUID) generados en la DB, junto con el nombre del evento
+        const [filas] = await pool.query(
+            `SELECT t.id, e.nombre AS evento_nombre FROM tickets t
+             JOIN eventos e ON t.evento_id = e.id
+             WHERE t.email = ? ORDER BY t.fecha_compra DESC LIMIT ?`,
+            [email, limit]
+        );
+        if (filas.length === 0) {
             return res.status(404).send("No se encontraron entradas para este correo.");
         }
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=Entradas_${email}.pdf`);
 
-        try {
-            const doc = new PDFDocument({ margin: 0, size: 'A4' });
-            doc.pipe(res); 
+        const doc = new PDFDocument({ margin: 0, size: 'A4' });
+        doc.pipe(res); 
 
-            const pageWidth = doc.page.width;
-            
-            // Banner Superior
-            doc.rect(0, 0, pageWidth, 120).fill('#1a252c');
-            doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22).text('LA RENGA - GIRA NORTE 2026', 0, 40, { align: 'center' });
-            doc.fillColor('#bdc3c7').font('Helvetica').fontSize(12).text('ENTRADAS OFICIALES', 0, 75, { align: 'center' });
-            
-            // Info del Comprador
-            doc.fillColor('#636e72').font('Helvetica-Bold').fontSize(10).text('TITULAR DE LA COMPRA', 0, 150, { align: 'center' });
-            doc.fillColor('#2d3436').font('Helvetica-Bold').fontSize(14).text(email, 0, 165, { align: 'center' });
-            
-            let currentY = 220;
+        const pageWidth = doc.page.width;
+        
+        // Banner Superior
+        doc.rect(0, 0, pageWidth, 120).fill('#1a252c');
+        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22).text(filas[0].evento_nombre.toUpperCase(), 0, 40, { align: 'center' });
+        doc.fillColor('#bdc3c7').font('Helvetica').fontSize(12).text('ENTRADAS OFICIALES', 0, 75, { align: 'center' });
+        
+        // Info del Comprador
+        doc.fillColor('#636e72').font('Helvetica-Bold').fontSize(10).text('TITULAR DE LA COMPRA', 0, 150, { align: 'center' });
+        doc.fillColor('#2d3436').font('Helvetica-Bold').fontSize(14).text(email, 0, 165, { align: 'center' });
+        
+        let currentY = 220;
 
-            // Iteramos sobre los registros reales de la DB
-            for (let i = 0; i < filas.length; i++) {
-                if (currentY + 280 > doc.page.height) {
-                    doc.addPage({ margin: 0 });
-                    currentY = 50;
-                }
-                
-                const codigo = filas[i].id; // ACÁ USAMOS EL CÓDIGO SEGURO (Ej: EVT-A1B2C3D4)
-                const urlValidacion = `${process.env.BASE_URL}/validar/${codigo}`; 
-                
-                // Caja punteada exterior
-                doc.rect(50, currentY, pageWidth - 100, 230).lineWidth(2).dash(5, { space: 5 }).stroke('#b2bec3');
-                doc.undash(); 
-                
-                // Textos de Cabecera
-                doc.fillColor('#2d3436').font('Helvetica-Bold').fontSize(16).text(`Acceso ${i+1} de ${filas.length}`, 0, currentY + 25, { align: 'center' });
-                doc.fillColor('#e74c3c').font('Helvetica').fontSize(10).text('Presentá este QR en la puerta', 0, currentY + 50, { align: 'center' });
-                
-                // Generar el Código QR atado a la validación
-                const qrBuffer = await QRCode.toBuffer(urlValidacion, { margin: 1, width: 100, color: { dark: '#000', light: '#fff' } });
-                doc.image(qrBuffer, (pageWidth / 2) - 50, currentY + 70, { width: 100 });
-                
-                // Etiqueta del Código Alfanumérico Seguro
-                doc.rect((pageWidth / 2) - 75, currentY + 185, 150, 25).fill('#f1f2f6');
-                doc.fillColor('#2d3436').font('Courier-Bold').fontSize(14).text(codigo, 0, currentY + 190, { align: 'center' });
-                
-                // Línea de corte
-                if (i < filas.length - 1) {
-                    currentY += 270;
-                    doc.lineWidth(1).dash(3, { space: 3 }).strokeColor('#dfe6e9').moveTo(50, currentY).lineTo(pageWidth - 50, currentY).stroke();
-                    doc.undash();
-                    doc.fillColor('#b2bec3').font('Helvetica').fontSize(16).text('✂', 0, currentY - 8, { align: 'center' });
-                    currentY += 30; 
-                }
+        // Iteramos sobre los registros reales de la DB
+        for (let i = 0; i < filas.length; i++) {
+            if (currentY + 280 > doc.page.height) {
+                doc.addPage({ margin: 0 });
+                currentY = 50;
             }
             
-            doc.end();
-        } catch (error) {
-            console.error('Error al descargar el PDF:', error);
-            res.status(500).send("Hubo un error al generar tu entrada.");
+            const codigo = filas[i].id; // ACÁ USAMOS EL CÓDIGO SEGURO (Ej: EVT-A1B2C3D4)
+            const urlValidacion = `${process.env.BASE_URL}/validar/${codigo}`; 
+            
+            // Caja punteada exterior
+            doc.rect(50, currentY, pageWidth - 100, 230).lineWidth(2).dash(5, { space: 5 }).stroke('#b2bec3');
+            doc.undash(); 
+            
+            // Textos de Cabecera
+            doc.fillColor('#2d3436').font('Helvetica-Bold').fontSize(16).text(`Acceso ${i+1} de ${filas.length}`, 0, currentY + 25, { align: 'center' });
+            doc.fillColor('#e74c3c').font('Helvetica').fontSize(10).text('Presentá este QR en la puerta', 0, currentY + 50, { align: 'center' });
+            
+            // Generar el Código QR atado a la validación
+            const qrBuffer = await QRCode.toBuffer(urlValidacion, { margin: 1, width: 100, color: { dark: '#000', light: '#fff' } });
+            doc.image(qrBuffer, (pageWidth / 2) - 50, currentY + 70, { width: 100 });
+            
+            // Etiqueta del Código Alfanumérico Seguro
+            doc.rect((pageWidth / 2) - 75, currentY + 185, 150, 25).fill('#f1f2f6');
+            doc.fillColor('#2d3436').font('Courier-Bold').fontSize(14).text(codigo, 0, currentY + 190, { align: 'center' });
+            
+            // Línea de corte
+            if (i < filas.length - 1) {
+                currentY += 270;
+                doc.lineWidth(1).dash(3, { space: 3 }).strokeColor('#dfe6e9').moveTo(50, currentY).lineTo(pageWidth - 50, currentY).stroke();
+                doc.undash();
+                doc.fillColor('#b2bec3').font('Helvetica').fontSize(16).text('✂', 0, currentY - 8, { align: 'center' });
+                currentY += 30; 
+            }
         }
-    });
+        
+        doc.end();
+    } catch (error) {
+        console.error('Error al descargar el PDF:', error);
+        res.status(500).send("Hubo un error al generar tu entrada.");
+    }
 });
 
 // Función auxiliar para armar una pantalla rápida para celulares
@@ -355,18 +409,24 @@ function generarPantallaControl(titulo, mensaje, colorFondo) {
 }
 
 // Ruta de Validación (Diferencia entre Usuario y Guardia)
-app.get('/validar/:id', (req, res) => {
+app.get('/validar/:id', async (req, res) => {
     const ticketId = req.params.id;
     const esGuardia = req.cookies.rol === 'guardia'; // Verificamos si el celular tiene la sesión de guardia
 
-    db.get('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, row) => {
-        if (err) return res.status(500).send("Error de conexión con la base de datos.");
+    try {
+        const [filas] = await pool.query(
+            `SELECT t.*, e.nombre AS evento_nombre FROM tickets t
+             JOIN eventos e ON t.evento_id = e.id
+             WHERE t.id = ?`,
+            [ticketId]
+        );
+        const row = filas[0];
         if (!row) return res.send(generarPantallaControl('❌ RECHAZADO', 'Esta entrada NO existe en el sistema.', '#c0392b'));
 
         // CASO 1: Lo escaneó el COMPRADOR (No es guardia)
         if (!esGuardia) {
             // Mostramos pantalla azul informativa, pero NO actualizamos la base de datos
-            return res.send(generarPantallaControl('🎟️ ENTRADA OFICIAL', `Código: ${row.id}<br>Estado actual: ${row.estado}<br><br>Por favor, mostrá este QR al guardia en la entrada.`, '#2980b9'));
+            return res.send(generarPantallaControl('🎟️ ENTRADA OFICIAL', `${row.evento_nombre}<br>Código: ${row.id}<br>Estado actual: ${row.estado}<br><br>Por favor, mostrá este QR al guardia en la entrada.`, '#2980b9'));
         }
 
         // CASO 2: Lo escanea el GUARDIA (A partir de acá)
@@ -374,12 +434,13 @@ app.get('/validar/:id', (req, res) => {
             return res.send(generarPantallaControl('⚠️ YA ESCANEADA', `Esta entrada ya ingresó previamente.<br><br>Titular: ${row.email}`, '#f39c12')); 
         }
 
-        db.run('UPDATE tickets SET estado = ? WHERE id = ?', ['Usada', ticketId], (updateErr) => {
-            if (updateErr) return res.status(500).send("Error al actualizar la entrada.");
-            enviarNotificacionTelegram(`✅ <b>Ingreso registrado</b>\nTitular: ${row.email}`);
-            return res.send(generarPantallaControl('✅ ACCESO PERMITIDO', `Entrada válida.<br><br>Titular: ${row.email}`, '#27ae60'));
-        });
-    });
+        await pool.query('UPDATE tickets SET estado = ? WHERE id = ?', ['Usada', ticketId]);
+        enviarNotificacionTelegram(`✅ <b>Ingreso registrado</b>\nEvento: ${row.evento_nombre}\nTitular: ${row.email}`);
+        return res.send(generarPantallaControl('✅ ACCESO PERMITIDO', `Entrada válida.<br><br>Titular: ${row.email}`, '#27ae60'));
+    } catch (error) {
+        console.error('Error al validar entrada:', error);
+        return res.status(500).send("Error de conexión con la base de datos.");
+    }
 });
 
 // Activar el celular del guardia
@@ -393,6 +454,64 @@ app.get('/login-guardia', (req, res) => {
     } else {
         res.send(generarPantallaControl('❌ ERROR', 'Clave incorrecta', '#c0392b'));
     }
+});
+
+// ---------------------------------------------------------------------------
+// ADMIN: crear y listar eventos (protegido con ADMIN_CLAVE)
+// ---------------------------------------------------------------------------
+function requiereAdmin(req, res, next) {
+    const clave = req.query.clave || req.body.clave;
+    if (clave !== process.env.ADMIN_CLAVE) {
+        return res.status(403).send('Acceso denegado. Agregá ?clave=TU_CLAVE_ADMIN a la URL.');
+    }
+    next();
+}
+
+app.get('/admin/eventos', requiereAdmin, async (req, res) => {
+    const eventos = await obtenerEventosActivos();
+    const [todos] = await pool.query('SELECT * FROM eventos ORDER BY id DESC');
+    res.render('admin', { eventos: todos, clave: req.query.clave, baseUrl: process.env.BASE_URL });
+});
+
+app.post('/admin/eventos', requiereAdmin, async (req, res) => {
+    const { nombre, fecha, flyer_url, valor_entrada, tarifa_online } = req.body;
+    const token = crypto.randomBytes(12).toString('hex');
+    await pool.query(
+        `INSERT INTO eventos (nombre, fecha, flyer_url, valor_entrada, tarifa_online, token_informe)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [nombre, fecha, flyer_url || '/flyer.png', valor_entrada, tarifa_online, token]
+    );
+    res.redirect(`/admin/eventos?clave=${req.query.clave}`);
+});
+
+app.post('/admin/eventos/:id/toggle', requiereAdmin, async (req, res) => {
+    await pool.query('UPDATE eventos SET activo = NOT activo WHERE id = ?', [req.params.id]);
+    res.redirect(`/admin/eventos?clave=${req.query.clave}`);
+});
+
+// ---------------------------------------------------------------------------
+// INFORME EN TIEMPO REAL (para compartir con el cliente/organizador del evento)
+// Cada evento tiene su propio token, así que este link se puede compartir
+// sin exponer el panel de admin ni los datos de otros eventos.
+// ---------------------------------------------------------------------------
+app.get('/informe/:eventoId', async (req, res) => {
+    const evento = await obtenerEvento(req.params.eventoId);
+    if (!evento || req.query.token !== evento.token_informe) {
+        return res.status(403).send('Acceso denegado. Verificá el link del informe.');
+    }
+
+    const [[resumen]] = await pool.query(
+        `SELECT
+            COUNT(*) AS total_vendidas,
+            SUM(CASE WHEN estado = 'Usada' THEN 1 ELSE 0 END) AS total_ingresadas,
+            COUNT(DISTINCT email) AS total_compradores
+         FROM tickets WHERE evento_id = ?`,
+        [evento.id]
+    );
+
+    const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
+
+    res.render('informe', { evento, resumen, recaudacion });
 });
 
 const PORT = process.env.PORT || 3000;
