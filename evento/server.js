@@ -76,7 +76,20 @@ async function inicializarDB() {
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )`);
 
-    console.log('Base de datos MySQL lista (eventos + tickets).');
+    // Cada pago de Mercado Pago se procesa UNA sola vez, gracias al payment_id único.
+    // Esto evita que un reload o una doble redirección a /success duplique entradas o mails.
+    await pool.query(`CREATE TABLE IF NOT EXISTS compras (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        payment_id VARCHAR(50) NOT NULL UNIQUE,
+        evento_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        cantidad INT NOT NULL,
+        monto_total DECIMAL(10,2) NOT NULL,
+        fecha_compra DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
+    console.log('Base de datos MySQL lista (eventos + tickets + compras).');
 }
 inicializarDB().catch((err) => {
     console.error('Error al inicializar la base de datos:', err.message);
@@ -197,7 +210,7 @@ app.post('/crear-pago', async (req, res) => {
 
 // 3. Página de Éxito, Registro en DB y Envío de PDF
 app.get('/success', async (req, res) => {
-    const { email, cant, evento_id } = req.query;
+    const { email, cant, evento_id, payment_id } = req.query;
     const cantidadEntradas = parseInt(cant) || 1;
     const eventoId = parseInt(evento_id);
 
@@ -205,14 +218,48 @@ app.get('/success', async (req, res) => {
         const evento = await obtenerEvento(eventoId);
         if (!evento) return res.status(404).send('Evento no encontrado.');
 
+        if (!payment_id) {
+            // No debería pasar viniendo de Mercado Pago, pero si falta, no podemos
+            // garantizar que no sea una recarga duplicada de la página.
+            console.error('Llegó a /success sin payment_id, se rechaza para evitar duplicados.');
+            return res.status(400).send('No se pudo confirmar el pago. Si ya recibiste tu mail con las entradas, no hace falta hacer nada más.');
+        }
+
+        // ¿Ya procesamos este pago antes? (evita duplicar entradas si /success se carga 2 veces)
+        const [existentes] = await pool.query('SELECT id FROM compras WHERE payment_id = ?', [payment_id]);
+        const yaProcesado = existentes.length > 0;
+
+        if (!yaProcesado) {
+            const montoTotal = (Number(evento.valor_entrada) + Number(evento.tarifa_online)) * cantidadEntradas;
+            await pool.query(
+                'INSERT INTO compras (payment_id, evento_id, email, cantidad, monto_total) VALUES (?, ?, ?, ?, ?)',
+                [payment_id, eventoId, email, cantidadEntradas, montoTotal]
+            );
+        }
+
+        // Respondemos al navegador siempre (haya sido nueva la compra o no)
+        res.render('success', { email, cant, evento });
+
+        // Si ya se había procesado este pago, no volvemos a generar entradas ni a mandar mail
+        if (yaProcesado) {
+            console.log(`payment_id ${payment_id} ya estaba procesado, se evita duplicar entradas/mail.`);
+            return;
+        }
+    } catch (error) {
+        console.error('Error al procesar la compra:', error);
+        return res.status(500).send('Error interno al registrar la compra.');
+    }
+
+    // A partir de acá la respuesta YA fue enviada al navegador. Este bloque corre aparte
+    // para que un error acá (PDF, QR, envío de mail) no intente mandar otra respuesta HTTP
+    // (eso rompía silenciosamente el envío del correo) y para loguear el error completo.
+    try {
         // 1. Guardamos las entradas en la base de datos, asociadas al evento
+        const evento = await obtenerEvento(eventoId);
         const listaCodigos = await registrarEntradas(eventoId, email, cantidadEntradas);
         console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre})`);
 
-        // 2. Respondemos al navegador
-        res.render('success', { email, cant, evento });
-
-        // 3. Generación del PDF con los códigos de la DB
+        // 2. Generación del PDF con los códigos de la DB
         const doc = new PDFDocument({ margin: 0, size: 'A4' });
         const buffers = [];
         
@@ -236,7 +283,9 @@ app.get('/success', async (req, res) => {
                     `🎟️ <b>Nueva venta</b>\nEvento: ${evento.nombre}\n${cantidadEntradas} entrada/s\nComprador: ${email}`
                 );
             } catch (mailError) {
-                console.error('Error al enviar el correo:', mailError.message);
+                // Logueamos el error COMPLETO (no solo .message) para ver el código real
+                // que devuelve Gmail (ej: credenciales inválidas, contraseña de app vencida, etc.)
+                console.error('Error al enviar el correo:', mailError);
             }
         });
 
@@ -289,8 +338,9 @@ app.get('/success', async (req, res) => {
 
         doc.end();
     } catch (error) {
-        console.error('Error al procesar la compra:', error);
-        res.status(500).send('Error interno al registrar la compra.');
+        // La respuesta HTTP ya se mandó antes (res.render), así que acá solo podemos
+        // loguear el error real para diagnosticarlo — no reintentar responder al navegador.
+        console.error('Error al generar el PDF o registrar las entradas post-pago:', error);
     }
 });
 
@@ -509,9 +559,14 @@ app.get('/informe/:eventoId', async (req, res) => {
         [evento.id]
     );
 
-    const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
+    // La recaudación se suma de lo REALMENTE cobrado en cada compra (compras.monto_total),
+    // no se recalcula con el precio actual del evento (que podría haber cambiado desde entonces).
+    const [[{ recaudacion }]] = await pool.query(
+        `SELECT COALESCE(SUM(monto_total), 0) AS recaudacion FROM compras WHERE evento_id = ?`,
+        [evento.id]
+    );
 
-    res.render('informe', { evento, resumen, recaudacion });
+    res.render('informe', { evento, resumen, recaudacion: Number(recaudacion) });
 });
 
 const PORT = process.env.PORT || 3000;
