@@ -33,6 +33,10 @@ const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
     secure: true, // Obliga a usar una conexión segura
+    family: 4, // Fuerza IPv4: en Railway la resolución IPv6 a Gmail suele colgarse (ETIMEDOUT)
+    connectionTimeout: 15000, // Si no conecta en 15s, falla rápido en vez de colgarse minutos
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
     auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD // Contraseña de aplicación de 16 letras (no la de tu cuenta)
@@ -559,14 +563,10 @@ app.get('/informe/:eventoId', async (req, res) => {
         [evento.id]
     );
 
-    // La recaudación se suma de lo REALMENTE cobrado en cada compra (compras.monto_total),
-    // no se recalcula con el precio actual del evento (que podría haber cambiado desde entonces).
-    const [[{ recaudacion }]] = await pool.query(
-        `SELECT COALESCE(SUM(monto_total), 0) AS recaudacion FROM compras WHERE evento_id = ?`,
-        [evento.id]
-    );
+    // Recaudación = entradas vendidas × valor de la entrada (sin la tarifa online)
+    const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
 
-    res.render('informe', { evento, resumen, recaudacion: Number(recaudacion) });
+    res.render('informe', { evento, resumen, recaudacion });
 });
 
 const PORT = process.env.PORT || 3000;
