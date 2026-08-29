@@ -138,7 +138,11 @@ app.post('/crear-pago', async (req, res) => {
         });
 
         ultimasEntradas[email] = { cantidad: cant };
-        res.redirect(result.sandbox_init_point);
+        // Si el Access Token es de producción (empieza con APP_USR), usamos el checkout real.
+        // Si es de prueba (empieza con TEST-), usamos el checkout sandbox.
+        const esProduccion = process.env.MP_ACCESS_TOKEN.startsWith('APP_USR');
+        const urlCheckout = esProduccion ? result.init_point : result.sandbox_init_point;
+        res.redirect(urlCheckout);
     } catch (error) {
         console.error("Error:", error);
         res.status(500).send("Error al procesar el pago con Mercado Pago.");
