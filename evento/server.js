@@ -181,6 +181,10 @@ app.get('/success', async (req, res) => {
 
                 await transporter.sendMail(mailOptions);
                 console.log(`¡Correo enviado exitosamente a ${email}!`);
+
+                enviarNotificacionTelegram(
+                    `🎟️ <b>Nueva venta</b>\n${cantidadEntradas} entrada/s\nComprador: ${email}`
+                );
             } catch (mailError) {
                 console.error('Error al enviar el correo:', mailError.message);
             }
@@ -372,6 +376,7 @@ app.get('/validar/:id', (req, res) => {
 
         db.run('UPDATE tickets SET estado = ? WHERE id = ?', ['Usada', ticketId], (updateErr) => {
             if (updateErr) return res.status(500).send("Error al actualizar la entrada.");
+            enviarNotificacionTelegram(`✅ <b>Ingreso registrado</b>\nTitular: ${row.email}`);
             return res.send(generarPantallaControl('✅ ACCESO PERMITIDO', `Entrada válida.<br><br>Titular: ${row.email}`, '#27ae60'));
         });
     });
@@ -391,6 +396,33 @@ app.get('/login-guardia', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Envía un mensaje al chat de Telegram configurado. No corta la app si falla.
+async function enviarNotificacionTelegram(mensaje) {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return; // si no están configuradas, simplemente no notifica
+
+    try {
+        const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: mensaje,
+                parse_mode: 'HTML'
+            })
+        });
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error('Telegram respondió con error:', response.status, errorBody);
+        }
+    } catch (error) {
+        console.error('Error al enviar notificación a Telegram:', error.message);
+    }
+}
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
