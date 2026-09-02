@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creá tu evento</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .volver { color: #636e72; text-decoration: none; }
+        h1 { margin-top: 10px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .ayuda { font-size: 0.8rem; color: #b2bec3; margin-top: 3px; }
+        input, textarea { width: 100%; padding: 8px; box-sizing: border-box; font-family: inherit; }
+        textarea { resize: vertical; min-height: 70px; }
+        button { background: #009ee3; color: white; border: none; padding: 12px 15px; width: 100%; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .nota { font-size: 0.78rem; color: #b2bec3; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <a class="volver" href="/">&larr; Volver</a>
+    <h1>Creá tu evento</h1>
+    <p>Sin costo para publicar. La tarifa por el uso del servicio se calcula sola y se le suma al precio que ve el comprador — vos definís cuánto querés recibir vos.</p>
+
+    <form action="/crear-evento" method="POST">
+        <div class="form-group">
+            <label for="nombre">Nombre del evento</label>
+            <input type="text" id="nombre" name="nombre" required placeholder="Ej: Fiesta de fin de año">
+        </div>
+
+        <div class="form-group">
+            <label for="descripcion">Descripción</label>
+            <textarea id="descripcion" name="descripcion" required placeholder="Contales a tus invitados de qué se trata..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="fecha">Fecha y hora</label>
+            <input type="text" id="fecha" name="fecha" required placeholder="Ej: Sábado 12 de diciembre, 21hs">
+        </div>
+
+        <div class="form-group">
+            <label for="flyer_url">Link a tu flyer (imagen)</label>
+            <input type="text" id="flyer_url" name="flyer_url" required placeholder="https://...">
+            <p class="ayuda">¿No tenés dónde subirlo? Subilo gratis en <a href="https://postimages.org" target="_blank">postimages.org</a> y pegá acá el link directo.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="organizer_email">Tu mail</label>
+            <input type="email" id="organizer_email" name="organizer_email" required placeholder="tucorreo@email.com">
+            <p class="ayuda">Te vamos a mandar acá el link privado para administrar tu evento. Guardalo bien, es la única forma de acceder.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="valor_entrada">Precio de la entrada ($) — lo que VOS querés recibir</label>
+            <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
+            <p class="ayuda">La tarifa que paga el comprador (comisión de Mercado Pago + del servicio) se calcula sola cuando crees el evento.</p>
+        </div>
+
+        <button type="submit">Crear mi evento</button>
+    </form>
+
+    <p class="nota">Después de crear el evento te vamos a pedir que conectes tu Mercado Pago (un solo click, iniciás sesión como en cualquier otra web) para poder empezar a vender.</p>
+</body>
+</html>

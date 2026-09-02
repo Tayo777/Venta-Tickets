@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <% if (evento.conectado_mp) { %><meta http-equiv="refresh" content="30"><% } %>
+    <title>Panel de <%= evento.nombre %></title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        h1 { margin-bottom: 0; }
+        .subtitulo { color: #636e72; margin-top: 4px; }
+        .aviso-ok { background: #d4f8e8; color: #1a7a4c; padding: 12px 15px; border-radius: 8px; margin: 15px 0; }
+        .conectar-box { background: #12131f; color: white; padding: 25px; border-radius: 10px; margin: 20px 0; text-align: center; }
+        .conectar-box p { color: #dfe6e9; font-size: 0.9rem; }
+        .btn-mp { display: inline-block; background: #009ee3; color: white; font-weight: bold; padding: 14px 30px; border-radius: 50px; text-decoration: none; margin-top: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .card { background: #f4f4f4; border-radius: 10px; padding: 20px; text-align: center; }
+        .card .numero { font-size: 1.8rem; font-weight: bold; color: #1a252c; }
+        .card .etiqueta { color: #636e72; font-size: 0.85rem; margin-top: 5px; }
+        .link-publico { margin-top: 25px; background: #eaf7fe; padding: 15px; border-radius: 8px; font-size: 0.9rem; word-break: break-all; }
+        .nota { text-align: center; color: #b2bec3; font-size: 0.8rem; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1><%= evento.nombre %></h1>
+    <p class="subtitulo"><%= evento.fecha %></p>
+
+    <% if (conectado) { %>
+        <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>
+    <% } %>
+
+    <% if (!evento.conectado_mp) { %>
+        <div class="conectar-box">
+            <h2>Conectá tu Mercado Pago</h2>
+            <p>Falta un solo paso para poder vender: conectá tu cuenta de Mercado Pago para que el dinero de cada venta te llegue directo a vos.</p>
+            <a class="btn-mp" href="<%= urlConexionMP %>">Conectar con Mercado Pago</a>
+        </div>
+    <% } else { %>
+        <div class="grid">
+            <div class="card">
+                <div class="numero"><%= resumen.total_vendidas || 0 %></div>
+                <div class="etiqueta">Entradas vendidas</div>
+            </div>
+            <div class="card">
+                <div class="numero"><%= resumen.total_ingresadas || 0 %></div>
+                <div class="etiqueta">Ya ingresaron</div>
+            </div>
+            <div class="card">
+                <div class="numero"><%= resumen.total_compradores || 0 %></div>
+                <div class="etiqueta">Compradores únicos</div>
+            </div>
+            <div class="card">
+                <div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div>
+                <div class="etiqueta">Recaudación estimada</div>
+            </div>
+        </div>
+
+        <div class="link-publico">
+            <strong>Link para vender tus entradas:</strong><br>
+            <a href="<%= urlPublica %>" target="_blank"><%= urlPublica %></a>
+        </div>
+
+        <p class="nota">La tarifa se calcula sola: la primera venta usa una estimación general, y desde la segunda en adelante se ajusta con la comisión real que cobró Mercado Pago en tus propias ventas anteriores.</p>
+        <p class="nota">Este panel se actualiza solo cada 30 segundos.</p>
+    <% } %>
+
+    <p class="nota">Guardá este link — es privado y es la única forma de administrar tu evento.</p>
+</body>
+</html>
