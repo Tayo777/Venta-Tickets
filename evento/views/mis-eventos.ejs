@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis eventos</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .top-nav form { display: inline; }
+        .top-nav button { background: none; border: none; color: #636e72; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
+        .crear-link { background: #009ee3; color: white; padding: 10px 18px; border-radius: 20px; text-decoration: none; }
+        .evento-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+        .evento-row h3 { margin: 0 0 4px 0; }
+        .evento-row p { margin: 0; color: #636e72; font-size: 0.85rem; }
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 12px; color: white; margin-left: 8px; }
+        .activo { background: #27ae60; }
+        .sin-conectar { background: #e67e22; }
+        .vacio { text-align: center; color: #999; margin-top: 60px; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <h1 style="margin:0;">Mis eventos<% if (esAdmin) { %> (todos, sos admin)<% } %></h1>
+        <div>
+            <a class="crear-link" href="/crear-evento">+ Crear evento</a>
+            <form action="/logout" method="POST"><button type="submit">Cerrar sesión</button></form>
+        </div>
+    </div>
+
+    <% if (eventos.length === 0) { %>
+        <p class="vacio">Todavía no creaste ningún evento.</p>
+    <% } else { %>
+        <% eventos.forEach(evento => { %>
+            <a class="evento-row" href="/eventos/<%= evento.id %>" style="text-decoration:none; color:inherit; display:flex;">
+                <div>
+                    <h3><%= evento.nombre %>
+                        <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Vendiendo' : 'Sin conectar MP' %></span>
+                    </h3>
+                    <p><%= evento.fecha %></p>
+                </div>
+            </a>
+        <% }) %>
+    <% } %>
+</body>
+</html>

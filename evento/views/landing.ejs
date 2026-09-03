@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendé entradas para tu evento</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #1a252c; }
+        .hero {
+            min-height: 90vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 40px 20px; color: white;
+            background: radial-gradient(circle at 20% 20%, #2d3ee0 0%, transparent 45%),
+                        radial-gradient(circle at 80% 30%, #e0217a 0%, transparent 45%),
+                        radial-gradient(circle at 50% 90%, #ff9f1c 0%, transparent 50%),
+                        #12131f;
+            position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 700px; }
+        .hero h1 { font-size: 2.6rem; margin-bottom: 15px; line-height: 1.2; }
+        .hero p { font-size: 1.2rem; color: #dfe6e9; margin-bottom: 35px; }
+        .cta {
+            display: inline-block; background: #ffffff; color: #12131f; font-weight: bold;
+            font-size: 1.1rem; padding: 16px 36px; border-radius: 50px; text-decoration: none;
+            transition: transform 0.15s ease;
+        }
+        .cta:hover { transform: scale(1.05); }
+        .cta-secundario { display: inline-block; margin-top: 18px; color: #dfe6e9; text-decoration: underline; font-size: 0.95rem; }
+        .features {
+            max-width: 900px; margin: 0 auto; padding: 60px 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 30px; text-align: center;
+        }
+        .features h3 { margin-bottom: 8px; }
+        .features p { color: #636e72; font-size: 0.95rem; margin: 0; }
+        .emoji { font-size: 2.2rem; margin-bottom: 10px; display: block; }
+        footer { text-align: center; padding: 30px 20px; color: #b2bec3; font-size: 0.85rem; }
+        .top-nav { position: absolute; top: 20px; right: 20px; z-index: 2; }
+        .top-nav a { color: white; text-decoration: none; margin-left: 15px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="top-nav">
+            <a href="/login">Iniciar sesión</a>
+            <a href="/registro">Registrarme</a>
+        </div>
+        <div class="hero-content">
+            <h1>Vendé las entradas de tu evento sin complicaciones</h1>
+            <p>Creá tu evento, conectá tu Mercado Pago y empezá a vender en minutos. El dinero llega directo a tu cuenta.</p>
+            <a class="cta" href="/crear-evento">Creá tu evento gratis</a>
+            <br>
+            <a class="cta-secundario" href="/eventos">Ver eventos disponibles →</a>
+        </div>
+    </div>
+
+    <div class="features">
+        <div>
+            <span class="emoji">💸</span>
+            <h3>Cobrás vos directo</h3>
+            <p>El dinero entra a tu propia cuenta de Mercado Pago, no a la nuestra.</p>
+        </div>
+        <div>
+            <span class="emoji">🎟️</span>
+            <h3>Entradas con QR</h3>
+            <p>Cada comprador recibe su entrada por mail con un código QR único.</p>
+        </div>
+        <div>
+            <span class="emoji">📊</span>
+            <h3>Informe en vivo</h3>
+            <p>Mirá cuánto vendiste y cuánta gente ya ingresó, actualizado en tiempo real.</p>
+        </div>
+    </div>
+
+    <footer>Hecho para organizadores de eventos que quieren vender simple.</footer>
+</body>
+</html>

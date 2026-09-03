@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <% if (evento.conectado_mp) { %><meta http-equiv="refresh" content="30"><% } %>
+    <title>Panel de <%= evento.nombre %></title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+        .volver { color: #636e72; text-decoration: none; }
+        h1 { margin-bottom: 0; }
+        .subtitulo { color: #636e72; margin-top: 4px; }
+        .aviso-ok { background: #d4f8e8; color: #1a7a4c; padding: 12px 15px; border-radius: 8px; margin: 15px 0; }
+        .conectar-box { background: #12131f; color: white; padding: 25px; border-radius: 10px; margin: 20px 0; text-align: center; }
+        .conectar-box p { color: #dfe6e9; font-size: 0.9rem; }
+        .btn-mp { display: inline-block; background: #009ee3; color: white; font-weight: bold; padding: 14px 30px; border-radius: 50px; text-decoration: none; margin-top: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+        .card { background: #f4f4f4; border-radius: 10px; padding: 15px; text-align: center; }
+        .card .numero { font-size: 1.5rem; font-weight: bold; color: #1a252c; }
+        .card .etiqueta { color: #636e72; font-size: 0.78rem; margin-top: 4px; }
+        .link-box { margin-top: 20px; background: #eaf7fe; padding: 15px; border-radius: 8px; font-size: 0.85rem; word-break: break-all; }
+        .link-box.peligro { background: #fdecea; }
+        .link-box strong { display: block; margin-bottom: 4px; }
+        .link-box .aviso { color: #c0392b; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
+        .acciones { display: flex; gap: 10px; margin-top: 25px; }
+        .acciones button, .acciones a { flex: 1; padding: 10px; border-radius: 6px; text-align: center; text-decoration: none; cursor: pointer; border: none; font-size: 0.9rem; }
+        .btn-editar { background: #636e72; color: white; }
+        .btn-eliminar { background: #c0392b; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+        .nota { text-align: center; color: #b2bec3; font-size: 0.8rem; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <a class="volver" href="/mis-eventos">&larr; Mis eventos</a>
+    <h1><%= evento.nombre %></h1>
+    <p class="subtitulo"><%= evento.fecha %></p>
+
+    <% if (conectado) { %>
+        <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>
+    <% } %>
+
+    <% if (!evento.conectado_mp) { %>
+        <div class="conectar-box">
+            <h2>Conectá tu Mercado Pago</h2>
+            <p>Falta un solo paso para poder vender: conectá tu cuenta de Mercado Pago para que el dinero de cada venta te llegue directo a vos.</p>
+            <a class="btn-mp" href="<%= urlConexionMP %>">Conectar con Mercado Pago</a>
+        </div>
+    <% } else { %>
+        <div class="grid">
+            <div class="card"><div class="numero"><%= resumen.total_vendidas || 0 %></div><div class="etiqueta">Vendidas</div></div>
+            <div class="card"><div class="numero"><%= resumen.total_ingresadas || 0 %></div><div class="etiqueta">Ingresaron</div></div>
+            <div class="card"><div class="numero"><%= resumen.total_compradores || 0 %></div><div class="etiqueta">Compradores</div></div>
+            <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
+        </div>
+
+        <div class="link-box">
+            <strong>Link para vender tus entradas:</strong>
+            <a href="<%= urlPublica %>" target="_blank"><%= urlPublica %></a>
+        </div>
+
+        <div class="link-box peligro">
+            <strong>🔒 Link privado para el guardia de seguridad:</strong>
+            <a href="<%= urlGuardia %>" target="_blank"><%= urlGuardia %></a>
+            <span class="aviso">No lo compartas con nadie que no sea personal de seguridad de ESTE evento. Cualquiera que lo abra puede validar entradas.</span>
+        </div>
+    <% } %>
+
+    <div class="acciones">
+        <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
+        <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
+              onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
+            <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
+        </form>
+    </div>
+
+    <% if (ventas.length > 0) { %>
+        <h3 style="margin-top: 30px;">Ventas realizadas</h3>
+        <table>
+            <tr>
+                <th>ID cliente</th>
+                <th>Nombre y apellido</th>
+                <th>ID entrada</th>
+                <th>Estado</th>
+                <th>Fecha compra</th>
+                <th>Fecha escaneada</th>
+            </tr>
+            <% ventas.forEach(v => { %>
+                <tr>
+                    <td><%= v.id_cliente || '-' %></td>
+                    <td><%= v.nom_y_apellido || '-' %></td>
+                    <td><%= v.id_entrada %></td>
+                    <td><%= v.estado_entrada %></td>
+                    <td><%= v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '-' %></td>
+                    <td><%= v.fecha_y_hora_escaneada ? new Date(v.fecha_y_hora_escaneada).toLocaleString('es-AR') : '-' %></td>
+                </tr>
+            <% }) %>
+        </table>
+    <% } %>
+
+    <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
+</body>
+</html>

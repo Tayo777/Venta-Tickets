@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creá tu evento</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .volver { color: #636e72; text-decoration: none; }
+        h1 { margin-top: 10px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 8px; box-sizing: border-box; font-family: inherit; }
+        textarea { resize: vertical; min-height: 70px; }
+        button { background: #009ee3; color: white; border: none; padding: 12px 15px; width: 100%; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .nota { font-size: 0.78rem; color: #b2bec3; margin-top: 20px; }
+        .error { background: #fdecea; color: #c0392b; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <a class="volver" href="/mis-eventos">&larr; Mis eventos</a>
+    <h1>Creá tu evento</h1>
+    <p>La tarifa por el uso del servicio se calcula sola y se le suma al precio que ve el comprador.</p>
+
+    <% if (error) { %><div class="error"><%= error %></div><% } %>
+
+    <form action="/crear-evento" method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="nombre">Nombre del evento</label>
+            <input type="text" id="nombre" name="nombre" required placeholder="Ej: Fiesta de fin de año">
+        </div>
+
+        <div class="form-group">
+            <label for="descripcion">Descripción</label>
+            <textarea id="descripcion" name="descripcion" required placeholder="Contales a tus invitados de qué se trata..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="fecha">Fecha y hora</label>
+            <input type="text" id="fecha" name="fecha" required placeholder="Ej: Sábado 12 de diciembre, 21hs">
+        </div>
+
+        <div class="form-group">
+            <label for="flyer">Imagen del flyer</label>
+            <input type="file" id="flyer" name="flyer" accept="image/*" required>
+        </div>
+
+        <div class="form-group">
+            <label for="valor_entrada">Precio de la entrada ($) — lo que VOS querés recibir</label>
+            <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
+        </div>
+
+        <button type="submit">Crear mi evento</button>
+    </form>
+
+    <p class="nota">Después de crear el evento te vamos a pedir que conectes tu Mercado Pago (un solo click) para poder empezar a vender.</p>
+</body>
+</html>
