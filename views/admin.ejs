@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Eventos</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; }
+        h1 { margin-bottom: 5px; }
+        form { background: #f4f4f4; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; }
+        input { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background: #009ee3; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; }
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 12px; color: white; }
+        .activo { background: #27ae60; }
+        .inactivo { background: #b2bec3; }
+        .sin-conectar { background: #e67e22; }
+        .link-panel { font-size: 12px; word-break: break-all; color: #2980b9; }
+        .toggle-btn { background: #636e72; padding: 4px 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Panel de eventos (admin general)</h1>
+    <p>Acceso admin — no compartas esta URL. Los organizadores comunes crean sus eventos desde <a href="/crear-evento">/crear-evento</a>.</p>
+
+    <form action="/admin/eventos?clave=<%= clave %>" method="POST">
+        <h3>Crear evento manualmente</h3>
+        <div class="form-group">
+            <label>Nombre del evento</label>
+            <input type="text" name="nombre" required>
+        </div>
+        <div class="form-group">
+            <label>Fecha (texto libre)</label>
+            <input type="text" name="fecha" placeholder="Ej: Sábado 12 de diciembre, 21:00hs">
+        </div>
+        <div class="form-group">
+            <label>URL del flyer (opcional, si no ponés nada usa /flyer.png)</label>
+            <input type="text" name="flyer_url" placeholder="https://...">
+        </div>
+        <div class="form-group">
+            <label>Mail del organizador (para mandarle el link privado del panel)</label>
+            <input type="email" name="organizer_email" required>
+        </div>
+        <div class="form-group">
+            <label>Valor de la entrada ($) — lo que el organizador quiere recibir</label>
+            <input type="number" step="1" name="valor_entrada" required>
+        </div>
+        <p style="font-size: 0.85rem; color: #636e72;">La tarifa (comisión de Mercado Pago + del servicio) se calcula sola.</p>
+        <button type="submit">Crear evento</button>
+    </form>
+
+    <h3>Eventos existentes</h3>
+    <table>
+        <tr>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Mercado Pago</th>
+            <th>Link de venta</th>
+            <th>Link del organizador</th>
+            <th></th>
+        </tr>
+        <% eventos.forEach(evento => { %>
+            <tr>
+                <td><%= evento.nombre %></td>
+                <td><span class="badge <%= evento.activo ? 'activo' : 'inactivo' %>"><%= evento.activo ? 'Activo' : 'Oculto' %></span></td>
+                <td><span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Conectado' : 'Sin conectar' %></span></td>
+                <td><a href="<%= baseUrl %>/evento/<%= evento.id %>" target="_blank">Ver</a></td>
+                <td><a class="link-panel" href="<%= baseUrl %>/organizador/<%= evento.id %>?token=<%= evento.token_informe %>" target="_blank"><%= baseUrl %>/organizador/<%= evento.id %>?token=<%= evento.token_informe %></a></td>
+                <td>
+                    <form action="/admin/eventos/<%= evento.id %>/toggle?clave=<%= clave %>" method="POST">
+                        <button class="toggle-btn" type="submit"><%= evento.activo ? 'Ocultar' : 'Activar' %></button>
+                    </form>
+                </td>
+            </tr>
+        <% }) %>
+    </table>
+</body>
+</html>
