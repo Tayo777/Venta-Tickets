@@ -91,30 +91,86 @@ router.get('/admin/aprobar/:id', async (req, res) => {
 router.get('/login', (req, res) => res.render('login', { error: null }));
 
 router.post('/login', limiteIntentos, async (req, res) => {
-    const { email, password } = req.body;
-    const usuario = await usuariosDb.obtenerPorEmail(email);
+    try {
+        const { email, password } = req.body;
+        const usuario = await usuariosDb.obtenerPorEmail(email);
 
-    // Mensaje genérico a propósito: no hay que revelar si el mail existe o no.
-    const credencialesInvalidas = () => res.render('login', { error: 'Mail o contraseña incorrectos.' });
+        // Mensaje genérico a propósito: no hay que revelar si el mail existe o no.
+        const credencialesInvalidas = () => res.render('login', { error: 'Mail o contraseña incorrectos.' });
 
-    if (!usuario) return credencialesInvalidas();
-    const passwordOk = await usuariosDb.verificarPassword(usuario, password || '');
-    if (!passwordOk) return credencialesInvalidas();
+        if (!usuario) return credencialesInvalidas();
+        const passwordOk = await usuariosDb.verificarPassword(usuario, password || '');
+        if (!passwordOk) return credencialesInvalidas();
 
-    if (!usuario.email_verificado) {
-        return res.render('login', { error: 'Todavía no confirmaste tu mail. Revisá tu casilla.' });
+        if (!usuario.email_verificado) {
+            return res.render('login', { error: 'Todavía no confirmaste tu mail. Revisá tu casilla.' });
+        }
+
+        req.session.usuarioId = usuario.id;
+        req.session.nombre = usuario.nombre;
+        req.session.rol = usuario.rol;
+        req.session.aprobado = !!usuario.aprobado;
+
+        // Guardado explícito (en vez de dejarlo implícito) para poder loguear el error real
+        // si el store de sesiones en MySQL falla, en vez de que el pedido se corte en silencio.
+        req.session.save((err) => {
+            if (err) {
+                console.error('Error al guardar la sesión de login:', err);
+                return res.render('login', { error: 'Hubo un error interno al iniciar sesión. Probá de nuevo.' });
+            }
+            res.redirect('/mis-eventos');
+        });
+    } catch (error) {
+        console.error('Error en /login:', error);
+        res.render('login', { error: 'Hubo un error interno. Probá de nuevo.' });
     }
-
-    req.session.usuarioId = usuario.id;
-    req.session.nombre = usuario.nombre;
-    req.session.rol = usuario.rol;
-    req.session.aprobado = !!usuario.aprobado;
-
-    res.redirect('/mis-eventos');
 });
 
 router.post('/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/'));
+});
+
+router.get('/recuperar-password', (req, res) => res.render('recuperar-password', { enviado: false }));
+
+router.post('/recuperar-password', limiteIntentos, async (req, res) => {
+    const { email } = req.body;
+    const usuario = await usuariosDb.obtenerPorEmail(email);
+
+    // Mostramos el mismo mensaje exista o no la cuenta — no hay que revelar qué mails están registrados.
+    if (usuario) {
+        try {
+            const token = await usuariosDb.generarTokenRecuperacion(usuario.id);
+            const link = `${BASE_URL}/restablecer-password/${token}`;
+            await enviarMailBrevo({
+                to: usuario.email,
+                subject: 'Recuperar tu contraseña',
+                text: `Pediste restablecer tu contraseña. Este link vence en 1 hora:\n\n${link}\n\nSi no fuiste vos, ignorá este mensaje.`
+            });
+        } catch (error) {
+            console.error('Error al mandar el mail de recuperación:', error);
+        }
+    }
+
+    res.render('recuperar-password', { enviado: true });
+});
+
+router.get('/restablecer-password/:token', async (req, res) => {
+    const usuario = await usuariosDb.obtenerPorTokenRecuperacion(req.params.token);
+    if (!usuario) return res.status(400).send('Este link venció o ya fue usado. Pedí uno nuevo desde /recuperar-password.');
+    res.render('restablecer-password', { token: req.params.token, error: null });
+});
+
+router.post('/restablecer-password/:token', async (req, res) => {
+    const usuario = await usuariosDb.obtenerPorTokenRecuperacion(req.params.token);
+    if (!usuario) return res.status(400).send('Este link venció o ya fue usado. Pedí uno nuevo desde /recuperar-password.');
+
+    const { password } = req.body;
+    if (!password || password.length < 8) {
+        return res.render('restablecer-password', { token: req.params.token, error: 'La contraseña tiene que tener al menos 8 caracteres.' });
+    }
+
+    await usuariosDb.cambiarPassword(usuario.id, password);
+    res.render('password-cambiada');
 });
 
 module.exports = router;

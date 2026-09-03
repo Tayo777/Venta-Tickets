@@ -92,6 +92,10 @@ async function inicializarDB() {
     await agregarColumnaSiNoExiste('tickets', 'fecha_escaneada', 'DATETIME NULL');
     await agregarColumnaSiNoExiste('tickets', 'payment_id', 'VARCHAR(50)');
 
+    // Migración: recuperación de contraseña.
+    await agregarColumnaSiNoExiste('usuarios', 'reset_token', 'VARCHAR(64)');
+    await agregarColumnaSiNoExiste('usuarios', 'reset_expira', 'DATETIME NULL');
+
     console.log('Base de datos MySQL lista (usuarios + eventos + tickets + compras).');
 }
 

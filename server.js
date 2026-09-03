@@ -10,6 +10,10 @@ const { asegurarAdminSemilla } = require('./db/usuarios');
 
 const app = express();
 
+// Railway corre la app detrás de un proxy — sin esto, Express puede confundirse con
+// las cabeceras de conexión segura y las cookies de sesión no se guardan bien.
+app.set('trust proxy', 1);
+
 // Cabeceras de seguridad básicas (XSS, sniffing, clickjacking, etc.)
 app.use(helmet({ contentSecurityPolicy: false })); // CSP desactivada: la app usa estilos/scripts inline en las vistas
 
@@ -21,6 +25,9 @@ app.use(cookieParser());
 
 // Sesiones guardadas en la misma base MySQL (no se pierden en cada redeploy de Railway).
 const sessionStore = new MySQLStore({}, poolCallback);
+sessionStore.on('error', (err) => {
+    console.error('Error en el session store (MySQL):', err);
+});
 app.use(session({
     secret: env.SESSION_SECRET,
     store: sessionStore,

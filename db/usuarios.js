@@ -61,6 +61,31 @@ async function obtenerPendientesDeAprobacion() {
     return filas;
 }
 
+// Genera un token de recuperación válido por 1 hora.
+async function generarTokenRecuperacion(usuarioId) {
+    const token = crypto.randomBytes(24).toString('hex');
+    const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    await pool.query('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE id = ?', [token, expira, usuarioId]);
+    return token;
+}
+
+// Busca un usuario por token de recuperación, verificando que no haya vencido.
+async function obtenerPorTokenRecuperacion(token) {
+    const [filas] = await pool.query(
+        'SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]
+    );
+    return filas[0] || null;
+}
+
+// Cambia la contraseña e invalida el token (de un solo uso).
+async function cambiarPassword(usuarioId, passwordNueva) {
+    const passwordHash = await bcrypt.hash(passwordNueva, 12);
+    await pool.query(
+        'UPDATE usuarios SET password_hash = ?, reset_token = NULL, reset_expira = NULL WHERE id = ?',
+        [passwordHash, usuarioId]
+    );
+}
+
 // Si no existe ningún usuario todavía, crea el admin dueño de la plataforma usando las
 // credenciales de las variables de entorno (nunca escritas en el código fuente).
 async function asegurarAdminSemilla() {
@@ -79,5 +104,5 @@ async function asegurarAdminSemilla() {
 module.exports = {
     obtenerPorEmail, obtenerPorId, obtenerPorTokenVerificacion, crearUsuario, verificarPassword,
     marcarEmailVerificado, obtenerPorTokenAprobacion, aprobarUsuario, obtenerPendientesDeAprobacion,
-    asegurarAdminSemilla
+    asegurarAdminSemilla, generarTokenRecuperacion, obtenerPorTokenRecuperacion, cambiarPassword
 };
