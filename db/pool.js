@@ -3,6 +3,10 @@ const { MYSQL_URL } = require('../config/env');
 
 const pool = mysql.createPool(MYSQL_URL);
 
+// express-mysql-session necesita una conexión "estilo callback" (no la de promesas de arriba),
+// por eso se crea aparte solo para guardar las sesiones de login.
+const poolCallback = require('mysql2').createPool(MYSQL_URL);
+
 // Agrega una columna a una tabla solo si todavía no existe (idempotente, corre en cada arranque).
 async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
     const [filas] = await pool.query(
@@ -17,6 +21,20 @@ async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
 }
 
 async function inicializarDB() {
+    await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        telefono VARCHAR(50),
+        password_hash VARCHAR(255) NOT NULL,
+        rol VARCHAR(20) NOT NULL DEFAULT 'organizador',
+        email_verificado TINYINT(1) NOT NULL DEFAULT 0,
+        token_verificacion VARCHAR(64),
+        aprobado TINYINT(1) NOT NULL DEFAULT 0,
+        token_aprobacion VARCHAR(64),
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     await pool.query(`CREATE TABLE IF NOT EXISTS eventos (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nombre VARCHAR(255) NOT NULL,
@@ -64,7 +82,17 @@ async function inicializarDB() {
     await agregarColumnaSiNoExiste('compras', 'comision_mp_real', 'DECIMAL(10,2)');
     await agregarColumnaSiNoExiste('compras', 'monto_neto_organizador', 'DECIMAL(10,2)');
 
-    console.log('Base de datos MySQL lista (eventos + tickets + compras, con Marketplace/OAuth).');
+    // Migración: dueño del evento (login) + link encriptado de guardia por evento (ya no es
+    // una sola clave global — cada evento tiene la suya, y solo el dueño/admin la puede ver).
+    await agregarColumnaSiNoExiste('eventos', 'usuario_id', 'INT');
+    await agregarColumnaSiNoExiste('eventos', 'guardia_token', 'VARCHAR(64)');
+
+    // Migración: datos del comprador y trazabilidad de cada ticket para el listado de ventas.
+    await agregarColumnaSiNoExiste('tickets', 'nombre_apellido', 'VARCHAR(255)');
+    await agregarColumnaSiNoExiste('tickets', 'fecha_escaneada', 'DATETIME NULL');
+    await agregarColumnaSiNoExiste('tickets', 'payment_id', 'VARCHAR(50)');
+
+    console.log('Base de datos MySQL lista (usuarios + eventos + tickets + compras).');
 }
 
-module.exports = { pool, inicializarDB };
+module.exports = { pool, poolCallback, inicializarDB, agregarColumnaSiNoExiste };

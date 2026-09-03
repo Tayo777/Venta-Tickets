@@ -24,6 +24,10 @@
     <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">
         <input type="hidden" name="evento_id" value="<%= evento.id %>">
         <div class="form-group">
+            <label for="nombre_apellido">Nombre y apellido:</label>
+            <input type="text" id="nombre_apellido" name="nombre_apellido" required placeholder="Como figura en tu documento">
+        </div>
+        <div class="form-group">
             <label for="email">Correo Electrónico (Obligatorio para recibir tu entrada):</label>
             <input type="email" id="email" name="email" required placeholder="tucorreo@email.com">
         </div>

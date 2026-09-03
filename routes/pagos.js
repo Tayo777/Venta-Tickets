@@ -9,10 +9,13 @@ const { enviarNotificacionTelegram } = require('../services/telegram');
 const { generarPdfBuffer, generarPdfEnResponse } = require('../services/pdfEntradas');
 
 router.post('/crear-pago', async (req, res) => {
-    const { email, cantidad, evento_id } = req.body;
+    const { email, nombre_apellido, cantidad, evento_id } = req.body;
     const cant = parseInt(cantidad);
     const eventoId = parseInt(evento_id);
 
+    if (!nombre_apellido || !String(nombre_apellido).trim()) {
+        return res.status(400).send('Falta el nombre y apellido del comprador.');
+    }
     if (cant < 1 || cant > 5) {
         return res.status(400).send('Cantidad de entradas inválida (máximo 5).');
     }
@@ -23,7 +26,7 @@ router.post('/crear-pago', async (req, res) => {
     }
 
     try {
-        const urlCheckout = await mp.crearPreferencia(evento, { email, cantidad: cant });
+        const urlCheckout = await mp.crearPreferencia(evento, { email, nombreApellido: nombre_apellido, cantidad: cant });
         res.redirect(urlCheckout);
     } catch (error) {
         console.error('Error al crear la preferencia de pago:', error);
@@ -34,9 +37,10 @@ router.post('/crear-pago', async (req, res) => {
 // Página de éxito: idempotente (no duplica entradas/mails si Mercado Pago o el navegador
 // cargan esta URL más de una vez con el mismo payment_id).
 router.get('/success', async (req, res) => {
-    const { email, cant, evento_id, payment_id } = req.query;
+    const { email, cant, evento_id, payment_id, nombre } = req.query;
     const cantidadEntradas = parseInt(cant) || 1;
     const eventoId = parseInt(evento_id);
+    const nombreApellido = nombre || '';
     let evento;
 
     try {
@@ -68,7 +72,9 @@ router.get('/success', async (req, res) => {
     // A partir de acá la respuesta YA fue enviada al navegador. Corre aparte para que un
     // error acá (PDF, QR, mail) no intente mandar otra respuesta HTTP y quede oculto.
     try {
-        const listaCodigos = await ticketsDb.registrarEntradas(eventoId, email, cantidadEntradas);
+        const listaCodigos = await ticketsDb.registrarEntradas(eventoId, email, cantidadEntradas, {
+            nombreApellido, paymentId: payment_id
+        });
         console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre})`);
 
         const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos: listaCodigos });

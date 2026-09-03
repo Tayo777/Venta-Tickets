@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const { pool } = require('./pool');
 
 // Registra N entradas nuevas para un evento y devuelve sus códigos (todo o nada, en transacción).
-async function registrarEntradas(eventoId, email, cantidad) {
+async function registrarEntradas(eventoId, email, cantidad, { nombreApellido, paymentId } = {}) {
     const conexion = await pool.getConnection();
     try {
         await conexion.beginTransaction();
@@ -10,7 +10,10 @@ async function registrarEntradas(eventoId, email, cantidad) {
         for (let i = 0; i < cantidad; i++) {
             const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
             codigos.push(id);
-            await conexion.query('INSERT INTO tickets (id, evento_id, email) VALUES (?, ?, ?)', [id, eventoId, email]);
+            await conexion.query(
+                'INSERT INTO tickets (id, evento_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?)',
+                [id, eventoId, email, nombreApellido || null, paymentId || null]
+            );
         }
         await conexion.commit();
         return codigos;
@@ -45,7 +48,7 @@ async function obtenerTicketConEvento(ticketId) {
 }
 
 async function marcarComoUsada(ticketId) {
-    await pool.query('UPDATE tickets SET estado = ? WHERE id = ?', ['Usada', ticketId]);
+    await pool.query('UPDATE tickets SET estado = ?, fecha_escaneada = NOW() WHERE id = ?', ['Usada', ticketId]);
 }
 
 module.exports = { registrarEntradas, obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada };

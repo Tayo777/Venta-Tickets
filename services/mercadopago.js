@@ -41,7 +41,7 @@ async function intercambiarCodigoOAuth(code) {
 // Crea la preferencia de pago usando el Access Token PROPIO del organizador (el dinero entra
 // directo a su cuenta), con marketplace_fee = comisión de la plataforma, que Mercado Pago
 // transfiere sola a tu cuenta en cada venta.
-async function crearPreferencia(evento, { email, cantidad }) {
+async function crearPreferencia(evento, { email, nombreApellido, cantidad }) {
     const subtotal = Number(evento.valor_entrada) * cantidad;
     const tarifaTotal = Number(evento.tarifa_online) * cantidad;
     const total = subtotal + tarifaTotal;
@@ -57,7 +57,7 @@ async function crearPreferencia(evento, { email, cantidad }) {
             payer: { email },
             marketplace_fee: nuestraComision,
             back_urls: {
-                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&cant=${cantidad}&evento_id=${evento.id}`,
+                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}`,
                 failure: `${BASE_URL}/evento/${evento.id}`,
                 pending: `${BASE_URL}/evento/${evento.id}`
             },

@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const ticketsDb = require('../db/tickets');
+const eventosDb = require('../db/eventos');
 const { enviarNotificacionTelegram } = require('../services/telegram');
-const { GUARDIA_CLAVE } = require('../config/env');
 
 // Arma una pantalla simple a pantalla completa, pensada para verse bien en el celular del guardia.
 function generarPantallaControl(titulo, mensaje, colorFondo) {
@@ -31,16 +31,19 @@ function generarPantallaControl(titulo, mensaje, colorFondo) {
     `;
 }
 
-// Diferencia entre el COMPRADOR (ve info, no valida) y el GUARDIA (valida y marca como usada).
+// Diferencia entre el COMPRADOR (ve info, no valida) y el GUARDIA de ESE evento puntual
+// (valida y marca como usada). El guardia se identifica por una cookie propia de cada evento —
+// un guardia autorizado para el evento A no puede validar entradas del evento B.
 router.get('/validar/:id', async (req, res) => {
     const ticketId = req.params.id;
-    const esGuardia = req.cookies.rol === 'guardia';
 
     try {
         const row = await ticketsDb.obtenerTicketConEvento(ticketId);
         if (!row) return res.send(generarPantallaControl('❌ RECHAZADO', 'Esta entrada NO existe en el sistema.', '#c0392b'));
 
-        if (!esGuardia) {
+        const esGuardiaDeEsteEvento = req.cookies[`guardia_${row.evento_id}`] === '1';
+
+        if (!esGuardiaDeEsteEvento) {
             return res.send(generarPantallaControl('🎟️ ENTRADA OFICIAL', `${row.evento_nombre}<br>Código: ${row.id}<br>Estado actual: ${row.estado}<br><br>Por favor, mostrá este QR al guardia en la entrada.`, '#2980b9'));
         }
 
@@ -57,15 +60,16 @@ router.get('/validar/:id', async (req, res) => {
     }
 });
 
-// Activa el "modo guardia" en el celular de la persona de seguridad (cookie por 24hs).
-router.get('/login-guardia', (req, res) => {
-    const { clave } = req.query;
-    if (clave === GUARDIA_CLAVE) {
-        res.cookie('rol', 'guardia', { maxAge: 86400000 });
-        res.send(generarPantallaControl('👮 MODO GUARDIA ACTIVADO', 'Tu celular ya está listo para escanear y validar entradas en la puerta.', '#34495e'));
-    } else {
-        res.send(generarPantallaControl('❌ ERROR', 'Clave incorrecta', '#c0392b'));
+// Activa el "modo guardia" en el celular de la persona de seguridad, para UN evento puntual.
+// El link (con su token encriptado) solo lo ve el dueño del evento o el admin, desde el panel.
+router.get('/login-guardia/:eventoId', async (req, res) => {
+    const evento = await eventosDb.obtenerEvento(req.params.eventoId);
+    if (!evento || req.query.token !== evento.guardia_token) {
+        return res.send(generarPantallaControl('❌ ERROR', 'Link inválido.', '#c0392b'));
     }
+
+    res.cookie(`guardia_${evento.id}`, '1', { maxAge: 86400000 });
+    res.send(generarPantallaControl('👮 MODO GUARDIA ACTIVADO', `Tu celular ya está listo para escanear y validar entradas de "${evento.nombre}".`, '#34495e'));
 });
 
 module.exports = router;

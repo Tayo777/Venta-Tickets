@@ -5,7 +5,10 @@ require('dotenv').config();
 const requiredEnv = [
     'MP_CLIENT_ID', 'MP_CLIENT_SECRET',        // credenciales de TU app Marketplace en Mercado Pago
     'BREVO_API_KEY', 'BREVO_SENDER_EMAIL',     // envío de mails
-    'GUARDIA_CLAVE', 'ADMIN_CLAVE',            // claves de acceso internas
+    'ADMIN_EMAIL',                             // tu mail: recibe los pedidos de aprobación de organizadores
+    'ADMIN_SEED_EMAIL', 'ADMIN_SEED_PASSWORD', // tu usuario admin, se crea solo la primera vez que arranca
+    'SESSION_SECRET',                          // clave para firmar las sesiones de login (invéntala, larga y random)
+    'IMGBB_API_KEY',                           // para poder subir flyers como imagen directamente
     'BASE_URL', 'MYSQL_URL'
 ];
 
@@ -21,8 +24,10 @@ module.exports = {
     BASE_URL: process.env.BASE_URL,
     MYSQL_URL: process.env.MYSQL_URL,
 
-    GUARDIA_CLAVE: process.env.GUARDIA_CLAVE,
-    ADMIN_CLAVE: process.env.ADMIN_CLAVE,
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_SEED_EMAIL: process.env.ADMIN_SEED_EMAIL,
+    ADMIN_SEED_PASSWORD: process.env.ADMIN_SEED_PASSWORD,
+    SESSION_SECRET: process.env.SESSION_SECRET,
 
     MP_CLIENT_ID: process.env.MP_CLIENT_ID,
     MP_CLIENT_SECRET: process.env.MP_CLIENT_SECRET,
@@ -30,6 +35,8 @@ module.exports = {
     BREVO_API_KEY: process.env.BREVO_API_KEY,
     BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL,
     BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME || 'Venta de Entradas',
+
+    IMGBB_API_KEY: process.env.IMGBB_API_KEY,
 
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,

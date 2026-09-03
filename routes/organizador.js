@@ -1,67 +1,95 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const eventosDb = require('../db/eventos');
 const mp = require('../services/mercadopago');
-const { enviarMailBrevo } = require('../services/brevo');
+const { subirImagen } = require('../services/imgbb');
+const { requiereLogin, requiereAprobado, esDueñoOAdmin } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
 
-router.get('/crear-evento', (req, res) => {
-    res.render('crear-evento');
+// Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.get('/mis-eventos', requiereLogin, async (req, res) => {
+    const eventos = req.session.rol === 'admin'
+        ? await eventosDb.obtenerTodos()
+        : await eventosDb.obtenerEventosDeUsuario(req.session.usuarioId);
+    res.render('mis-eventos', { eventos, esAdmin: req.session.rol === 'admin' });
 });
 
-router.post('/crear-evento', async (req, res) => {
-    const { nombre, descripcion, fecha, flyer_url, valor_entrada, organizer_email } = req.body;
+router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
+    res.render('crear-evento', { error: null });
+});
+
+router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
+    const { nombre, descripcion, fecha, valor_entrada } = req.body;
     const valorEntradaNum = Number(valor_entrada);
 
-    const campos = { nombre, descripcion, fecha, flyer_url, organizer_email };
+    const campos = { nombre, descripcion, fecha };
     const faltantes = Object.entries(campos).filter(([, v]) => !v || !String(v).trim()).map(([k]) => k);
-    if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0) {
-        return res.status(400).send(`Faltan datos obligatorios: ${faltantes.join(', ') || 'precio de la entrada'}.`);
+    if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !req.file) {
+        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer.' });
     }
 
-    // Cálculo 100% automático de la tarifa (comisión estimada de Mercado Pago + de la plataforma)
-    const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(valorEntradaNum);
-
     try {
-        const { id, token } = await eventosDb.crearEvento({
-            nombre, descripcion, fecha, flyerUrl: flyer_url,
+        const flyerUrl = await subirImagen(req.file.buffer);
+        const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(valorEntradaNum);
+
+        const { id } = await eventosDb.crearEvento({
+            usuarioId: req.session.usuarioId,
+            nombre, descripcion, fecha, flyerUrl,
             valorEntrada: valorEntradaNum, tarifaOnline,
-            organizerEmail: organizer_email, comisionMpPct, comisionPropiaPct
+            organizerEmail: null, comisionMpPct, comisionPropiaPct
         });
 
-        const linkPrivado = `${BASE_URL}/organizador/${id}?token=${token}`;
-        try {
-            await enviarMailBrevo({
-                to: organizer_email,
-                subject: `🎟️ Tu panel para "${nombre}"`,
-                text: `¡Creaste tu evento "${nombre}"! Guardá este link, es privado y es la única forma de administrar tu evento (ver ventas y conectar tu Mercado Pago):\n\n${linkPrivado}`
-            });
-        } catch (mailError) {
-            console.error('No se pudo mandar el mail con el link del organizador:', mailError);
-        }
-
-        res.redirect(`/organizador/${id}?token=${token}`);
+        res.redirect(`/eventos/${id}`);
     } catch (error) {
         console.error('Error al crear el evento:', error);
-        res.status(500).send('Error al crear el evento.');
+        res.render('crear-evento', { error: 'Hubo un error al crear el evento (revisá la imagen e intentá de nuevo).' });
     }
 });
 
-// Panel privado del organizador: link único (sin usuario/contraseña) para conectar
-// Mercado Pago y ver las ventas de SU evento en tiempo real.
-router.get('/organizador/:id', async (req, res) => {
-    const evento = await eventosDb.obtenerEvento(req.params.id);
-    if (!evento || req.query.token !== evento.token_informe) {
-        return res.status(403).send('Acceso denegado. Verificá el link que te llegó por mail.');
-    }
+router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, (req, res) => {
+    res.render('editar-evento', { evento: req.evento, error: null });
+});
 
+router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single('flyer'), async (req, res) => {
+    const { nombre, descripcion, fecha, valor_entrada } = req.body;
+    try {
+        const flyerUrl = req.file ? await subirImagen(req.file.buffer) : req.evento.flyer_url;
+        await eventosDb.editarEvento(req.evento.id, {
+            nombre, descripcion, fecha, flyerUrl, valorEntrada: Number(valor_entrada)
+        });
+        res.redirect(`/eventos/${req.evento.id}`);
+    } catch (error) {
+        console.error('Error al editar el evento:', error);
+        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.' });
+    }
+});
+
+router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    try {
+        await eventosDb.eliminarEvento(req.evento.id);
+        res.redirect('/mis-eventos');
+    } catch (error) {
+        console.error('Error al eliminar el evento:', error);
+        res.status(500).send('No se pudo eliminar el evento.');
+    }
+});
+
+// Panel privado del evento: solo el dueño o el admin pueden entrar. Acá está el link de
+// guardia (encriptado, uno por evento) y el listado de ventas — nada de esto es público.
+router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const evento = req.evento;
     const resumen = await eventosDb.resumenVentas(evento.id);
+    const ventas = await eventosDb.listadoVentas(evento.id);
     const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
 
-    res.render('organizador', {
-        evento, resumen, recaudacion,
+    res.render('evento-detalle', {
+        evento, resumen, ventas, recaudacion,
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
         urlPublica: `${BASE_URL}/evento/${evento.id}`,
+        urlGuardia: `${BASE_URL}/login-guardia/${evento.id}?token=${evento.guardia_token}`,
         conectado: req.query.conectado === '1'
     });
 });
@@ -80,16 +108,11 @@ router.get('/oauth/mercadopago/callback', async (req, res) => {
             accessToken: tokens.access_token, refreshToken: tokens.refresh_token, userId: tokens.user_id
         });
 
-        res.redirect(`/organizador/${evento.id}?token=${state}&conectado=1`);
+        res.redirect(`/eventos/${evento.id}?conectado=1`);
     } catch (error) {
         console.error('Error al conectar con Mercado Pago:', error);
         res.status(500).send('Hubo un error al conectar tu cuenta de Mercado Pago. Volvé a intentarlo desde tu panel.');
     }
-});
-
-// Compatibilidad con links viejos (/informe) generados antes de este cambio
-router.get('/informe/:eventoId', (req, res) => {
-    res.redirect(`/organizador/${req.params.eventoId}?token=${req.query.token || ''}`);
 });
 
 module.exports = router;
