@@ -47,13 +47,32 @@ async function inicializarDB() {
         creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // Tipos de entrada por evento (General, VIP, etc.), cada uno con su propio precio y cupo.
+    // cupo_vendido se incrementa DENTRO de la misma transacción que inserta los tickets
+    // (ver db/tickets.js), usando SELECT ... FOR UPDATE para que dos compras simultáneas
+    // nunca puedan vender más entradas que las que había disponibles (evita sobreventa).
+    await pool.query(`CREATE TABLE IF NOT EXISTS tipos_entrada (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        evento_id INT NOT NULL,
+        nombre VARCHAR(100) NOT NULL,
+        descripcion VARCHAR(500),
+        precio DECIMAL(10,2) NOT NULL DEFAULT 0,
+        cupo_total INT NOT NULL,
+        cupo_vendido INT NOT NULL DEFAULT 0,
+        activo TINYINT(1) NOT NULL DEFAULT 1,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
     await pool.query(`CREATE TABLE IF NOT EXISTS tickets (
         id VARCHAR(20) PRIMARY KEY,
         evento_id INT NOT NULL,
+        tipo_entrada_id INT NULL,
         email VARCHAR(255) NOT NULL,
         estado VARCHAR(20) DEFAULT 'Válida',
         fecha_compra DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+        FOREIGN KEY (evento_id) REFERENCES eventos(id),
+        FOREIGN KEY (tipo_entrada_id) REFERENCES tipos_entrada(id)
     )`);
 
     // Cada pago de Mercado Pago se procesa UNA sola vez (payment_id único), para no
@@ -96,7 +115,11 @@ async function inicializarDB() {
     await agregarColumnaSiNoExiste('usuarios', 'reset_token', 'VARCHAR(64)');
     await agregarColumnaSiNoExiste('usuarios', 'reset_expira', 'DATETIME NULL');
 
-    console.log('Base de datos MySQL lista (usuarios + eventos + tickets + compras).');
+    // Migración: tipos de entrada (General/VIP) + cierre automático de ventas por fecha límite.
+    await agregarColumnaSiNoExiste('tickets', 'tipo_entrada_id', 'INT NULL');
+    await agregarColumnaSiNoExiste('eventos', 'fecha_cierre_ventas', 'DATETIME NULL');
+
+    console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras).');
 }
 
 module.exports = { pool, poolCallback, inicializarDB, agregarColumnaSiNoExiste };

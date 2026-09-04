@@ -41,23 +41,23 @@ async function intercambiarCodigoOAuth(code) {
 // Crea la preferencia de pago usando el Access Token PROPIO del organizador (el dinero entra
 // directo a su cuenta), con marketplace_fee = comisión de la plataforma, que Mercado Pago
 // transfiere sola a tu cuenta en cada venta.
-async function crearPreferencia(evento, { email, nombreApellido, cantidad }) {
-    const subtotal = Number(evento.valor_entrada) * cantidad;
+async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, cantidad }) {
+    const subtotal = Number(tipoEntrada.precio) * cantidad;
     const tarifaTotal = Number(evento.tarifa_online) * cantidad;
     const total = subtotal + tarifaTotal;
 
     // Nuestra comisión: 3% (comision_propia_pct) del valor de la entrada, fijado al crear el evento.
-    const nuestraComision = Math.round(Number(evento.valor_entrada) * cantidad * Number(evento.comision_propia_pct) / 100);
+    const nuestraComision = Math.round(Number(tipoEntrada.precio) * cantidad * Number(evento.comision_propia_pct) / 100);
 
     const eventoClient = new MercadoPagoConfig({ accessToken: evento.mp_access_token });
     const preference = new Preference(eventoClient);
     const result = await preference.create({
         body: {
-            items: [{ title: `${evento.nombre} x ${cantidad}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
+            items: [{ title: `${evento.nombre} - ${tipoEntrada.nombre} x ${cantidad}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
             payer: { email },
             marketplace_fee: nuestraComision,
             back_urls: {
-                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}`,
+                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}&tipo_entrada_id=${tipoEntrada.id}`,
                 failure: `${BASE_URL}/evento/${evento.id}`,
                 pending: `${BASE_URL}/evento/${evento.id}`
             },

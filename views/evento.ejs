@@ -33,6 +33,17 @@
         </div>
 
         <div class="form-group">
+            <label for="tipo_entrada_id">Tipo de entrada:</label>
+            <select id="tipo_entrada_id" name="tipo_entrada_id" onchange="calcularTotal()">
+                <% tipos.forEach(t => { %>
+                    <option value="<%= t.id %>" data-precio="<%= t.precio %>">
+                        <%= t.nombre %> - $<%= t.precio %> (quedan <%= t.cupo_disponible %>)<% if (t.descripcion) { %> — <%= t.descripcion %><% } %>
+                    </option>
+                <% }) %>
+            </select>
+        </div>
+
+        <div class="form-group">
             <label for="cantidad">Cantidad de Entradas (Máx. 5):</label>
             <select id="cantidad" name="cantidad" onchange="calcularTotal()">
                 <option value="1">1</option>
@@ -45,24 +56,26 @@
 
         <div class="summary">
             <h3>Detalle del Pago:</h3>
-            <p>Valor entrada unitario: $<span id="valEntrada"><%= evento.valor_entrada %></span></p>
+            <p>Valor entrada unitario: $<span id="valEntrada"></span></p>
             <p>Tarifa online unitaria: $<span id="valTarifa"><%= evento.tarifa_online %></span></p>
             <hr>
-            <p><strong>Total a pagar: $<span id="totalPagar"><%= Number(evento.valor_entrada) + Number(evento.tarifa_online) %></span></strong></p>
+            <p><strong>Total a pagar: $<span id="totalPagar"></span></strong></p>
         </div>
 
         <button type="submit" style="margin-top: 15px;">Pagar con Mercado Pago</button>
     </form>
 
     <script>
-        const valorEntrada = <%= evento.valor_entrada %>;
         const tarifaOnline = <%= evento.tarifa_online %>;
 
         function calcularTotal() {
+            const select = document.getElementById('tipo_entrada_id');
+            const precio = Number(select.options[select.selectedIndex].dataset.precio);
             const cantidad = document.getElementById('cantidad').value;
-            const total = (valorEntrada + tarifaOnline) * cantidad;
-            document.getElementById('totalPagar').innerText = total;
+            document.getElementById('valEntrada').innerText = precio;
+            document.getElementById('totalPagar').innerText = (precio + tarifaOnline) * cantidad;
         }
+        calcularTotal();
     </script>
 </body>
 </html>
