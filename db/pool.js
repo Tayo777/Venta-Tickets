@@ -119,6 +119,9 @@ async function inicializarDB() {
     await agregarColumnaSiNoExiste('tickets', 'tipo_entrada_id', 'INT NULL');
     await agregarColumnaSiNoExiste('eventos', 'fecha_cierre_ventas', 'DATETIME NULL');
 
+    // Migración: entradas de cortesía (no pasan por Mercado Pago ni descuentan cupo pago).
+    await agregarColumnaSiNoExiste('tickets', 'origen', "VARCHAR(20) NOT NULL DEFAULT 'compra'");
+
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras).');
 }
 

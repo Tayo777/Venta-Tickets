@@ -55,6 +55,31 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
     }
 }
 
+// Entradas de cortesía: no pasan por Mercado Pago ni descuentan cupo pago (tipo_entrada_id
+// queda NULL), pensadas para invitados/prensa/staff. No necesitan transacción con FOR UPDATE
+// porque no compiten por ningún cupo compartido.
+async function registrarEntradasCortesia(eventoId, email, cantidad, { nombreApellido } = {}) {
+    const codigos = [];
+    for (let i = 0; i < cantidad; i++) {
+        const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
+        codigos.push(id);
+        await pool.query(
+            "INSERT INTO tickets (id, evento_id, email, nombre_apellido, origen) VALUES (?, ?, ?, ?, 'cortesia')",
+            [id, eventoId, email, nombreApellido || null]
+        );
+    }
+    return codigos;
+}
+
+// Todas las entradas vigentes de un email para un evento puntual (para reenviar el QR).
+async function obtenerEntradasDeCompra(eventoId, email) {
+    const [filas] = await pool.query(
+        'SELECT id FROM tickets WHERE evento_id = ? AND email = ? ORDER BY fecha_compra DESC',
+        [eventoId, email]
+    );
+    return filas.map((f) => f.id);
+}
+
 // Busca las últimas N entradas de un email, con el nombre del evento (para el PDF/descarga).
 async function obtenerUltimasEntradas(email, limit) {
     const [filas] = await pool.query(
@@ -81,4 +106,7 @@ async function marcarComoUsada(ticketId) {
     await pool.query('UPDATE tickets SET estado = ?, fecha_escaneada = NOW() WHERE id = ?', ['Usada', ticketId]);
 }
 
-module.exports = { registrarEntradas, obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada, SinCupoError };
+module.exports = {
+    registrarEntradas, registrarEntradasCortesia, obtenerEntradasDeCompra,
+    obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada, SinCupoError
+};

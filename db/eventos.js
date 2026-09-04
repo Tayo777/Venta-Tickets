@@ -6,6 +6,13 @@ async function obtenerEventosActivos() {
     return filas;
 }
 
+// Eventos con Mercado Pago conectado (tienen access_token propio), para el job de
+// reconciliación: hay que consultar la cuenta de CADA organizador por separado.
+async function obtenerEventosConectados() {
+    const [filas] = await pool.query('SELECT * FROM eventos WHERE conectado_mp = 1 AND mp_access_token IS NOT NULL');
+    return filas;
+}
+
 async function obtenerTodos() {
     const [filas] = await pool.query('SELECT e.*, u.email AS dueño_email FROM eventos e LEFT JOIN usuarios u ON e.usuario_id = u.id ORDER BY e.id DESC');
     return filas;
@@ -109,12 +116,16 @@ async function listadoVentas(eventoId) {
         `SELECT
             c.id AS id_cliente,
             t.nombre_apellido AS nom_y_apellido,
+            t.email AS email,
             t.id AS id_entrada,
             t.estado AS estado_entrada,
+            t.origen AS origen,
+            te.nombre AS tipo_entrada,
             t.fecha_compra AS fecha_y_hora_compra,
             t.fecha_escaneada AS fecha_y_hora_escaneada
          FROM tickets t
          LEFT JOIN compras c ON c.payment_id = t.payment_id
+         LEFT JOIN tipos_entrada te ON te.id = t.tipo_entrada_id
          WHERE t.evento_id = ?
          ORDER BY t.fecha_compra DESC`,
         [eventoId]
@@ -123,7 +134,7 @@ async function listadoVentas(eventoId) {
 }
 
 module.exports = {
-    obtenerEventosActivos, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento, obtenerEventoPorToken,
-    obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
+    obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
+    obtenerEventoPorToken, obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
     conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas, ventaVencidaPorTiempo
 };

@@ -7,6 +7,7 @@ const MySQLStore = require('express-mysql-session')(session);
 const helmet = require('helmet');
 const { pool, poolCallback, inicializarDB } = require('./db/pool');
 const { asegurarAdminSemilla } = require('./db/usuarios');
+const { iniciarReconciliacionPeriodica } = require('./services/reconciliarPagos');
 
 const app = express();
 
@@ -55,6 +56,7 @@ inicializarDB()
         app.listen(env.PORT, () => {
             console.log(`Servidor corriendo en el puerto ${env.PORT}`);
         });
+        iniciarReconciliacionPeriodica();
     })
     .catch((err) => {
         console.error('Error al inicializar la base de datos:', err.message);

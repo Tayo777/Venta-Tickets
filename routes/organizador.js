@@ -3,13 +3,16 @@ const multer = require('multer');
 const router = express.Router();
 const eventosDb = require('../db/eventos');
 const tiposEntradaDb = require('../db/tiposEntrada');
+const ticketsDb = require('../db/tickets');
 const mp = require('../services/mercadopago');
 const { subirImagen } = require('../services/imgbb');
+const { enviarMailBrevo } = require('../services/brevo');
+const { generarPdfBuffer } = require('../services/pdfEntradas');
 const { requiereLogin, requiereAprobado, esDueñoOAdmin } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
 
 // Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
 router.get('/mis-eventos', requiereLogin, async (req, res) => {
     const eventos = req.session.rol === 'admin'
@@ -112,8 +115,98 @@ router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
         urlPublica: `${BASE_URL}/evento/${evento.id}`,
         urlGuardia: `${BASE_URL}/login-guardia/${evento.id}?token=${evento.guardia_token}`,
-        conectado: req.query.conectado === '1'
+        conectado: req.query.conectado === '1',
+        cortesia: req.query.cortesia === '1',
+        reenviado: req.query.reenviado === '1'
     });
+});
+
+// Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago
+// ni descontar cupo pago (van con tipo_entrada_id NULL, origen 'cortesia').
+router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const { email, nombre_apellido, cantidad } = req.body;
+    const cant = parseInt(cantidad);
+
+    if (!email || !String(email).trim() || !nombre_apellido || !String(nombre_apellido).trim() || cant < 1 || cant > 20) {
+        return res.status(400).send('Completá email, nombre y una cantidad válida (máx. 20).');
+    }
+
+    try {
+        const evento = req.evento;
+        const codigos = await ticketsDb.registrarEntradasCortesia(evento.id, email, cant, { nombreApellido: nombre_apellido });
+
+        const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos });
+        await enviarMailBrevo({
+            to: email,
+            subject: `🎟️ Entrada${cant > 1 ? 's' : ''} de cortesía — ${evento.nombre}`,
+            text: `¡Te invitamos a ${evento.nombre}! Adjuntamos ${cant} entrada/s de cortesía.`,
+            attachmentBase64: pdfBuffer.toString('base64'),
+            attachmentName: 'Entradas_Cortesia.pdf'
+        });
+
+        res.redirect(`/eventos/${evento.id}?cortesia=1`);
+    } catch (error) {
+        console.error('Error al generar entradas de cortesía:', error);
+        res.status(500).send('No se pudieron generar las entradas de cortesía.');
+    }
+});
+
+// Reenvío de QR: por si el mail original quedó en SPAM o se perdió. Regenera el PDF con
+// TODAS las entradas que ese email tiene para este evento y lo reenvía, sin crear tickets nuevos.
+router.post('/eventos/:id/reenviar-qr', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const { email } = req.body;
+    if (!email || !String(email).trim()) {
+        return res.status(400).send('Falta el email del comprador.');
+    }
+
+    try {
+        const evento = req.evento;
+        const codigos = await ticketsDb.obtenerEntradasDeCompra(evento.id, email);
+        if (codigos.length === 0) {
+            return res.status(404).send('No se encontraron entradas de ese email para este evento.');
+        }
+
+        const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos });
+        await enviarMailBrevo({
+            to: email,
+            subject: `🎟️ Reenvío de tus entradas — ${evento.nombre}`,
+            text: `Te reenviamos ${codigos.length} entrada/s para ${evento.nombre}. Si no lo ves en tu bandeja de entrada, revisá la carpeta de SPAM/Correo no deseado.`,
+            attachmentBase64: pdfBuffer.toString('base64'),
+            attachmentName: 'Entradas_Evento.pdf'
+        });
+
+        res.redirect(`/eventos/${evento.id}?reenviado=1`);
+    } catch (error) {
+        console.error('Error al reenviar el QR:', error);
+        res.status(500).send('No se pudo reenviar el mail con las entradas.');
+    }
+});
+
+// Exportación de contingencia: lista completa de asistentes en CSV (se abre directo en Excel),
+// para tener a mano en la puerta si por lo que sea el panel/la app no está disponible.
+router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    try {
+        const ventas = await eventosDb.listadoVentas(req.evento.id);
+
+        const escaparCsv = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
+        const encabezados = ['ID entrada', 'Nombre y apellido', 'Email', 'Tipo de entrada', 'Origen', 'Estado', 'Fecha de compra', 'Fecha escaneada'];
+        const filas = ventas.map((v) => [
+            v.id_entrada, v.nom_y_apellido || '', v.email || '', v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : ''),
+            v.origen, v.estado_entrada,
+            v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '',
+            v.fecha_y_hora_escaneada ? new Date(v.fecha_y_hora_escaneada).toLocaleString('es-AR') : ''
+        ].map(escaparCsv).join(','));
+
+        // BOM al inicio para que Excel abra los acentos/ñ bien en UTF-8.
+        const csv = '﻿' + [encabezados.map(escaparCsv).join(','), ...filas].join('\r\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="asistentes_evento_${req.evento.id}.csv"`);
+        res.send(csv);
+    } catch (error) {
+        console.error('Error al exportar el CSV de asistentes:', error);
+        res.status(500).send('No se pudo generar el archivo CSV.');
+    }
 });
 
 // Mercado Pago redirige acá después de que el organizador acepta conectar su cuenta.

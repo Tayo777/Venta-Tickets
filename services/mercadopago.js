@@ -49,6 +49,13 @@ async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, ca
     // Nuestra comisión: 3% (comision_propia_pct) del valor de la entrada, fijado al crear el evento.
     const nuestraComision = Math.round(Number(tipoEntrada.precio) * cantidad * Number(evento.comision_propia_pct) / 100);
 
+    // external_reference viaja pegado al pago DENTRO de Mercado Pago (no depende de que el
+    // navegador vuelva a /success), así el job de reconciliación puede reconstruir a quién
+    // hay que entregarle las entradas aunque el redirect nunca haya llegado a pasar.
+    const referenciaExterna = JSON.stringify({
+        eventoId: evento.id, tipoEntradaId: tipoEntrada.id, email, nombreApellido: nombreApellido || '', cantidad
+    });
+
     const eventoClient = new MercadoPagoConfig({ accessToken: evento.mp_access_token });
     const preference = new Preference(eventoClient);
     const result = await preference.create({
@@ -56,6 +63,7 @@ async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, ca
             items: [{ title: `${evento.nombre} - ${tipoEntrada.nombre} x ${cantidad}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
             payer: { email },
             marketplace_fee: nuestraComision,
+            external_reference: referenciaExterna,
             back_urls: {
                 success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}&tipo_entrada_id=${tipoEntrada.id}`,
                 failure: `${BASE_URL}/evento/${evento.id}`,
@@ -87,4 +95,34 @@ async function obtenerFeeReal(accessTokenOrganizador, paymentId) {
     };
 }
 
-module.exports = { calcularTarifa, urlConexionOAuth, intercambiarCodigoOAuth, crearPreferencia, obtenerFeeReal };
+// Busca pagos APROBADOS recientes en la cuenta del organizador (accessToken propio, por eso
+// esto hay que llamarlo una vez por cada evento conectado). Se usa desde el job de
+// reconciliación (services/reconciliarPagos.js) para encontrar pagos cuyo webhook/redirect
+// nunca llegó a procesarse — por ejemplo porque el servidor se reinició en el medio.
+async function buscarPagosAprobadosRecientes(accessToken, { minutosAtras = 180 } = {}) {
+    const desde = new Date(Date.now() - minutosAtras * 60 * 1000).toISOString();
+    const hasta = new Date().toISOString();
+    const params = new URLSearchParams({
+        sort: 'date_created',
+        criteria: 'desc',
+        range: 'date_created',
+        begin_date: desde,
+        end_date: hasta,
+        status: 'approved',
+        limit: '50'
+    });
+
+    const response = await fetch(`https://api.mercadopago.com/v1/payments/search?${params}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Búsqueda de pagos respondió ${response.status}: ${await response.text()}`);
+    }
+    const data = await response.json();
+    return data.results || [];
+}
+
+module.exports = {
+    calcularTarifa, urlConexionOAuth, intercambiarCodigoOAuth, crearPreferencia, obtenerFeeReal,
+    buscarPagosAprobadosRecientes
+};

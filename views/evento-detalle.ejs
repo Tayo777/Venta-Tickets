@@ -29,6 +29,15 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; }
         th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
         .nota { text-align: center; color: #b2bec3; font-size: 0.8rem; margin-top: 20px; }
+        .panel-op { border: 1px solid #dfe6e9; border-radius: 10px; padding: 15px; margin-top: 20px; }
+        .panel-op h3 { margin-top: 0; }
+        .panel-op .fila { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .panel-op input { flex: 1; min-width: 120px; padding: 8px; box-sizing: border-box; }
+        .panel-op button { padding: 8px 14px; border: none; border-radius: 6px; background: #1a252c; color: white; cursor: pointer; }
+        .btn-export { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 6px; background: #00b894; color: white; text-decoration: none; font-size: 0.85rem; }
+        /* Advertencia bien visible (bordes resaltados) para el reenvío de QR: el pedido más
+           común de soporte el día del evento es "no me llegó el mail" y casi siempre está en SPAM. */
+        .aviso-spam { border: 3px solid #e17055; background: #fff5f2; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 0.82rem; color: #d35400; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -38,6 +47,12 @@
 
     <% if (conectado) { %>
         <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>
+    <% } %>
+    <% if (typeof cortesia !== 'undefined' && cortesia) { %>
+        <div class="aviso-ok">🎟️ Entradas de cortesía generadas y enviadas por mail.</div>
+    <% } %>
+    <% if (typeof reenviado !== 'undefined' && reenviado) { %>
+        <div class="aviso-ok">📩 Entradas reenviadas correctamente.</div>
     <% } %>
 
     <% if (!evento.conectado_mp) { %>
@@ -74,12 +89,45 @@
         </form>
     </div>
 
+    <div class="panel-op">
+        <h3>🎟️ Entradas de cortesía</h3>
+        <p style="font-size:0.82rem; color:#636e72; margin:0;">Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.</p>
+        <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
+            <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
+            <input type="email" name="email" placeholder="Email del invitado" required>
+            <input type="number" name="cantidad" placeholder="Cant." min="1" max="20" value="1" required style="max-width:80px;">
+            <button type="submit">Generar y enviar</button>
+        </form>
+    </div>
+
+    <div class="panel-op">
+        <h3>📩 Reenviar QR</h3>
+        <p style="font-size:0.82rem; color:#636e72; margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
+        <form action="/eventos/<%= evento.id %>/reenviar-qr" method="POST" class="fila">
+            <input type="email" name="email" placeholder="Email del comprador" required>
+            <button type="submit">Reenviar</button>
+        </form>
+        <div class="aviso-spam">
+            ⚠️ Si el asistente dice que "no le llegó" el mail con la entrada, primero pedile que revise
+            la carpeta de <strong>SPAM / Correo no deseado</strong> antes de reenviar — la mayoría de los
+            casos están ahí.
+        </div>
+    </div>
+
+    <div class="panel-op">
+        <h3>📋 Exportación de contingencia</h3>
+        <p style="font-size:0.82rem; color:#636e72; margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
+        <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
+    </div>
+
     <% if (ventas.length > 0) { %>
         <h3 style="margin-top: 30px;">Ventas realizadas</h3>
         <table>
             <tr>
                 <th>ID cliente</th>
                 <th>Nombre y apellido</th>
+                <th>Email</th>
+                <th>Tipo</th>
                 <th>ID entrada</th>
                 <th>Estado</th>
                 <th>Fecha compra</th>
@@ -89,6 +137,8 @@
                 <tr>
                     <td><%= v.id_cliente || '-' %></td>
                     <td><%= v.nom_y_apellido || '-' %></td>
+                    <td><%= v.email || '-' %></td>
+                    <td><%= v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : '-') %></td>
                     <td><%= v.id_entrada %></td>
                     <td><%= v.estado_entrada %></td>
                     <td><%= v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '-' %></td>

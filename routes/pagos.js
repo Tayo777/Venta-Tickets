@@ -2,12 +2,10 @@ const express = require('express');
 const router = express.Router();
 const eventosDb = require('../db/eventos');
 const ticketsDb = require('../db/tickets');
-const comprasDb = require('../db/compras');
 const tiposEntradaDb = require('../db/tiposEntrada');
 const mp = require('../services/mercadopago');
-const { enviarMailBrevo } = require('../services/brevo');
-const { enviarNotificacionTelegram } = require('../services/telegram');
-const { generarPdfBuffer, generarPdfEnResponse } = require('../services/pdfEntradas');
+const { procesarPagoAprobado } = require('../services/procesarPago');
+const { generarPdfEnResponse } = require('../services/pdfEntradas');
 
 router.post('/crear-pago', async (req, res) => {
     const { email, nombre_apellido, cantidad, evento_id, tipo_entrada_id } = req.body;
@@ -74,72 +72,21 @@ router.get('/success', async (req, res) => {
             return res.status(400).send('No se pudo confirmar el pago. Si ya recibiste tu mail con las entradas, no hace falta hacer nada más.');
         }
 
-        const yaProcesado = await comprasDb.yaProcesada(payment_id);
-        if (!yaProcesado) {
-            const montoTotal = (Number(tipoEntrada.precio) + Number(evento.tarifa_online)) * cantidadEntradas;
-            await comprasDb.registrarCompra({ paymentId: payment_id, eventoId, email, cantidad: cantidadEntradas, montoTotal });
-        }
-
         res.render('success', { email, cant, evento });
-
-        if (yaProcesado) {
-            console.log(`payment_id ${payment_id} ya estaba procesado, se evita duplicar entradas/mail.`);
-            return;
-        }
     } catch (error) {
         console.error('Error al procesar la compra:', error);
         return res.status(500).send('Error interno al registrar la compra.');
     }
 
     // A partir de acá la respuesta YA fue enviada al navegador. Corre aparte para que un
-    // error acá (PDF, QR, mail) no intente mandar otra respuesta HTTP y quede oculto.
+    // error acá (PDF, QR, mail) no intente mandar otra respuesta HTTP y quede oculto. La
+    // función es idempotente por payment_id: si el job de reconciliación (services/reconciliarPagos.js)
+    // ya la procesó antes (por ejemplo porque el servidor se reinició justo acá), no duplica nada.
     try {
-        const listaCodigos = await ticketsDb.registrarEntradas(eventoId, tipoEntradaId, email, cantidadEntradas, {
-            nombreApellido, paymentId: payment_id
+        await procesarPagoAprobado({
+            evento, tipoEntrada, paymentId: payment_id, email, nombreApellido, cantidad: cantidadEntradas
         });
-        console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre}, tipo: ${tipoEntrada.nombre})`);
-
-        const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos: listaCodigos });
-
-        try {
-            await enviarMailBrevo({
-                to: email,
-                subject: '🎟️ Tus entradas oficiales',
-                text: `¡Gracias por tu compra! Adjuntamos ${cantidadEntradas} entrada/s para ${evento.nombre}.`,
-                attachmentBase64: pdfBuffer.toString('base64'),
-                attachmentName: 'Entradas_Evento.pdf'
-            });
-            console.log(`¡Correo enviado exitosamente a ${email}!`);
-        } catch (mailError) {
-            console.error('Error al enviar el correo:', mailError);
-        }
-
-        enviarNotificacionTelegram(
-            `🎟️ <b>Nueva venta</b>\nEvento: ${evento.nombre}\n${cantidadEntradas} entrada/s\nComprador: ${email}`
-        );
-
-        // Consultamos la comisión REAL que cobró Mercado Pago en esta transacción puntual
-        // (recién ahora se puede saber; antes del pago solo teníamos una estimación).
-        try {
-            const { comisionMpReal, montoNeto } = await mp.obtenerFeeReal(evento.mp_access_token, payment_id);
-            await comprasDb.guardarComisionReal(payment_id, { comisionMpReal, montoNeto });
-            if (comisionMpReal !== null) {
-                await comprasDb.ajustarTarifaConDatosReales(eventoId);
-            }
-        } catch (feeError) {
-            console.error('No se pudo consultar la comisión real de Mercado Pago:', feeError.message);
-        }
     } catch (error) {
-        if (error instanceof ticketsDb.SinCupoError) {
-            // Esto solo puede pasar si el cupo se agotó ENTRE la validación de /crear-pago y el
-            // pago aprobado (carrera muy angosta). El dinero ya fue cobrado, así que no hay
-            // vuelta atrás automática: se avisa para que el organizador reembolse a mano.
-            console.error(`Sin cupo al confirmar pago ya cobrado (payment_id ${payment_id}):`, error.message);
-            enviarNotificacionTelegram(
-                `⚠️ <b>Venta sin cupo</b>\nEvento: ${evento.nombre}\nComprador: ${email}\npayment_id: ${payment_id}\n${error.message}\nEl pago ya fue cobrado, revisar reembolso manual.`
-            );
-            return;
-        }
         console.error('Error al generar el PDF o registrar las entradas post-pago:', error);
     }
 });
