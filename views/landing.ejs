@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         .hero {
-            min-height: 80vh;
+            min-height: 62vh;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            text-align: center; padding: 40px 20px;
+            text-align: center; padding: 32px 18px;
             background:
                 radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 45%),
                 radial-gradient(circle at 80% 30%, rgba(34, 211, 238, 0.22) 0%, transparent 45%),
@@ -39,15 +39,30 @@
         .hero p { animation-delay: 0.2s; }
         .hero-cta-row { animation-delay: 0.35s; }
 
-        .hero h1 { font-size: 2.8rem; margin-bottom: 15px; line-height: 1.15; letter-spacing: -0.02em; }
-        .hero p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 35px; }
-        .hero-cta-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
-        .cta { font-size: 1.05rem; padding: 16px 36px; }
+        /* Mobile-first: arranca chico (~text-3xl) y crece a partir de tablet/desktop
+           (~text-5xl) — así el título nunca se corta ni fuerza scroll horizontal en un
+           celular angosto. */
+        .hero h1 { font-size: 1.9rem; margin-bottom: 15px; line-height: 1.2; letter-spacing: -0.02em; }
+        .hero p { font-size: 1rem; color: var(--text-muted); margin-bottom: 30px; }
+        .hero-cta-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+        .cta { font-size: 0.95rem; padding: 14px 28px; }
         .cta-secundario {
-            font-size: 0.98rem; padding: 15px 32px;
+            font-size: 0.9rem; padding: 13px 26px;
             background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.35);
         }
         .cta-secundario:hover { background: rgba(255,255,255,0.08); border-color: var(--accent-2); color: var(--accent-2); }
+
+        @media (min-width: 640px) {
+            .hero h1 { font-size: 2.6rem; }
+            .hero p { font-size: 1.1rem; }
+            .cta, .cta-secundario { font-size: 1rem; padding: 15px 32px; }
+        }
+        @media (min-width: 960px) {
+            .hero { min-height: 80vh; padding: 40px 20px; }
+            .hero h1 { font-size: 3rem; }
+            .hero p { font-size: 1.15rem; }
+            .cta { font-size: 1.05rem; padding: 16px 36px; }
+        }
 
         /* Franja de confianza: minimalista, una sola línea, sin competir con el hero. */
         .trust-badge {

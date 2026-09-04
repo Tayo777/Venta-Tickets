@@ -43,11 +43,17 @@
                 opacity 300ms ease-in-out;
 }
 
+html {
+    /* Red de seguridad: cualquier elemento que se pase de ancho (dropdowns, tarjetas, etc.)
+       queda recortado en vez de generar scroll horizontal en toda la página. */
+    overflow-x: hidden;
+}
 body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
     margin: 0;
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -97,6 +103,13 @@ a { color: var(--accent-2); }
     gap: 10px;
 }
 
+/* Navbar en celular: menos padding lateral (el contenido no debe pegarse al borde de la
+   pantalla) y menos gap entre acciones para que entren cómodas sin apretarse. */
+@media (max-width: 480px) {
+    .navbar { padding: 12px 16px; gap: 8px; }
+    .navbar-actions { gap: 6px; }
+}
+
 /* ---------- Botones (pill, glow suave al hover) ---------- */
 .btn {
     display: inline-flex;
@@ -107,11 +120,15 @@ a { color: var(--accent-2); }
     font-weight: 600;
     font-size: 0.92rem;
     padding: 10px 22px;
+    min-height: 40px; /* touch target cómodo (>=40px) incluso en botones chicos */
     border-radius: var(--radius-full);
     border: 1px solid transparent;
     text-decoration: none;
     cursor: pointer;
     white-space: nowrap;
+}
+@media (max-width: 480px) {
+    .btn { padding: 10px 16px; font-size: 0.86rem; }
 }
 
 .btn-ghost {
@@ -153,6 +170,7 @@ a { color: var(--accent-2); }
     font-size: 0.88rem;
     font-weight: 600;
     padding: 7px 14px 7px 10px;
+    min-height: 40px; /* touch target cómodo con el dedo */
     border-radius: var(--radius-full);
     cursor: pointer;
 }
@@ -161,11 +179,20 @@ a { color: var(--accent-2); }
 .profile-caret { color: var(--text-faint); transition: transform 150ms ease; }
 .profile-trigger[aria-expanded="true"] .profile-caret { transform: rotate(180deg); }
 
+/* En celular el nombre completo ("Agustin Lopez") no entra cómodo junto al logo sin
+   apretar el header: se oculta el texto y queda el ícono + flechita (sigue siendo
+   perfectamente tocable, min-height/padding no cambian). */
+@media (max-width: 480px) {
+    .profile-name { display: none; }
+    .profile-trigger { padding: 7px 10px; }
+}
+
 .profile-dropdown {
     position: absolute;
     top: calc(100% + 10px);
-    left: 0;
+    right: 0; /* cuelga desde el borde derecho del trigger hacia ADENTRO, nunca hacia afuera */
     min-width: 220px;
+    max-width: calc(100vw - 32px); /* nunca más ancho que la pantalla, con margen a los costados */
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -189,8 +216,10 @@ a { color: var(--accent-2); }
 }
 
 .profile-dropdown a, .profile-dropdown .dropdown-logout {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
+    min-height: 40px; /* touch target cómodo por ítem */
     text-align: left;
     background: none;
     border: none;
@@ -249,3 +278,10 @@ label { color: var(--text-muted); }
     padding: 12px 16px;
     border-radius: var(--radius-sm);
 }
+
+/* ---------- Utilidades responsivas compartidas ---------- */
+/* Envolvé cualquier <table> ancha (muchas columnas) en <div class="table-scroll"> para que
+   en celular se pueda deslizar horizontalmente DENTRO de su propio recuadro, en vez de que
+   la tabla fuerce scroll horizontal en toda la página (que ya está bloqueado globalmente). */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll table { min-width: 640px; }

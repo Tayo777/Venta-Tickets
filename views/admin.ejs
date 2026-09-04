@@ -28,6 +28,7 @@
     <% if (pendientes.length === 0) { %>
         <p style="color:var(--text-faint);">No hay solicitudes pendientes.</p>
     <% } else { %>
+        <div class="table-scroll">
         <table>
             <tr><th>Nombre</th><th>Mail</th><th>Teléfono</th><th></th></tr>
             <% pendientes.forEach(u => { %>
@@ -39,9 +40,11 @@
                 </tr>
             <% }) %>
         </table>
+        </div>
     <% } %>
 
     <h3 style="margin-top: 30px;">Todos los eventos</h3>
+    <div class="table-scroll">
     <table>
         <tr><th>Nombre</th><th>Dueño</th><th>Mercado Pago</th><th></th></tr>
         <% eventos.forEach(evento => { %>
@@ -53,6 +56,7 @@
             </tr>
         <% }) %>
     </table>
+    </div>
     </div>
 </body>
 </html>

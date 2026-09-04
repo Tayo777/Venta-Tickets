@@ -55,6 +55,7 @@
 
         /* Métricas: grid de tarjetas oscuras, borde sutil casi imperceptible salvo al mirar de cerca. */
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+        @media (max-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
         .card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 12px; padding: 16px; text-align: center; }
         .card .numero { font-size: 1.5rem; font-weight: 700; color: var(--text); }
         .card .etiqueta { color: var(--zinc-400); font-size: 0.78rem; margin-top: 4px; }
@@ -202,6 +203,7 @@
 
     <% if (ventas.length > 0) { %>
         <h3 style="margin-top: 30px;">Ventas realizadas</h3>
+        <div class="table-scroll">
         <table>
             <tr>
                 <th>ID cliente</th>
@@ -226,6 +228,7 @@
                 </tr>
             <% }) %>
         </table>
+        </div>
     <% } %>
 
     <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
