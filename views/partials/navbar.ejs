@@ -1,0 +1,11 @@
+<nav class="navbar">
+    <a class="navbar-brand" href="/">🎟️ EventoListo</a>
+    <div class="navbar-actions">
+        <% if (typeof usuarioLogueado !== 'undefined' && usuarioLogueado) { %>
+            <a class="btn btn-ghost" href="/mis-eventos">Mis eventos</a>
+        <% } else { %>
+            <a class="btn btn-ghost" href="/login">Iniciar sesión</a>
+            <a class="btn btn-primary" href="/registro">Registrarme</a>
+        <% } %>
+    </div>
+</nav>

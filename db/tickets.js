@@ -106,7 +106,15 @@ async function marcarComoUsada(ticketId) {
     await pool.query('UPDATE tickets SET estado = ?, fecha_escaneada = NOW() WHERE id = ?', ['Usada', ticketId]);
 }
 
+// Volcado liviano (solo id + estado) de todas las entradas de un evento, para que el celular
+// del guardia lo descargue una vez y pueda seguir validando aunque se quede sin señal
+// (ver public/guardia-cliente.js).
+async function obtenerTicketsDeEvento(eventoId) {
+    const [filas] = await pool.query('SELECT id, estado FROM tickets WHERE evento_id = ?', [eventoId]);
+    return filas;
+}
+
 module.exports = {
     registrarEntradas, registrarEntradasCortesia, obtenerEntradasDeCompra,
-    obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada, SinCupoError
+    obtenerUltimasEntradas, obtenerTicketConEvento, obtenerTicketsDeEvento, marcarComoUsada, SinCupoError
 };

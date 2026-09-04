@@ -4,13 +4,13 @@ const eventos = require('../db/eventos');
 const tiposEntrada = require('../db/tiposEntrada');
 
 router.get('/', (req, res) => {
-    res.render('landing');
+    res.render('landing', { usuarioLogueado: Boolean(req.session.usuarioId) });
 });
 
 router.get('/eventos', async (req, res) => {
     try {
         const lista = await eventos.obtenerEventosActivos();
-        res.render('index', { eventos: lista });
+        res.render('index', { eventos: lista, usuarioLogueado: Boolean(req.session.usuarioId) });
     } catch (error) {
         console.error('Error al listar eventos:', error);
         res.status(500).send('Error al cargar los eventos.');
@@ -33,7 +33,7 @@ router.get('/evento/:id', async (req, res) => {
             return res.status(410).send('Las entradas para este evento están agotadas.');
         }
 
-        res.render('evento', { evento, tipos: tiposConCupo });
+        res.render('evento', { evento, tipos: tiposConCupo, usuarioLogueado: Boolean(req.session.usuarioId) });
     } catch (error) {
         console.error('Error al cargar evento:', error);
         res.status(500).send('Error al cargar el evento.');
