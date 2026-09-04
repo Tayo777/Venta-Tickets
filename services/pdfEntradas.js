@@ -37,8 +37,12 @@ function dibujarEntradas(doc, { nombreEvento, email, codigos }) {
             const qrBuffer = await QRCode.toBuffer(urlValidacion, { margin: 1, width: 100, color: { dark: '#000', light: '#fff' } });
             doc.image(qrBuffer, (pageWidth / 2) - 50, currentY + 70, { width: 100 });
 
+            // codigo ahora es "EVT-XXXXXXXX.firma" (ver services/firmaTickets.js); el QR
+            // necesita el código completo firmado, pero para que la persona LEA algo corto
+            // e impreso se muestra solo la parte antes del punto.
+            const codigoVisible = codigo.split('.')[0];
             doc.rect((pageWidth / 2) - 75, currentY + 185, 150, 25).fill('#f1f2f6');
-            doc.fillColor('#2d3436').font('Courier-Bold').fontSize(14).text(codigo, 0, currentY + 190, { align: 'center' });
+            doc.fillColor('#2d3436').font('Courier-Bold').fontSize(14).text(codigoVisible, 0, currentY + 190, { align: 'center' });
 
             if (i < codigos.length - 1) {
                 currentY += 270;

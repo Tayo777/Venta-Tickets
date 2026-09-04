@@ -120,8 +120,10 @@
     // server. Si hay internet la confirmación real llega igual (fetch), pero la UI ya
     // respondió al toque con lo último que sabíamos localmente.
     async function procesarCodigo(codigoLeido) {
-        // El QR trae la URL completa (BASE_URL/validar/EVT-XXXXXXXX); nos quedamos con el código.
-        const match = String(codigoLeido).match(/EVT-[A-Z0-9]+$/);
+        // El QR trae la URL completa (BASE_URL/validar/EVT-XXXXXXXX.firma); nos quedamos con
+        // el código completo (incluida la firma) — el servidor es quien la verifica, acá solo
+        // se extrae el texto tal cual viene, no se valida nada del lado del cliente.
+        const match = String(codigoLeido).match(/EVT-[A-Z0-9]+\.[0-9a-f]+$/i);
         const ticketId = match ? match[0] : codigoLeido;
 
         const local = await idbGet('tickets', ticketId);

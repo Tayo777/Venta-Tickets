@@ -64,8 +64,10 @@ async function inicializarDB() {
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )`);
 
+    // id: VARCHAR(40) porque ahora guarda el código firmado ("EVT-XXXXXXXX.firma16hex"),
+    // no solo el código plano — ver services/firmaTickets.js.
     await pool.query(`CREATE TABLE IF NOT EXISTS tickets (
-        id VARCHAR(20) PRIMARY KEY,
+        id VARCHAR(40) PRIMARY KEY,
         evento_id INT NOT NULL,
         tipo_entrada_id INT NULL,
         email VARCHAR(255) NOT NULL,
@@ -121,6 +123,11 @@ async function inicializarDB() {
 
     // Migración: entradas de cortesía (no pasan por Mercado Pago ni descuentan cupo pago).
     await agregarColumnaSiNoExiste('tickets', 'origen', "VARCHAR(20) NOT NULL DEFAULT 'compra'");
+
+    // Migración: los IDs de entrada ahora vienen firmados (más largos que antes) — agranda
+    // la columna si la tabla ya existía de una instalación previa a esto. Es idempotente:
+    // si ya está en VARCHAR(40) o más, MySQL no hace nada.
+    await pool.query(`ALTER TABLE tickets MODIFY COLUMN id VARCHAR(40) NOT NULL`);
 
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras).');
 }

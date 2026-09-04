@@ -9,6 +9,7 @@ const requiredEnv = [
     'ADMIN_SEED_EMAIL', 'ADMIN_SEED_PASSWORD', // tu usuario admin, se crea solo la primera vez que arranca
     'SESSION_SECRET',                          // clave para firmar las sesiones de login (invéntala, larga y random)
     'IMGBB_API_KEY',                           // para poder subir flyers como imagen directamente
+    'QR_SECRET',                               // firma HMAC de los QR de entrada, para detectar falsificaciones
     'BASE_URL', 'MYSQL_URL'
 ];
 
@@ -37,6 +38,8 @@ module.exports = {
     BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME || 'Venta de Entradas',
 
     IMGBB_API_KEY: process.env.IMGBB_API_KEY,
+
+    QR_SECRET: process.env.QR_SECRET,
 
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,

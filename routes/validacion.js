@@ -3,6 +3,7 @@ const router = express.Router();
 const ticketsDb = require('../db/tickets');
 const eventosDb = require('../db/eventos');
 const { enviarNotificacionTelegram } = require('../services/telegram');
+const { verificarIdFirmado } = require('../services/firmaTickets');
 
 // Arma una pantalla simple a pantalla completa, pensada para verse bien en el celular del guardia.
 function generarPantallaControl(titulo, mensaje, colorFondo) {
@@ -31,10 +32,14 @@ function generarPantallaControl(titulo, mensaje, colorFondo) {
     `;
 }
 
-// Intenta marcar una entrada como usada. Centraliza la regla (existe / es de este evento /
-// no estaba ya usada) para que la comparta tanto /validar (navegación directa del QR) como
-// la API JSON que usa el scanner offline del guardia (ver /api/guardia más abajo).
+// Intenta marcar una entrada como usada. Centraliza la regla (firma válida / existe / es de
+// este evento / no estaba ya usada) para que la comparta tanto /validar (navegación directa
+// del QR) como la API JSON que usa el scanner offline del guardia (ver /api/guardia más abajo).
 async function intentarValidar(ticketId, eventoId) {
+    // Blindaje contra QRs falsificados o alterados a mano: se verifica la firma HMAC ANTES
+    // de tocar la base de datos. Si no coincide, se corta acá — cero consultas a MySQL.
+    if (!verificarIdFirmado(ticketId)) return { resultado: 'firma_invalida' };
+
     const row = await ticketsDb.obtenerTicketConEvento(ticketId);
     if (!row) return { resultado: 'no_existe' };
     if (String(row.evento_id) !== String(eventoId)) return { resultado: 'otro_evento', row };
@@ -52,6 +57,13 @@ async function intentarValidar(ticketId, eventoId) {
 // usa en cambio el scanner propio en /guardia/:eventoId, que funciona sin conexión.
 router.get('/validar/:id', async (req, res) => {
     const ticketId = req.params.id;
+
+    // Verificación de firma ANTES de cualquier consulta a MySQL: un código inventado o
+    // adulterado (por ejemplo, alguien armando un QR a mano con un "EVT-" cualquiera) se
+    // rechaza al toque, sin gastarle ni una query a la base.
+    if (!verificarIdFirmado(ticketId)) {
+        return res.send(generarPantallaControl('❌ QR INVÁLIDO', 'Este código no es válido o fue falsificado.', '#c0392b'));
+    }
 
     try {
         const row = await ticketsDb.obtenerTicketConEvento(ticketId);
@@ -124,6 +136,11 @@ router.get('/api/guardia/:eventoId/tickets', async (req, res) => {
 router.post('/api/guardia/:eventoId/validar/:ticketId', async (req, res) => {
     const { eventoId, ticketId } = req.params;
     if (!esGuardia(req, eventoId)) return res.status(403).json({ error: 'No autorizado.' });
+
+    // Mismo blindaje que en /validar: se corta antes de tocar la DB si la firma no cierra.
+    if (!verificarIdFirmado(ticketId)) {
+        return res.status(400).json({ resultado: 'firma_invalida', error: 'QR inválido o falsificado.' });
+    }
 
     try {
         const { resultado, row } = await intentarValidar(ticketId, eventoId);

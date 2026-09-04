@@ -1,5 +1,14 @@
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('./pool');
+const { firmarId } = require('../services/firmaTickets');
+
+// Genera el código base y le anexa la firma HMAC — este es el ID real de la entrada
+// (se guarda en la DB, va en el QR, y es lo que /validar tiene que verificar antes de
+// consultar la base). Ver services/firmaTickets.js.
+function generarIdEntrada() {
+    const idBase = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
+    return firmarId(idBase);
+}
 
 // Se lanza cuando ya no queda cupo suficiente en el tipo de entrada pedido.
 class SinCupoError extends Error {
@@ -38,7 +47,7 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
 
         const codigos = [];
         for (let i = 0; i < cantidad; i++) {
-            const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
+            const id = generarIdEntrada();
             codigos.push(id);
             await conexion.query(
                 'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -61,7 +70,7 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
 async function registrarEntradasCortesia(eventoId, email, cantidad, { nombreApellido } = {}) {
     const codigos = [];
     for (let i = 0; i < cantidad; i++) {
-        const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
+        const id = generarIdEntrada();
         codigos.push(id);
         await pool.query(
             "INSERT INTO tickets (id, evento_id, email, nombre_apellido, origen) VALUES (?, ?, ?, ?, 'cortesia')",
