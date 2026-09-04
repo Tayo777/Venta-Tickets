@@ -182,6 +182,18 @@ router.post('/eventos/:id/reenviar-qr', requiereLogin, esDueñoOAdmin, async (re
     }
 });
 
+// Flujo de ingreso por hora (para el gráfico de barras del panel). JSON liviano: solo
+// {hora, cantidad} por cada hora que tuvo al menos un ingreso.
+router.get('/api/eventos/:id/ingresos-hora', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    try {
+        const datos = await ticketsDb.obtenerIngresosPorHora(req.evento.id);
+        res.json({ datos });
+    } catch (error) {
+        console.error('Error al calcular ingresos por hora:', error);
+        res.status(500).json({ error: 'No se pudo calcular el flujo de ingreso.' });
+    }
+});
+
 // Exportación de contingencia: lista completa de asistentes en CSV (se abre directo en Excel),
 // para tener a mano en la puerta si por lo que sea el panel/la app no está disponible.
 router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (req, res) => {

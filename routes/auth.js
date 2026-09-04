@@ -1,18 +1,15 @@
 const express = require('express');
-const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const usuariosDb = require('../db/usuarios');
 const { enviarMailBrevo } = require('../services/brevo');
 const { BASE_URL, ADMIN_EMAIL } = require('../config/env');
+const { limitadorAuth } = require('../middleware/rateLimiters');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Frena intentos de fuerza bruta / spam de registros (5 intentos cada 15 minutos por IP).
-const limiteIntentos = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
-
 router.get('/registro', (req, res) => res.render('registro', { error: null }));
 
-router.post('/registro', limiteIntentos, async (req, res) => {
+router.post('/registro', limitadorAuth, async (req, res) => {
     const { nombre, email, telefono, password } = req.body;
 
     if (!nombre || !email || !telefono || !password) {
@@ -90,7 +87,7 @@ router.get('/admin/aprobar/:id', async (req, res) => {
 
 router.get('/login', (req, res) => res.render('login', { error: null }));
 
-router.post('/login', limiteIntentos, async (req, res) => {
+router.post('/login', limitadorAuth, async (req, res) => {
     try {
         const { email, password } = req.body;
         const usuario = await usuariosDb.obtenerPorEmail(email);
@@ -132,7 +129,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/recuperar-password', (req, res) => res.render('recuperar-password', { enviado: false }));
 
-router.post('/recuperar-password', limiteIntentos, async (req, res) => {
+router.post('/recuperar-password', limitadorAuth, async (req, res) => {
     const { email } = req.body;
     const usuario = await usuariosDb.obtenerPorEmail(email);
 

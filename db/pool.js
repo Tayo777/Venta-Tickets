@@ -1,11 +1,42 @@
 const mysql = require('mysql2/promise');
 const { MYSQL_URL } = require('../config/env');
 
-const pool = mysql.createPool(MYSQL_URL);
+// Límites explícitos (no confiar en los defaults de la librería): Railway cobra/limita por
+// cantidad de conexiones simultáneas a MySQL, y sin un tope acá un pico de tráfico podría
+// abrir conexiones sin freno hasta que la base las rechace y el server empiece a tirar errores.
+//   - connectionLimit: tope duro de conexiones simultáneas de ESTE pool.
+//   - waitForConnections: si ya se usaron las 10, un pedido nuevo ESPERA en cola en vez de
+//     fallar al toque (más lento en el pico, pero no se cae).
+//   - queueLimit: 0 = cola sin límite de tamaño (nunca rechaza un pedido por "demasiados
+//     esperando" — solo van a esperar más si el pico es grande).
+const pool = mysql.createPool({
+    uri: MYSQL_URL,
+    connectionLimit: 10,
+    waitForConnections: true,
+    queueLimit: 0
+});
+
+// Aviso temprano de que el pool se está quedando sin conexiones libres: el evento 'enqueue'
+// se dispara cada vez que un pedido tiene que ESPERAR porque las 10 conexiones ya están
+// ocupadas. Si esto aparece seguido en los logs de Railway, es la señal de subir
+// connectionLimit o de que hay alguna query lenta reteniendo conexiones más de la cuenta.
+pool.on('enqueue', () => {
+    console.warn('[MySQL pool] Sin conexiones libres — un pedido quedó en cola esperando una (connectionLimit: 10).');
+});
 
 // express-mysql-session necesita una conexión "estilo callback" (no la de promesas de arriba),
-// por eso se crea aparte solo para guardar las sesiones de login.
-const poolCallback = require('mysql2').createPool(MYSQL_URL);
+// por eso se crea aparte solo para guardar las sesiones de login. Se le da un límite más chico
+// porque su carga es liviana (solo lee/escribe la sesión) — así entre los dos pools no se
+// pasan del total de conexiones que Railway permite para la base.
+const poolCallback = require('mysql2').createPool({
+    uri: MYSQL_URL,
+    connectionLimit: 5,
+    waitForConnections: true,
+    queueLimit: 0
+});
+poolCallback.on('enqueue', () => {
+    console.warn('[MySQL pool de sesiones] Sin conexiones libres — un pedido quedó en cola esperando una (connectionLimit: 5).');
+});
 
 // Agrega una columna a una tabla solo si todavía no existe (idempotente, corre en cada arranque).
 async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
@@ -17,6 +48,19 @@ async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
     if (filas[0].existe === 0) {
         await pool.query(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion}`);
         console.log(`Columna agregada: ${tabla}.${columna}`);
+    }
+}
+
+// Agrega un índice a una tabla solo si todavía no existe (idempotente, corre en cada arranque).
+async function agregarIndiceSiNoExiste(tabla, nombreIndice, definicionColumnas) {
+    const [filas] = await pool.query(
+        `SELECT COUNT(*) AS existe FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+        [tabla, nombreIndice]
+    );
+    if (filas[0].existe === 0) {
+        await pool.query(`CREATE INDEX ${nombreIndice} ON ${tabla} (${definicionColumnas})`);
+        console.log(`Índice agregado: ${tabla}.${nombreIndice}`);
     }
 }
 
@@ -112,6 +156,16 @@ async function inicializarDB() {
     await agregarColumnaSiNoExiste('tickets', 'nombre_apellido', 'VARCHAR(255)');
     await agregarColumnaSiNoExiste('tickets', 'fecha_escaneada', 'DATETIME NULL');
     await agregarColumnaSiNoExiste('tickets', 'payment_id', 'VARCHAR(50)');
+    // NO único: una compra de N entradas guarda N filas con el MISMO payment_id a propósito.
+    // La idempotencia real es el UNIQUE de compras.payment_id (ver CREATE TABLE compras arriba);
+    // este índice solo acelera el JOIN de listadoVentas (db/eventos.js) por payment_id.
+    await agregarIndiceSiNoExiste('tickets', 'idx_tickets_payment_id', 'payment_id');
+
+    // Índices para que el escaneo en la puerta (y los reportes por evento) sean rápidos.
+    // El lookup del validador por `id` ya es óptimo solo, porque `id` es PRIMARY KEY.
+    await agregarIndiceSiNoExiste('tickets', 'idx_tickets_evento_id', 'evento_id');
+    await agregarIndiceSiNoExiste('tickets', 'idx_tickets_estado', 'estado');
+    await agregarIndiceSiNoExiste('tickets', 'idx_tickets_evento_estado', 'evento_id, estado');
 
     // Migración: recuperación de contraseña.
     await agregarColumnaSiNoExiste('usuarios', 'reset_token', 'VARCHAR(64)');

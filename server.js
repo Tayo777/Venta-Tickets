@@ -64,6 +64,7 @@ app.use(require('./routes/auth'));
 app.use(require('./routes/organizador'));
 app.use(require('./routes/perfil'));
 app.use(require('./routes/pagos'));
+app.use(require('./routes/webhooks'));
 app.use(require('./routes/validacion'));
 app.use(require('./routes/admin'));
 

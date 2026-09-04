@@ -16,8 +16,25 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
         return { yaProcesado: true };
     }
 
+    // Entre el chequeo de arriba y este INSERT hay una ventana de carrera: si Mercado Pago
+    // reintenta el webhook (o el webhook y el job de reconciliación caen justo al mismo
+    // tiempo), dos llamadas pueden pasar el "yaProcesada" en false antes de que ninguna haya
+    // insertado todavía. El INDEX UNIQUE de compras.payment_id es la red de seguridad real:
+    // la segunda va a fallar acá con ER_DUP_ENTRY, y eso es lo que atrapamos.
     const montoTotal = (Number(tipoEntrada.precio) + Number(evento.tarifa_online)) * cantidad;
-    await comprasDb.registrarCompra({ paymentId, eventoId: evento.id, email, cantidad, montoTotal });
+    try {
+        await comprasDb.registrarCompra({ paymentId, eventoId: evento.id, email, cantidad, montoTotal });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            // Otro proceso ganó la carrera y ya registró este payment_id un instante antes.
+            // No es un error real: el pago YA está siendo/fue procesado por ese otro proceso,
+            // así que acá no se generan entradas de nuevo (nada que "rollbackear": el INSERT
+            // de esta llamada nunca llegó a aplicarse).
+            console.warn(`payment_id ${paymentId} ya fue registrado por otro proceso en paralelo, se omite (sin duplicar entradas).`);
+            return { yaProcesado: true };
+        }
+        throw error;
+    }
 
     try {
         const listaCodigos = await ticketsDb.registrarEntradas(evento.id, tipoEntrada.id, email, cantidad, {

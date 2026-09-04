@@ -97,6 +97,17 @@
             background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; cursor: pointer; font-weight: 600;
         }
         .panel-op button:active { transform: scale(0.97); }
+
+        /* Gráfico de flujo de ingreso: solo divs con ancho calculado en JS (sin librerías). */
+        .grafico-horas { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+        .fila-hora { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; }
+        .fila-hora .etiqueta-hora { width: 42px; flex-shrink: 0; color: var(--zinc-400); text-align: right; }
+        .fila-hora .barra-pista { flex: 1; background: var(--zinc-800); border-radius: 999px; height: 16px; overflow: hidden; }
+        .fila-hora .barra-relleno {
+            height: 100%; min-width: 4px; border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        }
+        .fila-hora .valor-hora { width: 26px; flex-shrink: 0; color: var(--text); font-weight: 600; }
         .btn-export {
             display: inline-block; margin-top: 8px; padding: 9px 18px; border-radius: 999px;
             background: transparent; color: var(--accent-2); text-decoration: none; font-size: 0.85rem;
@@ -148,6 +159,13 @@
             <div class="card"><div class="numero"><%= resumen.total_ingresadas || 0 %></div><div class="etiqueta">Ingresaron</div></div>
             <div class="card"><div class="numero"><%= resumen.total_compradores || 0 %></div><div class="etiqueta">Compradores</div></div>
             <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
+        </div>
+
+        <div class="panel-op" id="flujo-ingreso-box">
+            <h3>📈 Flujo de ingreso por hora</h3>
+            <div id="flujo-ingreso-grafico" class="grafico-horas">
+                <p style="color:var(--zinc-400); font-size:0.85rem; margin:0;">Cargando...</p>
+            </div>
         </div>
 
         <div class="link-box">
@@ -233,5 +251,46 @@
 
     <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
     </div>
+
+    <script>
+        // Dibuja el flujo de ingreso por hora con divs simples (sin librerías de gráficos):
+        // una fila por hora, con una "pista" gris y un relleno cuyo ancho en % es
+        // cantidad/máximo — la hora con más ingresos siempre llena el 100% de la barra.
+        (function () {
+            const contenedor = document.getElementById('flujo-ingreso-grafico');
+            if (!contenedor) return; // evento sin Mercado Pago conectado todavía: no hay métricas
+
+            async function cargar() {
+                try {
+                    const resp = await fetch('/api/eventos/<%= evento.id %>/ingresos-hora');
+                    const { datos } = await resp.json();
+
+                    if (!datos || datos.length === 0) {
+                        contenedor.innerHTML = '<p style="color:var(--zinc-400); font-size:0.85rem; margin:0;">Todavía no hay ingresos escaneados.</p>';
+                        return;
+                    }
+
+                    const maximo = Math.max(...datos.map((d) => d.cantidad));
+                    contenedor.innerHTML = datos.map((d) => {
+                        const porcentaje = Math.round((d.cantidad / maximo) * 100);
+                        const horaTexto = String(d.hora).padStart(2, '0') + ':00';
+                        return `
+                            <div class="fila-hora">
+                                <span class="etiqueta-hora">${horaTexto}</span>
+                                <div class="barra-pista"><div class="barra-relleno" style="width:${porcentaje}%;"></div></div>
+                                <span class="valor-hora">${d.cantidad}</span>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (error) {
+                    contenedor.innerHTML = '<p style="color:var(--danger); font-size:0.85rem; margin:0;">No se pudo cargar el gráfico.</p>';
+                    console.error('Error al cargar ingresos por hora:', error);
+                }
+            }
+
+            cargar();
+            setInterval(cargar, 20000); // se refresca solo, independiente del reload de toda la página
+        })();
+    </script>
 </body>
 </html>

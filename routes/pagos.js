@@ -6,8 +6,9 @@ const tiposEntradaDb = require('../db/tiposEntrada');
 const mp = require('../services/mercadopago');
 const { procesarPagoAprobado } = require('../services/procesarPago');
 const { generarPdfEnResponse } = require('../services/pdfEntradas');
+const { limitadorCheckout } = require('../middleware/rateLimiters');
 
-router.post('/crear-pago', async (req, res) => {
+router.post('/crear-pago', limitadorCheckout, async (req, res) => {
     const { email, nombre_apellido, cantidad, evento_id, tipo_entrada_id } = req.body;
     const cant = parseInt(cantidad);
     const eventoId = parseInt(evento_id);
