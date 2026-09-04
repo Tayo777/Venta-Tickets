@@ -4,27 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mis eventos</title>
+    <link rel="stylesheet" href="/css/theme.css">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .top-nav form { display: inline; }
-        .top-nav button { background: none; border: none; color: #636e72; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
-        .crear-link { background: #009ee3; color: white; padding: 10px 18px; border-radius: 20px; text-decoration: none; }
-        .evento-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
-        .evento-row h3 { margin: 0 0 4px 0; }
-        .evento-row p { margin: 0; color: #636e72; font-size: 0.85rem; }
-        .badge { padding: 3px 8px; border-radius: 10px; font-size: 12px; color: white; margin-left: 8px; }
-        .activo { background: #27ae60; }
-        .sin-conectar { background: #e67e22; }
-        .vacio { text-align: center; color: #999; margin-top: 60px; }
+        :root {
+            --zinc-950: #09090b;
+            --zinc-900: #18181b;
+            --zinc-800: #27272a;
+            --zinc-400: #a1a1aa;
+        }
+        body { background: var(--zinc-950); max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
+        .top-nav h1 { margin: 0; font-size: 1.4rem; }
+        .top-nav-acciones { display: flex; align-items: center; gap: 16px; }
+        .top-nav-acciones form { display: inline; }
+        .btn-logout {
+            background: none; border: none; color: var(--zinc-400); cursor: pointer; font-size: 0.88rem;
+            padding: 0; transition: color 150ms ease;
+        }
+        .btn-logout:hover { color: var(--text); }
+
+        /* Tarjeta de evento: fondo zinc-900, borde sutil, se eleva mínimamente al hover
+           (transform ya viaja en la transición global del theme, no hace falta redeclararla). */
+        .evento-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 14px;
+            padding: 18px 20px; margin-bottom: 12px; text-decoration: none; color: inherit;
+        }
+        .evento-row:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 20px -8px rgba(139, 92, 246, 0.35); }
+        .evento-row h3 { margin: 0 0 4px 0; font-size: 1.02rem; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .evento-row p { margin: 0; color: var(--zinc-400); font-size: 0.85rem; }
+
+        /* Badges tipo "neón sutil": texto brillante sobre fondo del mismo color muy oscuro/translúcido. */
+        .badge {
+            padding: 4px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+            letter-spacing: 0.02em; border: 1px solid transparent;
+        }
+        .badge.activo { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
+        .badge.sin-conectar { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
+
+        .vacio { text-align: center; color: var(--text-faint); margin-top: 60px; }
     </style>
 </head>
 <body>
     <div class="top-nav">
-        <h1 style="margin:0;">Mis eventos<% if (esAdmin) { %> (todos, sos admin)<% } %></h1>
-        <div>
-            <a class="crear-link" href="/crear-evento">+ Crear evento</a>
-            <form action="/logout" method="POST"><button type="submit">Cerrar sesión</button></form>
+        <h1>Mis eventos<% if (esAdmin) { %> <span style="color:var(--zinc-400); font-weight:400; font-size:0.9rem;">(todos, sos admin)</span><% } %></h1>
+        <div class="top-nav-acciones">
+            <a class="btn btn-primary" href="/crear-evento">+ Crear evento</a>
+            <form action="/logout" method="POST"><button class="btn-logout" type="submit">Cerrar sesión</button></form>
         </div>
     </div>
 
@@ -32,7 +59,7 @@
         <p class="vacio">Todavía no creaste ningún evento.</p>
     <% } else { %>
         <% eventos.forEach(evento => { %>
-            <a class="evento-row" href="/eventos/<%= evento.id %>" style="text-decoration:none; color:inherit; display:flex;">
+            <a class="evento-row" href="/eventos/<%= evento.id %>">
                 <div>
                     <h3><%= evento.nombre %>
                         <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Vendiendo' : 'Sin conectar MP' %></span>
