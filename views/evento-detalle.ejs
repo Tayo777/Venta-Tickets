@@ -5,16 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <% if (evento.conectado_mp) { %><meta http-equiv="refresh" content="30"><% } %>
     <title>Panel de <%= evento.nombre %></title>
+    <link rel="stylesheet" href="/css/theme.css">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-        .volver { color: #636e72; text-decoration: none; }
+        :root {
+            --zinc-900: #18181b;
+            --zinc-800: #27272a;
+            --zinc-300: #d4d4d8;
+            --zinc-400: #a1a1aa;
+        }
+        body { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .volver { color: var(--text-muted); text-decoration: none; }
         h1 { margin-bottom: 0; }
-        .subtitulo { color: #636e72; margin-top: 4px; }
-        .aviso-ok { background: #d4f8e8; color: #1a7a4c; padding: 12px 15px; border-radius: 8px; margin: 15px 0; }
+        .subtitulo { color: var(--text-muted); margin-top: 4px; }
+        .aviso-ok { background: var(--success-bg); color: var(--success); padding: 12px 15px; border-radius: 10px; margin: 15px 0; border: 1px solid rgba(52, 211, 153, 0.25); }
+
         /* Tarjeta de Mercado Pago destacada: borde violeta brillante sutil (doble capa de
            box-shadow, no un simple "border") para que resalte como EL método recomendado. */
         .conectar-box {
-            background: #12131f; color: white; padding: 30px; border-radius: 14px; margin: 20px 0;
+            background: var(--zinc-900); color: white; padding: 30px; border-radius: 14px; margin: 20px 0;
             text-align: center; position: relative;
             box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.55), 0 0 32px rgba(139, 92, 246, 0.28);
         }
@@ -25,12 +33,12 @@
             padding: 5px 14px; border-radius: 999px;
         }
         .conectar-box h2 { margin-top: 6px; }
-        .conectar-box p { color: #dfe6e9; font-size: 0.9rem; }
+        .conectar-box p { color: var(--zinc-300); font-size: 0.9rem; }
         .beneficios-mp {
             list-style: none; padding: 0; margin: 18px auto 22px; max-width: 320px;
             text-align: left; display: flex; flex-direction: column; gap: 9px;
         }
-        .beneficios-mp li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #dfe6e9; }
+        .beneficios-mp li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--zinc-300); }
         .beneficios-mp li::before { content: '✓'; color: #22d3ee; font-weight: bold; }
         .btn-mp {
             display: inline-block; background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white;
@@ -39,30 +47,63 @@
         }
         .btn-mp:hover { box-shadow: 0 0 24px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
         .btn-mp:active { transform: scale(0.97); }
+
+        /* Métricas: grid de tarjetas oscuras, borde sutil casi imperceptible salvo al mirar de cerca. */
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
-        .card { background: #f4f4f4; border-radius: 10px; padding: 15px; text-align: center; }
-        .card .numero { font-size: 1.5rem; font-weight: bold; color: #1a252c; }
-        .card .etiqueta { color: #636e72; font-size: 0.78rem; margin-top: 4px; }
-        .link-box { margin-top: 20px; background: #eaf7fe; padding: 15px; border-radius: 8px; font-size: 0.85rem; word-break: break-all; }
-        .link-box.peligro { background: #fdecea; }
-        .link-box strong { display: block; margin-bottom: 4px; }
-        .link-box .aviso { color: #c0392b; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
+        .card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 12px; padding: 16px; text-align: center; }
+        .card .numero { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+        .card .etiqueta { color: var(--zinc-400); font-size: 0.78rem; margin-top: 4px; }
+
+        /* Link de venta pública: informativo, tono neutro-acento. */
+        .link-box { margin-top: 20px; background: var(--zinc-900); border: 1px solid var(--zinc-800); padding: 15px; border-radius: 12px; font-size: 0.85rem; word-break: break-all; }
+        .link-box a { color: var(--accent-2); }
+        .link-box strong { display: block; margin-bottom: 4px; color: var(--text); }
+        /* Link del guardia: rojo oscuro/translúcido, para que se lea como "manejar con cuidado". */
+        .link-box.peligro { background: rgba(248, 113, 113, 0.08); border-color: rgba(248, 113, 113, 0.35); }
+        .link-box.peligro a { color: #fca5a5; }
+        .link-box .aviso { color: #fca5a5; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
+
         .acciones { display: flex; gap: 10px; margin-top: 25px; }
-        .acciones button, .acciones a { flex: 1; padding: 10px; border-radius: 6px; text-align: center; text-decoration: none; cursor: pointer; border: none; font-size: 0.9rem; }
-        .btn-editar { background: #636e72; color: white; }
-        .btn-eliminar { background: #c0392b; color: white; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; }
-        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
-        .nota { text-align: center; color: #b2bec3; font-size: 0.8rem; margin-top: 20px; }
-        .panel-op { border: 1px solid #dfe6e9; border-radius: 10px; padding: 15px; margin-top: 20px; }
-        .panel-op h3 { margin-top: 0; }
+        .acciones button, .acciones a { flex: 1; padding: 10px; border-radius: 999px; text-align: center; text-decoration: none; cursor: pointer; border: 1px solid var(--zinc-800); font-size: 0.9rem; }
+        .btn-editar { background: var(--zinc-900); color: var(--text); }
+        .btn-editar:hover { border-color: var(--accent); color: var(--accent-2); }
+        .btn-eliminar { background: var(--danger-bg); color: var(--danger); border-color: rgba(248, 113, 113, 0.3); }
+        .btn-eliminar:hover { background: rgba(248, 113, 113, 0.16); }
+
+        /* Tabla de ventas: fondo transparente, fila resaltada al pasar el mouse. */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; background: transparent; }
+        th { text-align: left; padding: 8px; color: var(--zinc-400); font-weight: 600; border-bottom: 1px solid var(--zinc-800); }
+        td { text-align: left; padding: 8px; color: var(--zinc-300); border-bottom: 1px solid var(--zinc-800); }
+        tbody tr:hover, table tr:hover td { background: var(--zinc-900); }
+
+        .nota { text-align: center; color: var(--text-faint); font-size: 0.8rem; margin-top: 20px; }
+
+        /* Módulos de acción (cortesía / reenvío / export): misma tarjeta oscura que las métricas. */
+        .panel-op { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 12px; padding: 18px; margin-top: 20px; }
+        .panel-op h3 { margin-top: 0; color: var(--text); }
         .panel-op .fila { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-        .panel-op input { flex: 1; min-width: 120px; padding: 8px; box-sizing: border-box; }
-        .panel-op button { padding: 8px 14px; border: none; border-radius: 6px; background: #1a252c; color: white; cursor: pointer; }
-        .btn-export { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 6px; background: #00b894; color: white; text-decoration: none; font-size: 0.85rem; }
-        /* Advertencia bien visible (bordes resaltados) para el reenvío de QR: el pedido más
-           común de soporte el día del evento es "no me llegó el mail" y casi siempre está en SPAM. */
-        .aviso-spam { border: 3px solid #e17055; background: #fff5f2; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 0.82rem; color: #d35400; font-weight: bold; }
+        .panel-op input {
+            flex: 1; min-width: 120px; background: var(--zinc-900); color: var(--text);
+            border: 1px solid var(--zinc-800); border-radius: 999px; padding: 9px 16px;
+        }
+        .panel-op button {
+            padding: 9px 18px; border: none; border-radius: 999px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; cursor: pointer; font-weight: 600;
+        }
+        .panel-op button:active { transform: scale(0.97); }
+        .btn-export {
+            display: inline-block; margin-top: 8px; padding: 9px 18px; border-radius: 999px;
+            background: transparent; color: var(--accent-2); text-decoration: none; font-size: 0.85rem;
+            border: 1px solid var(--zinc-800);
+        }
+        .btn-export:hover { border-color: var(--accent-2); background: rgba(34, 211, 238, 0.08); }
+
+        /* Aviso de SPAM: tonos mostaza/amarillo oscuro (no rojo — no es un error, es una guía). */
+        .aviso-spam {
+            border: 1px solid rgba(217, 164, 6, 0.4); background: rgba(133, 100, 4, 0.18);
+            border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-size: 0.82rem;
+            color: #facc15; font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -123,7 +164,7 @@
 
     <div class="panel-op">
         <h3>🎟️ Entradas de cortesía</h3>
-        <p style="font-size:0.82rem; color:#636e72; margin:0;">Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.</p>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.</p>
         <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
             <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
             <input type="email" name="email" placeholder="Email del invitado" required>
@@ -134,7 +175,7 @@
 
     <div class="panel-op">
         <h3>📩 Reenviar QR</h3>
-        <p style="font-size:0.82rem; color:#636e72; margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
         <form action="/eventos/<%= evento.id %>/reenviar-qr" method="POST" class="fila">
             <input type="email" name="email" placeholder="Email del comprador" required>
             <button type="submit">Reenviar</button>
@@ -148,7 +189,7 @@
 
     <div class="panel-op">
         <h3>📋 Exportación de contingencia</h3>
-        <p style="font-size:0.82rem; color:#636e72; margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
         <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
     </div>
 
