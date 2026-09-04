@@ -83,6 +83,16 @@
         /* Tamaño fijo + object-fit: contain: si el PNG todavía no existe o tarda en cargar,
            el hueco reservado no colapsa y no rompe el alto de la tarjeta. */
         .feature-icon { width: 48px; height: 48px; margin-bottom: 14px; object-fit: contain; }
+
+        .contacto-wrap { text-align: center; padding: 0 20px 70px; margin-top: -20px; }
+        .btn-contacto {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255, 255, 255, 0.03); color: var(--text-muted);
+            border: 1px solid var(--border); padding: 13px 30px; border-radius: var(--radius-full);
+            text-decoration: none; font-size: 0.92rem; font-weight: 500;
+        }
+        .btn-contacto:hover { background: var(--bg-elevated-2); border-color: var(--accent); color: var(--text); }
+
         footer { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 0.85rem; border-top: 1px solid var(--border); }
     </style>
 </head>
@@ -125,6 +135,12 @@
             <h3>Informe en vivo</h3>
             <p>Mirá cuánto vendiste y cuánta gente ya ingresó, actualizado en tiempo real.</p>
         </div>
+    </div>
+
+    <div class="contacto-wrap">
+        <a class="btn-contacto" href="https://wa.me/5493735535096?text=Hola,%20te%20escribo%20desde%20la%20p%C3%A1gina%20de%20eventos,%20me%20gustar%C3%ADa%20coordinar%20una%20consulta" target="_blank" rel="noopener noreferrer">
+            Contactanos
+        </a>
     </div>
 
     <footer>Hecho para organizadores de eventos que quieren vender simple.</footer>
