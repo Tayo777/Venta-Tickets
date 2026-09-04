@@ -4,6 +4,8 @@ const router = express.Router();
 const eventosDb = require('../db/eventos');
 const tiposEntradaDb = require('../db/tiposEntrada');
 const ticketsDb = require('../db/tickets');
+const cuponesDb = require('../db/cupones');
+const comprasDb = require('../db/compras');
 const mp = require('../services/mercadopago');
 const { subirImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
@@ -74,8 +76,9 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
     }
 });
 
-router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, (req, res) => {
-    res.render('editar-evento', { evento: req.evento, error: null, usuarioLogueado: true });
+router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
+    res.render('editar-evento', { evento: req.evento, error: null, cupones, errorCupon: null, usuarioLogueado: true });
 });
 
 router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single('flyer'), async (req, res) => {
@@ -88,8 +91,46 @@ router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single(
         res.redirect(`/eventos/${req.evento.id}`);
     } catch (error) {
         console.error('Error al editar el evento:', error);
-        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.', usuarioLogueado: true });
+        const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
+        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.', cupones, errorCupon: null, usuarioLogueado: true });
     }
+});
+
+// --- Gestión de cupones del evento (misma pantalla de edición) ---
+
+router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const { codigo, tipo, valor, usos_maximos } = req.body;
+    const valorNum = Number(valor);
+    const usosMaximosNum = usos_maximos ? parseInt(usos_maximos) : null;
+
+    const renderConError = async (mensaje) => {
+        const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
+        res.render('editar-evento', { evento: req.evento, error: null, cupones, errorCupon: mensaje, usuarioLogueado: true });
+    };
+
+    if (!codigo || !String(codigo).trim()) return renderConError('Ingresá un código para el cupón.');
+    if (tipo !== 'porcentaje' && tipo !== 'monto_fijo') return renderConError('Tipo de cupón inválido.');
+    if (!valorNum || valorNum <= 0) return renderConError('El valor del cupón tiene que ser mayor a 0.');
+    if (tipo === 'porcentaje' && valorNum > 100) return renderConError('Un descuento porcentual no puede ser mayor a 100%.');
+
+    try {
+        await cuponesDb.crearCupon({ eventoId: req.evento.id, codigo, tipo, valor: valorNum, usosMaximos: usosMaximosNum });
+        res.redirect(`/eventos/${req.evento.id}/editar`);
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return renderConError(`Ya existe un cupón con el código "${String(codigo).trim().toUpperCase()}".`);
+        console.error('Error al crear el cupón:', error);
+        renderConError('No se pudo crear el cupón.');
+    }
+});
+
+router.post('/eventos/:id/cupones/:cuponId/toggle', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    await cuponesDb.toggleActivo(req.params.cuponId, req.evento.id);
+    res.redirect(`/eventos/${req.evento.id}/editar`);
+});
+
+router.post('/eventos/:id/cupones/:cuponId/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    await cuponesDb.eliminarCupon(req.params.cuponId, req.evento.id);
+    res.redirect(`/eventos/${req.evento.id}/editar`);
 });
 
 router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
@@ -191,6 +232,18 @@ router.get('/api/eventos/:id/ingresos-hora', requiereLogin, esDueñoOAdmin, asyn
     } catch (error) {
         console.error('Error al calcular ingresos por hora:', error);
         res.status(500).json({ error: 'No se pudo calcular el flujo de ingreso.' });
+    }
+});
+
+// Ventas por día (para el gráfico de líneas de Chart.js del panel). JSON liviano: solo
+// {fecha, entradas_vendidas, monto_total} por cada día que tuvo al menos una venta.
+router.get('/api/eventos/:id/grafico-ventas', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    try {
+        const datos = await comprasDb.obtenerVentasPorFecha(req.evento.id);
+        res.json({ datos });
+    } catch (error) {
+        console.error('Error al calcular el gráfico de ventas:', error);
+        res.status(500).json({ error: 'No se pudo calcular el gráfico de ventas.' });
     }
 });
 

@@ -41,31 +41,38 @@ async function intercambiarCodigoOAuth(code) {
 // Crea la preferencia de pago usando el Access Token PROPIO del organizador (el dinero entra
 // directo a su cuenta), con marketplace_fee = comisión de la plataforma, que Mercado Pago
 // transfiere sola a tu cuenta en cada venta.
-async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, cantidad }) {
-    const subtotal = Number(tipoEntrada.precio) * cantidad;
+async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, cantidad, descuentoTotal = 0, cuponCodigo = null }) {
+    const subtotalBruto = Number(tipoEntrada.precio) * cantidad;
+    // El descuento del cupón ya viene validado y calculado por db/cupones.js (ver /crear-pago
+    // en routes/pagos.js) — acá solo se aplica, nunca se recalcula ni se confía en un valor
+    // que pudiera venir del navegador.
+    const subtotal = Math.max(subtotalBruto - Number(descuentoTotal || 0), 0);
     const tarifaTotal = Number(evento.tarifa_online) * cantidad;
     const total = subtotal + tarifaTotal;
 
-    // Nuestra comisión: 3% (comision_propia_pct) del valor de la entrada, fijado al crear el evento.
-    const nuestraComision = Math.round(Number(tipoEntrada.precio) * cantidad * Number(evento.comision_propia_pct) / 100);
+    // Nuestra comisión: % (comision_propia_pct) sobre lo que el organizador REALMENTE cobra
+    // por las entradas (ya con el cupón aplicado), no sobre el precio de lista.
+    const nuestraComision = Math.round(subtotal * Number(evento.comision_propia_pct) / 100);
 
     // external_reference viaja pegado al pago DENTRO de Mercado Pago (no depende de que el
     // navegador vuelva a /success), así el job de reconciliación puede reconstruir a quién
     // hay que entregarle las entradas aunque el redirect nunca haya llegado a pasar.
     const referenciaExterna = JSON.stringify({
-        eventoId: evento.id, tipoEntradaId: tipoEntrada.id, email, nombreApellido: nombreApellido || '', cantidad
+        eventoId: evento.id, tipoEntradaId: tipoEntrada.id, email, nombreApellido: nombreApellido || '', cantidad,
+        descuentoTotal: Number(descuentoTotal || 0), cuponCodigo: cuponCodigo || null
     });
 
+    const tituloCupon = cuponCodigo ? ` (cupón ${cuponCodigo})` : '';
     const eventoClient = new MercadoPagoConfig({ accessToken: evento.mp_access_token });
     const preference = new Preference(eventoClient);
     const result = await preference.create({
         body: {
-            items: [{ title: `${evento.nombre} - ${tipoEntrada.nombre} x ${cantidad}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
+            items: [{ title: `${evento.nombre} - ${tipoEntrada.nombre} x ${cantidad}${tituloCupon}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
             payer: { email },
             marketplace_fee: nuestraComision,
             external_reference: referenciaExterna,
             back_urls: {
-                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}&tipo_entrada_id=${tipoEntrada.id}`,
+                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}&tipo_entrada_id=${tipoEntrada.id}&descuento=${Number(descuentoTotal || 0)}&cupon=${encodeURIComponent(cuponCodigo || '')}`,
                 failure: `${BASE_URL}/evento/${evento.id}`,
                 pending: `${BASE_URL}/evento/${evento.id}`
             },

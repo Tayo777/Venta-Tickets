@@ -108,6 +108,11 @@
             background: linear-gradient(90deg, var(--accent), var(--accent-2));
         }
         .fila-hora .valor-hora { width: 26px; flex-shrink: 0; color: var(--text); font-weight: 600; }
+
+        /* Tarjeta del gráfico de Chart.js: mismo fondo zinc-900 de las demás, pero con una
+           sombra suave propia (las otras tarjetas del panel solo llevan borde). */
+        .grafico-card { box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.6); }
+        .grafico-lienzo { position: relative; height: 220px; margin-top: 10px; }
         .btn-export {
             display: inline-block; margin-top: 8px; padding: 9px 18px; border-radius: 999px;
             background: transparent; color: var(--accent-2); text-decoration: none; font-size: 0.85rem;
@@ -122,6 +127,7 @@
             color: #facc15; font-weight: 600;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <%- include('partials/navbar') %>
@@ -165,6 +171,13 @@
             <h3>📈 Flujo de ingreso por hora</h3>
             <div id="flujo-ingreso-grafico" class="grafico-horas">
                 <p style="color:var(--zinc-400); font-size:0.85rem; margin:0;">Cargando...</p>
+            </div>
+        </div>
+
+        <div class="panel-op grafico-card">
+            <h3>📊 Ventas en el tiempo</h3>
+            <div class="grafico-lienzo">
+                <canvas id="graficoVentas"></canvas>
             </div>
         </div>
 
@@ -290,6 +303,97 @@
 
             cargar();
             setInterval(cargar, 20000); // se refresca solo, independiente del reload de toda la página
+        })();
+    </script>
+
+    <script>
+        // Gráfico de líneas de ventas en el tiempo, con Chart.js. Paleta pensada para calzar
+        // con el Dark Mode Premium del resto del panel: línea en el color de acento, ejes y
+        // textos en gris tenue, sin grilla invasiva (solo una línea horizontal muy sutil).
+        (function () {
+            const canvas = document.getElementById('graficoVentas');
+            if (!canvas || typeof Chart === 'undefined') return; // evento sin MP conectado, o el CDN no cargó
+
+            const ESTILOS = getComputedStyle(document.documentElement);
+            const COLOR_ACENTO = ESTILOS.getPropertyValue('--accent').trim() || '#8b5cf6';
+            const COLOR_ACENTO_2 = ESTILOS.getPropertyValue('--accent-2').trim() || '#22d3ee';
+            const COLOR_TEXTO_TENUE = '#a1a1aa'; // text-zinc-400
+            const COLOR_GRILLA = 'rgba(161, 161, 170, 0.08)'; // casi invisible, solo una guía leve
+
+            let grafico = null;
+
+            async function cargar() {
+                try {
+                    const resp = await fetch('/api/eventos/<%= evento.id %>/grafico-ventas');
+                    const { datos } = await resp.json();
+
+                    const etiquetas = (datos || []).map((d) =>
+                        new Date(d.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+                    );
+                    const valores = (datos || []).map((d) => Number(d.entradas_vendidas));
+
+                    if (grafico) grafico.destroy();
+                    grafico = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: etiquetas,
+                            datasets: [{
+                                label: 'Entradas vendidas',
+                                data: valores,
+                                borderColor: COLOR_ACENTO,
+                                backgroundColor: (ctx) => {
+                                    // Relleno degradado sutil bajo la línea, en vez de un bloque sólido.
+                                    const { chartArea, ctx: c } = ctx.chart;
+                                    if (!chartArea) return 'transparent';
+                                    const gradiente = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                    gradiente.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
+                                    gradiente.addColorStop(1, 'rgba(139, 92, 246, 0)');
+                                    return gradiente;
+                                },
+                                fill: true,
+                                tension: 0.35, // línea curva y fluida, no quebrada
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointBackgroundColor: COLOR_ACENTO_2,
+                                pointBorderColor: COLOR_ACENTO_2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }, // un solo dataset: la leyenda no aporta nada
+                                tooltip: {
+                                    backgroundColor: '#18181b',
+                                    borderColor: '#27272a',
+                                    borderWidth: 1,
+                                    titleColor: '#f4f4f5',
+                                    bodyColor: COLOR_TEXTO_TENUE,
+                                    padding: 10,
+                                    displayColors: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false }, // sin grilla vertical: se ve mucho más limpio
+                                    ticks: { color: COLOR_TEXTO_TENUE, font: { size: 11 } }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: COLOR_GRILLA, drawTicks: false },
+                                    border: { display: false },
+                                    ticks: { color: COLOR_TEXTO_TENUE, font: { size: 11 }, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error al cargar el gráfico de ventas:', error);
+                }
+            }
+
+            cargar();
+            setInterval(cargar, 30000);
         })();
     </script>
 </body>

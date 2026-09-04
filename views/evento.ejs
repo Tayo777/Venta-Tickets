@@ -15,6 +15,19 @@
         .summary h3 { margin-top: 0; }
         button { width: 100%; font-size: 1rem; padding: 13px; }
         .volver { display: inline-block; margin-bottom: 15px; color: var(--text-muted); text-decoration: none; }
+
+        .cupon-fila { display: flex; gap: 8px; align-items: stretch; }
+        .cupon-fila input { flex: 1; text-transform: uppercase; transition: border-color 150ms ease, box-shadow 150ms ease; }
+        .cupon-fila input.aplicado { border-color: var(--success); }
+        .cupon-fila input.rechazado { border-color: var(--danger); }
+        .cupon-fila button { width: auto; white-space: nowrap; padding: 0 18px; font-size: 0.88rem; }
+        .cupon-mensaje { font-size: 0.84rem; margin: 8px 0 0; font-weight: 600; }
+        .cupon-mensaje.ok { color: var(--success); }
+        .cupon-mensaje.error { color: var(--danger); }
+
+        .summary p { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; color: var(--text-muted); font-size: 0.92rem; }
+        .summary p.fila-total { color: var(--text); font-size: 1.05rem; font-weight: 700; margin-top: 10px; }
+        .summary p.fila-descuento { color: var(--success); }
     </style>
 </head>
 <body>
@@ -58,12 +71,23 @@
             </select>
         </div>
 
+        <div class="form-group">
+            <label for="cupon_input">¿Tenés un cupón de descuento?</label>
+            <div class="cupon-fila">
+                <input type="text" id="cupon_input" placeholder="Código del cupón">
+                <button type="button" class="btn btn-ghost" id="btnAplicarCupon">Aplicar cupón</button>
+            </div>
+            <p id="cuponMensaje" class="cupon-mensaje" hidden></p>
+        </div>
+        <input type="hidden" name="cupon_codigo" id="cupon_codigo_hidden" value="">
+
         <div class="summary card">
             <h3>Detalle del Pago:</h3>
-            <p>Valor entrada unitario: $<span id="valEntrada"></span></p>
-            <p>Tarifa online unitaria: $<span id="valTarifa"><%= evento.tarifa_online %></span></p>
+            <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal"></span></span></p>
+            <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento"></span></span></p>
+            <p><span>Tarifa online</span> <span>$<span id="valTarifa"></span></span></p>
             <hr style="border-color:var(--border);">
-            <p><strong>Total a pagar: $<span id="totalPagar"></span></strong></p>
+            <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar"></span></span></p>
         </div>
 
         <button class="btn btn-primary" type="submit" style="margin-top: 15px;">Pagar con Mercado Pago</button>
@@ -71,15 +95,93 @@
 
     <script>
         const tarifaOnline = <%= evento.tarifa_online %>;
+        const eventoId = <%= evento.id %>;
+        let cuponAplicado = null; // { codigo, tipo, valor, descuento } — null si no hay ninguno vigente
 
         function calcularTotal() {
             const select = document.getElementById('tipo_entrada_id');
             const precio = Number(select.options[select.selectedIndex].dataset.precio);
-            const cantidad = document.getElementById('cantidad').value;
-            document.getElementById('valEntrada').innerText = precio;
-            document.getElementById('totalPagar').innerText = (precio + tarifaOnline) * cantidad;
+            const cantidad = Number(document.getElementById('cantidad').value);
+
+            const subtotal = precio * cantidad;
+            const tarifaTotal = tarifaOnline * cantidad;
+            document.getElementById('valSubtotal').innerText = subtotal.toFixed(2);
+            document.getElementById('valTarifa').innerText = tarifaTotal.toFixed(2);
+
+            const filaDescuento = document.getElementById('filaDescuento');
+            let subtotalConDescuento = subtotal;
+            if (cuponAplicado) {
+                subtotalConDescuento = Math.max(subtotal - cuponAplicado.descuento, 0);
+                document.getElementById('valDescuento').innerText = cuponAplicado.descuento.toFixed(2);
+                filaDescuento.hidden = false;
+            } else {
+                filaDescuento.hidden = true;
+            }
+
+            document.getElementById('totalPagar').innerText = (subtotalConDescuento + tarifaTotal).toFixed(2);
         }
         calcularTotal();
+
+        function marcarInputCupon(estado) {
+            const input = document.getElementById('cupon_input');
+            input.classList.remove('aplicado', 'rechazado');
+            if (estado) input.classList.add(estado);
+        }
+
+        // Valida el cupón contra el servidor (nunca se calcula el descuento del lado del
+        // cliente) y actualiza el total en pantalla al toque. Se repite automáticamente si
+        // el comprador cambia el tipo de entrada o la cantidad DESPUÉS de aplicar un cupón,
+        // así el número que ve siempre está anclado a lo que el servidor va a cobrar de verdad.
+        async function aplicarCupon() {
+            const codigo = document.getElementById('cupon_input').value.trim();
+            const mensaje = document.getElementById('cuponMensaje');
+            if (!codigo) return;
+
+            const tipoEntradaId = document.getElementById('tipo_entrada_id').value;
+            const cantidad = document.getElementById('cantidad').value;
+
+            mensaje.hidden = false;
+            mensaje.className = 'cupon-mensaje';
+            mensaje.textContent = 'Validando cupón...';
+
+            try {
+                const resp = await fetch(`/api/eventos/${eventoId}/validar-cupon`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo, tipo_entrada_id: tipoEntradaId, cantidad })
+                });
+                const data = await resp.json();
+
+                if (!data.valido) {
+                    cuponAplicado = null;
+                    document.getElementById('cupon_codigo_hidden').value = '';
+                    mensaje.textContent = '❌ ' + data.motivo;
+                    mensaje.classList.add('error');
+                    marcarInputCupon('rechazado');
+                } else {
+                    cuponAplicado = { codigo, tipo: data.tipo, valor: data.valor, descuento: data.descuento };
+                    document.getElementById('cupon_codigo_hidden').value = codigo;
+
+                    const etiquetaDescuento = data.tipo === 'porcentaje'
+                        ? `-${data.valor}%`
+                        : `-$${data.descuento.toFixed(2)}`;
+                    mensaje.textContent = `✅ ¡Cupón aplicado con éxito! ${etiquetaDescuento}`;
+                    mensaje.classList.add('ok');
+                    marcarInputCupon('aplicado');
+                }
+            } catch (error) {
+                mensaje.hidden = false;
+                mensaje.textContent = '❌ No se pudo validar el cupón, probá de nuevo.';
+                mensaje.classList.add('error');
+                marcarInputCupon('rechazado');
+            }
+            calcularTotal();
+        }
+
+        document.getElementById('btnAplicarCupon').addEventListener('click', aplicarCupon);
+        document.getElementById('cupon_input').addEventListener('input', () => marcarInputCupon(null));
+        document.getElementById('tipo_entrada_id').addEventListener('change', () => { if (cuponAplicado) aplicarCupon(); });
+        document.getElementById('cantidad').addEventListener('change', () => { if (cuponAplicado) aplicarCupon(); });
     </script>
     </div>
 </body>

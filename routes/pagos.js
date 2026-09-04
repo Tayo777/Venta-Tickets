@@ -3,13 +3,51 @@ const router = express.Router();
 const eventosDb = require('../db/eventos');
 const ticketsDb = require('../db/tickets');
 const tiposEntradaDb = require('../db/tiposEntrada');
+const cuponesDb = require('../db/cupones');
 const mp = require('../services/mercadopago');
 const { procesarPagoAprobado } = require('../services/procesarPago');
 const { generarPdfEnResponse } = require('../services/pdfEntradas');
 const { limitadorCheckout } = require('../middleware/rateLimiters');
 
+// Preview del cupón para el checkout: el frontend lo llama al tocar "Aplicar cupón" para
+// mostrar el descuento sin cobrar todavía. Es de solo lectura (no reserva el cupón ni lo
+// marca como usado) — la validación se repite igual, en serio, en /crear-pago justo antes
+// de cobrar, porque nunca hay que confiar en un descuento calculado del lado del cliente.
+router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
+    const eventoId = parseInt(req.params.id);
+    const { codigo, tipo_entrada_id, cantidad } = req.body;
+    const cant = parseInt(cantidad) || 1;
+
+    try {
+        const evento = await eventosDb.obtenerEvento(eventoId);
+        const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(parseInt(tipo_entrada_id));
+        if (!evento || !tipoEntrada || tipoEntrada.evento_id !== eventoId) {
+            return res.status(404).json({ valido: false, motivo: 'Tipo de entrada no encontrado.' });
+        }
+
+        const subtotal = Number(tipoEntrada.precio) * cant;
+        const resultado = await cuponesDb.validarCupon(codigo, eventoId, subtotal);
+        if (!resultado.valido) return res.json(resultado);
+
+        const tarifaTotal = Number(evento.tarifa_online) * cant;
+        res.json({
+            valido: true,
+            motivo: null,
+            tipo: resultado.cupon.tipo,
+            valor: Number(resultado.cupon.valor),
+            subtotal,
+            descuento: resultado.descuento,
+            nuevoSubtotal: resultado.nuevoSubtotal,
+            nuevoTotal: resultado.nuevoSubtotal + tarifaTotal
+        });
+    } catch (error) {
+        console.error('Error al validar cupón:', error);
+        res.status(500).json({ valido: false, motivo: 'Error al validar el cupón.' });
+    }
+});
+
 router.post('/crear-pago', limitadorCheckout, async (req, res) => {
-    const { email, nombre_apellido, cantidad, evento_id, tipo_entrada_id } = req.body;
+    const { email, nombre_apellido, cantidad, evento_id, tipo_entrada_id, cupon_codigo } = req.body;
     const cant = parseInt(cantidad);
     const eventoId = parseInt(evento_id);
     const tipoEntradaId = parseInt(tipo_entrada_id);
@@ -41,8 +79,25 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
         return res.status(409).send(`Ya no quedan suficientes entradas "${tipoEntrada.nombre}" disponibles (quedan ${tipoEntrada.cupo_disponible}).`);
     }
 
+    // Re-validación del cupón ACÁ, del lado del servidor, justo antes de cobrar — el preview
+    // de /api/eventos/:id/validar-cupon es solo para mostrarle algo al usuario; el descuento
+    // que de verdad se cobra sale de esta validación, nunca de un número que mandó el navegador.
+    let descuentoTotal = 0;
+    let cuponCodigo = null;
+    if (cupon_codigo && String(cupon_codigo).trim()) {
+        const subtotalSinDescuento = Number(tipoEntrada.precio) * cant;
+        const resultadoCupon = await cuponesDb.validarCupon(cupon_codigo, eventoId, subtotalSinDescuento);
+        if (!resultadoCupon.valido) {
+            return res.status(400).send(resultadoCupon.motivo);
+        }
+        descuentoTotal = resultadoCupon.descuento;
+        cuponCodigo = resultadoCupon.cupon.codigo;
+    }
+
     try {
-        const urlCheckout = await mp.crearPreferencia(evento, tipoEntrada, { email, nombreApellido: nombre_apellido, cantidad: cant });
+        const urlCheckout = await mp.crearPreferencia(evento, tipoEntrada, {
+            email, nombreApellido: nombre_apellido, cantidad: cant, descuentoTotal, cuponCodigo
+        });
         res.redirect(urlCheckout);
     } catch (error) {
         console.error('Error al crear la preferencia de pago:', error);
@@ -53,11 +108,13 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
 // Página de éxito: idempotente (no duplica entradas/mails si Mercado Pago o el navegador
 // cargan esta URL más de una vez con el mismo payment_id).
 router.get('/success', async (req, res) => {
-    const { email, cant, evento_id, payment_id, nombre, tipo_entrada_id } = req.query;
+    const { email, cant, evento_id, payment_id, nombre, tipo_entrada_id, descuento, cupon } = req.query;
     const cantidadEntradas = parseInt(cant) || 1;
     const eventoId = parseInt(evento_id);
     const tipoEntradaId = parseInt(tipo_entrada_id);
     const nombreApellido = nombre || '';
+    const descuentoTotal = Number(descuento) || 0;
+    const cuponCodigo = cupon || null;
     let evento;
     let tipoEntrada;
 
@@ -85,7 +142,8 @@ router.get('/success', async (req, res) => {
     // ya la procesó antes (por ejemplo porque el servidor se reinició justo acá), no duplica nada.
     try {
         await procesarPagoAprobado({
-            evento, tipoEntrada, paymentId: payment_id, email, nombreApellido, cantidad: cantidadEntradas
+            evento, tipoEntrada, paymentId: payment_id, email, nombreApellido, cantidad: cantidadEntradas,
+            descuentoTotal, cuponCodigo
         });
     } catch (error) {
         console.error('Error al generar el PDF o registrar las entradas post-pago:', error);

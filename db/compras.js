@@ -44,4 +44,21 @@ async function ajustarTarifaConDatosReales(eventoId) {
     console.log(`Tarifa del evento ${eventoId} ajustada con datos reales: ${comisionMpPct.toFixed(2)}% MP (${muestras} venta/s con datos)`);
 }
 
-module.exports = { yaProcesada, registrarCompra, guardarComisionReal, ajustarTarifaConDatosReales };
+// Ventas agrupadas por día, para el gráfico de líneas del panel del organizador. Se agrupa
+// sobre `compras` (una fila por PAGO) y no sobre `tickets` (una fila por entrada individual)
+// porque acá interesa la evolución de las ventas en el tiempo, no el detalle de cada ticket.
+async function obtenerVentasPorFecha(eventoId) {
+    const [filas] = await pool.query(
+        `SELECT DATE(fecha_compra) AS fecha, SUM(cantidad) AS entradas_vendidas, SUM(monto_total) AS monto_total
+         FROM compras
+         WHERE evento_id = ?
+         GROUP BY DATE(fecha_compra)
+         ORDER BY fecha`,
+        [eventoId]
+    );
+    return filas;
+}
+
+module.exports = {
+    yaProcesada, registrarCompra, guardarComisionReal, ajustarTarifaConDatosReales, obtenerVentasPorFecha
+};

@@ -13,6 +13,33 @@
         input, textarea { width: 100%; font-family: inherit; }
         textarea { resize: vertical; min-height: 70px; }
         img { max-width: 200px; display: block; margin-bottom: 10px; border-radius: var(--radius-md); }
+
+        .seccion-cupones { margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border); }
+        .form-cupon { padding: 18px; margin-bottom: 20px; }
+        .form-cupon .fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 12px; }
+        .form-cupon label { font-size: 0.8rem; }
+
+        .lista-cupones { display: flex; flex-direction: column; gap: 10px; }
+        .cupon-card {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 14px 16px;
+        }
+        .cupon-card.inactivo { opacity: 0.55; }
+        .cupon-info code {
+            background: var(--bg-elevated-2); color: var(--accent-2); padding: 3px 8px;
+            border-radius: 6px; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.02em;
+        }
+        .cupon-info .detalle { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
+        .cupon-acciones { display: flex; gap: 6px; flex-shrink: 0; }
+        .cupon-acciones form { margin: 0; }
+        .cupon-acciones button {
+            border: 1px solid var(--border); background: var(--bg-elevated-2); color: var(--text);
+            border-radius: var(--radius-full); padding: 6px 14px; font-size: 0.78rem; cursor: pointer;
+        }
+        .cupon-acciones button.eliminar { color: #fca5a5; }
+        .cupon-acciones button.eliminar:hover { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.35); }
+        .cupon-acciones button.activar:hover, .cupon-acciones button.desactivar:hover { border-color: var(--accent); color: var(--accent-2); }
+        .vacio-cupones { color: var(--text-faint); font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -56,6 +83,66 @@
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;">Guardar cambios</button>
     </form>
+
+    <div class="seccion-cupones">
+        <h2>🎟️ Gestión de Cupones</h2>
+        <p style="color:var(--text-muted); font-size:0.88rem;">Creá códigos de descuento válidos solo para este evento.</p>
+
+        <% if (errorCupon) { %><div class="alerta-error" style="margin-bottom:15px;"><%= errorCupon %></div><% } %>
+
+        <form class="form-cupon card" action="/eventos/<%= evento.id %>/cupones" method="POST">
+            <div class="fila">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Código</label>
+                    <input type="text" name="codigo" placeholder="VERANO2026" required style="text-transform:uppercase;">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Tipo de descuento</label>
+                    <select name="tipo" required>
+                        <option value="porcentaje">Porcentaje (%)</option>
+                        <option value="monto_fijo">Monto fijo ($)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Valor</label>
+                    <input type="number" name="valor" min="1" step="0.01" placeholder="Ej: 15" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Usos máximos</label>
+                    <input type="number" name="usos_maximos" min="1" placeholder="Sin límite">
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%;">+ Crear cupón</button>
+        </form>
+
+        <% if (cupones.length === 0) { %>
+            <p class="vacio-cupones">Todavía no creaste ningún cupón para este evento.</p>
+        <% } else { %>
+            <div class="lista-cupones">
+                <% cupones.forEach(c => { %>
+                    <div class="cupon-card card <%= c.activo ? '' : 'inactivo' %>">
+                        <div class="cupon-info">
+                            <code><%= c.codigo %></code>
+                            <div class="detalle">
+                                <%= c.tipo === 'porcentaje' ? `${Number(c.valor)}% de descuento` : `$${Number(c.valor)} de descuento` %>
+                                · Usado <%= c.usos_actuales %><%= c.usos_maximos ? ` / ${c.usos_maximos}` : ' (sin límite)' %>
+                                · <%= c.activo ? 'Activo' : 'Desactivado' %>
+                            </div>
+                        </div>
+                        <div class="cupon-acciones">
+                            <form action="/eventos/<%= evento.id %>/cupones/<%= c.id %>/toggle" method="POST">
+                                <button type="submit" class="<%= c.activo ? 'desactivar' : 'activar' %>"><%= c.activo ? 'Desactivar' : 'Activar' %></button>
+                            </form>
+                            <form action="/eventos/<%= evento.id %>/cupones/<%= c.id %>/eliminar" method="POST"
+                                  onsubmit="return confirm('¿Borrar el cupón <%= c.codigo %>? No se puede deshacer.');">
+                                <button type="submit" class="eliminar">Borrar</button>
+                            </form>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
     </div>
 </body>
 </html>

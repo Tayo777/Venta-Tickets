@@ -134,6 +134,24 @@ async function inicializarDB() {
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )`);
 
+    // Cupones de descuento. evento_id NULL = cupón global (sirve para cualquier evento);
+    // con evento_id seteado, el cupón solo es válido para ESE evento puntual. usos_maximos
+    // NULL = sin límite de usos. La validación (existe/activo/no vencido/no agotado) vive en
+    // db/cupones.js, se corre ANTES de cobrar (en /crear-pago) — nunca se confía en un
+    // descuento calculado del lado del cliente.
+    await pool.query(`CREATE TABLE IF NOT EXISTS cupones (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        evento_id INT NULL,
+        codigo VARCHAR(50) NOT NULL UNIQUE,
+        tipo VARCHAR(20) NOT NULL,
+        valor DECIMAL(10,2) NOT NULL,
+        usos_maximos INT NULL,
+        usos_actuales INT NOT NULL DEFAULT 0,
+        activo TINYINT(1) NOT NULL DEFAULT 1,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
     // Migración: columnas del sistema de Marketplace/OAuth y de comisión real post-pago.
     // Se agregan solas si la tabla ya existía de antes (no rompe instalaciones previas).
     await agregarColumnaSiNoExiste('eventos', 'descripcion', 'TEXT');
@@ -183,7 +201,7 @@ async function inicializarDB() {
     // si ya está en VARCHAR(40) o más, MySQL no hace nada.
     await pool.query(`ALTER TABLE tickets MODIFY COLUMN id VARCHAR(40) NOT NULL`);
 
-    console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras).');
+    console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones).');
 }
 
 module.exports = { pool, poolCallback, inicializarDB, agregarColumnaSiNoExiste };

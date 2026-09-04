@@ -71,7 +71,8 @@ async function reconciliarUnPago(evento, pago) {
     console.log(`[reconciliarPagos] Recuperando pago pendiente ${paymentId} del evento ${evento.nombre} (nunca llegó a /success).`);
     await procesarPagoAprobado({
         evento, tipoEntrada, paymentId,
-        email: datos.email, nombreApellido: datos.nombreApellido, cantidad: datos.cantidad
+        email: datos.email, nombreApellido: datos.nombreApellido, cantidad: datos.cantidad,
+        descuentoTotal: datos.descuentoTotal || 0, cuponCodigo: datos.cuponCodigo || null
     });
 }
 

@@ -1,5 +1,6 @@
 const comprasDb = require('../db/compras');
 const ticketsDb = require('../db/tickets');
+const cuponesDb = require('../db/cupones');
 const mp = require('./mercadopago');
 const { enviarMailBrevo } = require('./brevo');
 const { enviarNotificacionTelegram } = require('./telegram');
@@ -10,7 +11,7 @@ const { generarPdfBuffer } = require('./pdfEntradas');
 // llamar tanto desde /success (redirect del navegador) como desde el job de reconciliación
 // (services/reconciliarPagos.js) sin duplicar entradas ni mails si ambos caminos procesan
 // el mismo pago.
-async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nombreApellido, cantidad }) {
+async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nombreApellido, cantidad, descuentoTotal = 0, cuponCodigo = null }) {
     const yaProcesado = await comprasDb.yaProcesada(paymentId);
     if (yaProcesado) {
         return { yaProcesado: true };
@@ -21,7 +22,9 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
     // tiempo), dos llamadas pueden pasar el "yaProcesada" en false antes de que ninguna haya
     // insertado todavía. El INDEX UNIQUE de compras.payment_id es la red de seguridad real:
     // la segunda va a fallar acá con ER_DUP_ENTRY, y eso es lo que atrapamos.
-    const montoTotal = (Number(tipoEntrada.precio) + Number(evento.tarifa_online)) * cantidad;
+    // montoTotal ya refleja el descuento del cupón (si hubo uno) — es lo que REALMENTE se cobró.
+    const montoTotal = Math.max((Number(tipoEntrada.precio) * cantidad) - Number(descuentoTotal || 0), 0)
+        + (Number(evento.tarifa_online) * cantidad);
     try {
         await comprasDb.registrarCompra({ paymentId, eventoId: evento.id, email, cantidad, montoTotal });
     } catch (error) {
@@ -41,6 +44,16 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
             nombreApellido, paymentId
         });
         console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre}, tipo: ${tipoEntrada.nombre})`);
+
+        // Contador informativo del cupón (ver db/cupones.js): recién ahora, con el pago YA
+        // confirmado y las entradas YA generadas, tiene sentido sumarle un uso.
+        if (cuponCodigo) {
+            try {
+                await cuponesDb.incrementarUso(cuponCodigo);
+            } catch (cuponError) {
+                console.error(`No se pudo incrementar el uso del cupón ${cuponCodigo}:`, cuponError.message);
+            }
+        }
 
         const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos: listaCodigos });
 
