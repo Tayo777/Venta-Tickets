@@ -188,17 +188,31 @@ router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (re
     try {
         const ventas = await eventosDb.listadoVentas(req.evento.id);
 
-        const escaparCsv = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
-        const encabezados = ['ID entrada', 'Nombre y apellido', 'Email', 'Tipo de entrada', 'Origen', 'Estado', 'Fecha de compra', 'Fecha escaneada'];
+        const DELIMITADOR = ';'; // Excel en español separa columnas por ";", no por ","
+        // Solo entrecomilla si el valor lo necesita (trae el delimitador, comillas o un salto
+        // de línea) — así el CSV queda limpio en vez de "todo"-entrecomillado.
+        const escaparCsv = (valor) => {
+            const texto = String(valor ?? '');
+            const necesitaComillas = texto.includes(DELIMITADOR) || texto.includes('"') || texto.includes('\n') || texto.includes('\r');
+            return necesitaComillas ? `"${texto.replace(/"/g, '""')}"` : texto;
+        };
+
+        const encabezados = ['ID Entrada', 'Estado', 'Nombre y Apellido', 'Email', 'Tipo de entrada', 'Origen', 'Fecha de compra', 'Fecha escaneada'];
         const filas = ventas.map((v) => [
-            v.id_entrada, v.nom_y_apellido || '', v.email || '', v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : ''),
-            v.origen, v.estado_entrada,
+            v.id_entrada,
+            v.estado_entrada === 'Usada' ? 'Usada' : 'No usada',
+            v.nom_y_apellido || '',
+            v.email || '',
+            v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : ''),
+            v.origen,
             v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '',
             v.fecha_y_hora_escaneada ? new Date(v.fecha_y_hora_escaneada).toLocaleString('es-AR') : ''
-        ].map(escaparCsv).join(','));
+        ].map(escaparCsv).join(DELIMITADOR));
 
-        // BOM al inicio para que Excel abra los acentos/ñ bien en UTF-8.
-        const csv = '﻿' + [encabezados.map(escaparCsv).join(','), ...filas].join('\r\n');
+        // BOM UTF-8 explícito al inicio para que Excel detecte la codificación y muestre
+        // acentos/ñ correctamente (sin esto, Excel a veces asume Latin-1 y los rompe).
+        const BOM = '\uFEFF';
+        const csv = BOM + [encabezados.map(escaparCsv).join(DELIMITADOR), ...filas].join('\r\n');
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="asistentes_evento_${req.evento.id}.csv"`);
