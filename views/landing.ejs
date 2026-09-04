@@ -62,10 +62,12 @@
             max-width: 900px; margin: 0 auto; padding: 70px 20px;
             display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; text-align: center;
         }
-        .features .card { padding: 28px 20px; }
+        .features .card { padding: 28px 20px; display: flex; flex-direction: column; align-items: center; }
         .features h3 { margin: 0 0 8px; color: var(--text); }
         .features p { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
-        .emoji { font-size: 2.2rem; margin-bottom: 10px; display: block; }
+        /* Tamaño fijo + object-fit: contain: si el PNG todavía no existe o tarda en cargar,
+           el hueco reservado no colapsa y no rompe el alto de la tarjeta. */
+        .feature-icon { width: 48px; height: 48px; margin-bottom: 14px; object-fit: contain; }
         footer { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 0.85rem; border-top: 1px solid var(--border); }
     </style>
 </head>
@@ -94,17 +96,17 @@
 
     <div class="features">
         <div class="card">
-            <span class="emoji">💸</span>
+            <img class="feature-icon" src="/img/icon-cobros.png" alt="Icono de cobro directo con Mercado Pago">
             <h3>Cobrás vos directo</h3>
             <p>El dinero entra a tu propia cuenta de Mercado Pago, no a la nuestra.</p>
         </div>
         <div class="card">
-            <span class="emoji">🎟️</span>
+            <img class="feature-icon" src="/img/icon-qr.png" alt="Icono de entrada con código QR">
             <h3>Entradas con QR</h3>
             <p>Cada comprador recibe su entrada por mail con un código QR único.</p>
         </div>
         <div class="card">
-            <span class="emoji">📊</span>
+            <img class="feature-icon" src="/img/icon-informe.png" alt="Icono de informe de ventas en vivo">
             <h3>Informe en vivo</h3>
             <p>Mirá cuánto vendiste y cuánta gente ya ingresó, actualizado en tiempo real.</p>
         </div>

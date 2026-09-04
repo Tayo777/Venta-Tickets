@@ -79,6 +79,18 @@ a { color: var(--accent-2); }
     letter-spacing: -0.02em;
 }
 
+/* Logo del navbar: alto fijo, ancho libre (mantiene proporción). min-width reserva lugar
+   para que el layout no "salte" mientras el archivo real todavía no existe/está cargando. */
+.navbar-logo {
+    height: 32px;
+    width: auto;
+    min-width: 32px;
+    object-fit: contain;
+}
+@media (min-width: 640px) {
+    .navbar-logo { height: 40px; }
+}
+
 .navbar-actions {
     display: flex;
     align-items: center;
