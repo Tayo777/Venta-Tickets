@@ -13,7 +13,7 @@
             --zinc-300: #d4d4d8;
             --zinc-400: #a1a1aa;
         }
-        body { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .contenedor { max-width: 800px; margin: 0 auto; padding: 30px 20px 60px; }
         .volver {
             display: inline-flex; align-items: center; gap: 6px;
             color: var(--zinc-400); text-decoration: none; font-size: 0.88rem; font-weight: 500;
@@ -112,6 +112,8 @@
     </style>
 </head>
 <body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
     <a class="volver" href="/mis-eventos">&larr; Volver a Mis Eventos</a>
     <h1><%= evento.nombre %></h1>
     <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
@@ -227,5 +229,6 @@
     <% } %>
 
     <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
+    </div>
 </body>
 </html>

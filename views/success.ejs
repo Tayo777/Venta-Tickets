@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <title>¡Pago Exitoso!</title>
+    <link rel="stylesheet" href="/css/theme.css">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; text-align: center; }
-        .btn { background: #28a745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; font-size: 16px; }
+        .contenedor { max-width: 600px; margin: 60px auto 0; padding: 20px; text-align: center; }
     </style>
 </head>
 <body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
     <h1>¡Pago realizado con éxito!</h1>
-    <p>Gracias por tu compra, <strong><%= email %></strong>.</p>
-    <p>Adquiriste <strong><%= cant %></strong> entrada(s) para <strong><%= evento.nombre %></strong>.</p>
-    
-    <a class="btn" href="/descargar-pdf?email=<%= email %>&cant=<%= cant %>">Descargar mis Entradas en PDF</a>
+    <p style="color:var(--text-muted);">Gracias por tu compra, <strong style="color:var(--text);"><%= email %></strong>.</p>
+    <p style="color:var(--text-muted);">Adquiriste <strong style="color:var(--text);"><%= cant %></strong> entrada(s) para <strong style="color:var(--text);"><%= evento.nombre %></strong>.</p>
+
+    <a class="btn btn-primary" style="margin-top:20px;" href="/descargar-pdf?email=<%= email %>&cant=<%= cant %>">Descargar mis Entradas en PDF</a>
+    </div>
 </body>
 </html>

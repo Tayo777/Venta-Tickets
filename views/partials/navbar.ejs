@@ -4,10 +4,64 @@
     </a>
     <div class="navbar-actions">
         <% if (typeof usuarioLogueado !== 'undefined' && usuarioLogueado) { %>
-            <a class="btn btn-ghost" href="/mis-eventos">Mis eventos</a>
+            <div class="profile-menu">
+                <button type="button" class="profile-trigger" id="profileTrigger" aria-haspopup="true" aria-expanded="false">
+                    <svg class="profile-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="12" cy="9.5" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M4.8 19c1.2-2.8 3.9-4.5 7.2-4.5s6 1.7 7.2 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span class="profile-name"><%= (typeof usuarioNombre !== 'undefined' && usuarioNombre) || 'Agustin Lopez' %></span>
+                    <svg class="profile-caret" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <a href="/mis-eventos">Mis eventos</a>
+                    <a href="/cobros">Configuración de Cobros</a>
+                    <a href="/perfil">Editar perfil</a>
+                    <hr>
+                    <form action="/logout" method="POST">
+                        <button type="submit" class="dropdown-logout">Cerrar sesión</button>
+                    </form>
+                </div>
+            </div>
         <% } else { %>
             <a class="btn btn-ghost" href="/login">Iniciar sesión</a>
             <a class="btn btn-primary" href="/registro">Registrarme</a>
         <% } %>
     </div>
 </nav>
+
+<script>
+    // Toggle del menú de perfil + cierre al hacer click afuera. Vanilla JS, sin dependencias.
+    // Vive acá (no en un .js aparte) porque es un comportamiento propio de ESTE componente.
+    (function () {
+        const trigger = document.getElementById('profileTrigger');
+        if (!trigger) return; // no hay sesión iniciada en esta página: no existe el dropdown
+
+        const dropdown = document.getElementById('profileDropdown');
+
+        function abrir() {
+            dropdown.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+        }
+        function cerrar() {
+            dropdown.classList.remove('open');
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.contains('open') ? cerrar() : abrir();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && e.target !== trigger) cerrar();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') cerrar();
+        });
+    })();
+</script>

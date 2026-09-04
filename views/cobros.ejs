@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de cobros</title>
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        .contenedor { max-width: 700px; margin: 0 auto; padding: 30px 20px 60px; }
+        .intro { color: var(--text-muted); font-size: 0.92rem; margin-bottom: 24px; }
+        .evento-cobro {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 14px;
+            padding: 16px 18px; margin-bottom: 12px;
+        }
+        .evento-cobro:hover { border-color: var(--accent); }
+        .evento-cobro h3 { margin: 0 0 4px; font-size: 1rem; }
+        .evento-cobro p { margin: 0; color: var(--text-muted); font-size: 0.82rem; }
+        .badge { padding: 4px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+        .badge.activo { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
+        .badge.sin-conectar { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
+        .vacio { text-align: center; color: var(--text-faint); margin-top: 60px; }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
+        <h1>Configuración de cobros</h1>
+        <p class="intro">
+            Cada evento tiene su propia cuenta de Mercado Pago conectada — el dinero de cada venta
+            llega directo a la cuenta del evento correspondiente, no pasa por una cuenta central.
+            Desde acá vas a cada evento para conectar o revisar su Mercado Pago.
+        </p>
+
+        <% if (eventos.length === 0) { %>
+            <p class="vacio">Todavía no tenés eventos. <a href="/crear-evento">Creá el primero</a>.</p>
+        <% } else { %>
+            <% eventos.forEach(evento => { %>
+                <a class="evento-cobro" href="/eventos/<%= evento.id %>" style="text-decoration:none; color:inherit;">
+                    <div>
+                        <h3><%= evento.nombre %></h3>
+                        <p><%= evento.conectado_mp ? 'Los cobros llegan directo a la cuenta de MP conectada.' : 'Todavía falta conectar una cuenta de Mercado Pago.' %></p>
+                    </div>
+                    <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>">
+                        <%= evento.conectado_mp ? 'Conectado' : 'Sin conectar' %>
+                    </span>
+                </a>
+            <% }) %>
+        <% } %>
+    </div>
+</body>
+</html>

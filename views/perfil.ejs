@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar perfil</title>
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        .contenedor { max-width: 480px; margin: 0 auto; padding: 30px 20px 60px; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.85rem; color: var(--text-muted); }
+        input { width: 100%; }
+        input[disabled] { opacity: 0.6; cursor: not-allowed; }
+        .nota-campo { font-size: 0.76rem; color: var(--text-faint); margin: 4px 0 0; }
+        section.card { padding: 24px; margin-bottom: 20px; }
+        section.card h2 { margin: 0 0 4px; font-size: 1.1rem; }
+        section.card > p.sub { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 18px; }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
+        <h1>Editar perfil</h1>
+
+        <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
+        <% if (guardado) { %><div class="alerta-ok" style="margin-bottom:15px;">✅ Cambios guardados.</div><% } %>
+
+        <section class="card">
+            <h2>Tus datos</h2>
+            <p class="sub">El mail no se puede cambiar porque es tu usuario de acceso.</p>
+            <form action="/perfil" method="POST">
+                <div class="form-group">
+                    <label for="nombre">Nombre y apellido</label>
+                    <input type="text" id="nombre" name="nombre" value="<%= usuario.nombre %>" required>
+                </div>
+                <div class="form-group">
+                    <label for="email_readonly">Mail</label>
+                    <input type="email" id="email_readonly" value="<%= usuario.email %>" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Teléfono</label>
+                    <input type="tel" id="telefono" name="telefono" value="<%= usuario.telefono || '' %>">
+                </div>
+                <button class="btn btn-primary" type="submit" style="width:100%;">Guardar datos</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Cambiar contraseña</h2>
+            <p class="sub">Necesitamos tu contraseña actual para confirmar que sos vos.</p>
+            <form action="/perfil/password" method="POST">
+                <div class="form-group">
+                    <label for="password_actual">Contraseña actual</label>
+                    <input type="password" id="password_actual" name="password_actual" required>
+                </div>
+                <div class="form-group">
+                    <label for="password_nueva">Contraseña nueva (mínimo 8 caracteres)</label>
+                    <input type="password" id="password_nueva" name="password_nueva" required minlength="8">
+                </div>
+                <button class="btn btn-primary" type="submit" style="width:100%;">Cambiar contraseña</button>
+            </form>
+        </section>
+    </div>
+</body>
+</html>

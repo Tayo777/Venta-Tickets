@@ -49,10 +49,20 @@ app.use(session({
     }
 }));
 
+// Expone la sesión a TODAS las vistas automáticamente (sin que cada ruta tenga que acordarse
+// de pasar usuarioLogueado/usuarioNombre a mano) — así el navbar global sabe siempre si hay
+// alguien logueado y cómo se llama, se renderice la vista que se renderice.
+app.use((req, res, next) => {
+    res.locals.usuarioLogueado = Boolean(req.session.usuarioId);
+    res.locals.usuarioNombre = req.session.nombre || null;
+    next();
+});
+
 // Rutas, organizadas por área (ver carpeta /routes)
 app.use(require('./routes/landing'));
 app.use(require('./routes/auth'));
 app.use(require('./routes/organizador'));
+app.use(require('./routes/perfil'));
 app.use(require('./routes/pagos'));
 app.use(require('./routes/validacion'));
 app.use(require('./routes/admin'));

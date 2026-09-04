@@ -77,6 +77,13 @@ async function obtenerPorTokenRecuperacion(token) {
     return filas[0] || null;
 }
 
+// Edita los datos de perfil editables (nombre y teléfono). El mail no se puede cambiar acá:
+// es el identificador de login y de las notificaciones, cambiarlo es un flujo aparte con
+// verificación (no lo pidieron, así que no está implementado).
+async function actualizarPerfil(id, { nombre, telefono }) {
+    await pool.query('UPDATE usuarios SET nombre = ?, telefono = ? WHERE id = ?', [nombre, telefono, id]);
+}
+
 // Cambia la contraseña e invalida el token (de un solo uso).
 async function cambiarPassword(usuarioId, passwordNueva) {
     const passwordHash = await bcrypt.hash(passwordNueva, 12);
@@ -104,5 +111,6 @@ async function asegurarAdminSemilla() {
 module.exports = {
     obtenerPorEmail, obtenerPorId, obtenerPorTokenVerificacion, crearUsuario, verificarPassword,
     marcarEmailVerificado, obtenerPorTokenAprobacion, aprobarUsuario, obtenerPendientesDeAprobacion,
-    asegurarAdminSemilla, generarTokenRecuperacion, obtenerPorTokenRecuperacion, cambiarPassword
+    asegurarAdminSemilla, generarTokenRecuperacion, obtenerPorTokenRecuperacion, cambiarPassword,
+    actualizarPerfil
 };

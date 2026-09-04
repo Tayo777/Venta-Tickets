@@ -139,6 +139,75 @@ a { color: var(--accent-2); }
 .btn { transition-property: background-color, border-color, color, box-shadow, transform; }
 .btn:active { transform: scale(0.97); transition-duration: 150ms; }
 
+/* ---------- Menú de perfil (navbar) ---------- */
+.profile-menu { position: relative; }
+
+.profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 7px 14px 7px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+}
+.profile-trigger:hover { background: var(--bg-elevated-2); border-color: var(--accent); }
+.profile-icon { width: 22px; height: 22px; color: var(--text-muted); flex-shrink: 0; }
+.profile-caret { color: var(--text-faint); transition: transform 150ms ease; }
+.profile-trigger[aria-expanded="true"] .profile-caret { transform: rotate(180deg); }
+
+.profile-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    min-width: 220px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 60;
+    /* Oculto por defecto pero SIN display:none, para poder animar la opacidad en 150ms
+       en vez de que aparezca/desaparezca de golpe. */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 150ms ease, transform 150ms ease, visibility 150ms;
+}
+.profile-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.profile-dropdown a, .profile-dropdown .dropdown-logout {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.88rem;
+    text-decoration: none;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.profile-dropdown a:hover { background: var(--bg-elevated-2); }
+.profile-dropdown form { margin: 0; }
+.profile-dropdown hr { border: none; border-top: 1px solid var(--border); margin: 6px 4px; }
+.profile-dropdown .dropdown-logout { color: #fca5a5; }
+.profile-dropdown .dropdown-logout:hover { background: rgba(248, 113, 113, 0.1); }
+
 /* ---------- Cards / superficies ---------- */
 .card {
     background: var(--bg-elevated);

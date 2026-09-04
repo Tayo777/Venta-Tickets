@@ -12,17 +12,11 @@
             --zinc-800: #27272a;
             --zinc-400: #a1a1aa;
         }
-        body { background: var(--zinc-950); max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        body { background: var(--zinc-950); }
+        .contenedor { max-width: 800px; margin: 0 auto; padding: 30px 20px 60px; }
 
-        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
-        .top-nav h1 { margin: 0; font-size: 1.4rem; }
-        .top-nav-acciones { display: flex; align-items: center; gap: 16px; }
-        .top-nav-acciones form { display: inline; }
-        .btn-logout {
-            background: none; border: none; color: var(--zinc-400); cursor: pointer; font-size: 0.88rem;
-            padding: 0; transition: color 150ms ease;
-        }
-        .btn-logout:hover { color: var(--text); }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
+        .page-header h1 { margin: 0; font-size: 1.4rem; }
 
         /* Tarjeta de evento: fondo zinc-900, borde sutil, se eleva mínimamente al hover
            (transform ya viaja en la transición global del theme, no hace falta redeclararla). */
@@ -47,12 +41,11 @@
     </style>
 </head>
 <body>
-    <div class="top-nav">
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
+    <div class="page-header">
         <h1>Mis eventos<% if (esAdmin) { %> <span style="color:var(--zinc-400); font-weight:400; font-size:0.9rem;">(todos, sos admin)</span><% } %></h1>
-        <div class="top-nav-acciones">
-            <a class="btn btn-primary" href="/crear-evento">+ Crear evento</a>
-            <form action="/logout" method="POST"><button class="btn-logout" type="submit">Cerrar sesión</button></form>
-        </div>
+        <a class="btn btn-primary" href="/crear-evento">+ Crear evento</a>
     </div>
 
     <% if (eventos.length === 0) { %>
@@ -69,5 +62,6 @@
             </a>
         <% }) %>
     <% } %>
+    </div>
 </body>
 </html>
