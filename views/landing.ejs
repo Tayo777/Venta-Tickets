@@ -10,9 +10,12 @@
             min-height: 80vh;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; padding: 40px 20px;
-            background: radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 45%),
-                        radial-gradient(circle at 80% 30%, rgba(34, 211, 238, 0.2) 0%, transparent 45%),
-                        var(--bg);
+            background:
+                radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 45%),
+                radial-gradient(circle at 80% 30%, rgba(34, 211, 238, 0.22) 0%, transparent 45%),
+                linear-gradient(180deg, rgba(9,9,11,0.55) 0%, rgba(9,9,11,0.75) 55%, var(--bg) 100%),
+                url('/hero-evento.jpg') center/cover no-repeat,
+                var(--bg);
             position: relative; overflow: hidden;
         }
         .hero::before {
@@ -21,10 +24,40 @@
             background-size: 24px 24px;
         }
         .hero-content { position: relative; z-index: 1; max-width: 700px; }
+
+        /* Fade-in suave del título y los CTA al cargar la página (no un scroll-trigger:
+           la idea es que se sientan "listos" apenas entra el hero, sin saltos bruscos). */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .hero h1, .hero p, .hero-cta-row {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+        .hero h1 { animation-delay: 0.05s; }
+        .hero p { animation-delay: 0.2s; }
+        .hero-cta-row { animation-delay: 0.35s; }
+
         .hero h1 { font-size: 2.8rem; margin-bottom: 15px; line-height: 1.15; letter-spacing: -0.02em; }
         .hero p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 35px; }
+        .hero-cta-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
         .cta { font-size: 1.05rem; padding: 16px 36px; }
-        .cta-secundario { display: inline-block; margin-top: 20px; color: var(--text-muted); text-decoration: underline; font-size: 0.95rem; }
+        .cta-secundario {
+            font-size: 0.98rem; padding: 15px 32px;
+            background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.35);
+        }
+        .cta-secundario:hover { background: rgba(255,255,255,0.08); border-color: var(--accent-2); color: var(--accent-2); }
+
+        /* Franja de confianza: minimalista, una sola línea, sin competir con el hero. */
+        .trust-badge {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 18px 20px; background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+            color: var(--text-muted); font-size: 0.88rem;
+        }
+        .trust-badge svg { flex-shrink: 0; }
+        .trust-badge strong { color: var(--text); font-weight: 600; }
+
         .features {
             max-width: 900px; margin: 0 auto; padding: 70px 20px;
             display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; text-align: center;
@@ -43,10 +76,20 @@
         <div class="hero-content">
             <h1>Vendé las entradas de tu evento sin complicaciones</h1>
             <p>Creá tu evento, conectá tu Mercado Pago y empezá a vender en minutos. El dinero llega directo a tu cuenta.</p>
-            <a class="btn btn-primary cta" href="/crear-evento">Creá tu evento gratis</a>
-            <br>
-            <a class="cta-secundario" href="/eventos">Ver eventos disponibles →</a>
+            <div class="hero-cta-row">
+                <a class="btn btn-primary cta" href="/crear-evento">Creá tu evento gratis</a>
+                <a class="btn cta-secundario" href="/eventos">Ver eventos →</a>
+            </div>
         </div>
+    </div>
+
+    <div class="trust-badge">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="3" stroke="#009ee3" stroke-width="1.8"/>
+            <path d="M2 9.5H22" stroke="#009ee3" stroke-width="1.8"/>
+            <circle cx="17.5" cy="14.5" r="1.6" fill="#009ee3"/>
+        </svg>
+        Operamos con <strong>Mercado Pago</strong> — el dinero llega directo a tu cuenta.
     </div>
 
     <div class="features">
