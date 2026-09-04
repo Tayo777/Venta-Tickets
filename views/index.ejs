@@ -6,15 +6,38 @@
     <title>Eventos disponibles</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
-        .contenido { max-width: 700px; margin: 0 auto; padding: 30px 20px; }
-        h1 { text-align: center; }
-        .evento-card { display: block; text-decoration: none; color: inherit; overflow: hidden; margin-bottom: 20px; }
-        .evento-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow); }
-        .evento-card img { width: 100%; max-height: 250px; object-fit: cover; display: block; }
-        .evento-info { padding: 16px; }
-        .evento-info h2 { margin: 0 0 5px 0; color: var(--text); }
-        .evento-info p { margin: 0; color: var(--text-muted); }
-        .vacio { text-align: center; color: var(--text-faint); margin-top: 60px; }
+        .contenido { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+        h1 { text-align: center; margin-bottom: 32px; }
+
+        .grilla-eventos {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 24px;
+        }
+
+        .evento-card {
+            display: block; text-decoration: none; color: inherit; overflow: hidden;
+            /* Solo animamos transform + box-shadow (propiedades "baratas" para el compositor,
+               no disparan layout/paint) para que el hover se mantenga fluido a 60fps. */
+            transition: transform 220ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out;
+            will-change: transform;
+        }
+        .evento-card:hover, .evento-card:focus-visible {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -8px rgba(139, 92, 246, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.4);
+            border-color: var(--accent);
+        }
+        .evento-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+        .evento-info { padding: 16px 18px 20px; }
+        .evento-info h2 { margin: 0 0 6px 0; font-size: 1.05rem; color: var(--text); }
+        .evento-info p { margin: 0; color: var(--text-muted); font-size: 0.88rem; }
+
+        .vacio {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; text-align: center; color: var(--text-faint); font-size: 0.95rem;
+            padding: 90px 20px; min-height: 30vh;
+        }
+        .vacio .emoji-vacio { font-size: 2rem; opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -24,17 +47,22 @@
         <h1>Próximos eventos</h1>
 
         <% if (eventos.length === 0) { %>
-            <p class="vacio">No hay eventos disponibles por el momento.</p>
+            <div class="vacio">
+                <span class="emoji-vacio">🗓️</span>
+                No hay eventos disponibles en este momento
+            </div>
         <% } else { %>
-            <% eventos.forEach(evento => { %>
-                <a class="evento-card card" href="/evento/<%= evento.id %>">
-                    <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>">
-                    <div class="evento-info">
-                        <h2><%= evento.nombre %></h2>
-                        <p><%= evento.fecha %></p>
-                    </div>
-                </a>
-            <% }) %>
+            <div class="grilla-eventos">
+                <% eventos.forEach(evento => { %>
+                    <a class="evento-card card" href="/evento/<%= evento.id %>">
+                        <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>">
+                        <div class="evento-info">
+                            <h2><%= evento.nombre %></h2>
+                            <p><%= evento.fecha %></p>
+                        </div>
+                    </a>
+                <% }) %>
+            </div>
         <% } %>
     </div>
 </body>
