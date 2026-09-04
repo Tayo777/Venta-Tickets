@@ -33,24 +33,24 @@ async function obtenerEventoPorGuardiaToken(token) {
 
 // Crea un evento nuevo, siempre atado a un usuario (usuarioId) que es su dueño.
 async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, valorEntrada, tarifaOnline,
-                              organizerEmail, comisionMpPct, comisionPropiaPct }) {
+                              organizerEmail, comisionMpPct, comisionPropiaPct, fechaCierreVentas }) {
     const token = crypto.randomBytes(16).toString('hex');
     const guardiaToken = crypto.randomBytes(16).toString('hex');
     const [resultado] = await pool.query(
         `INSERT INTO eventos
             (usuario_id, nombre, descripcion, fecha, flyer_url, valor_entrada, tarifa_online, token_informe,
-             guardia_token, organizer_email, comision_mp_pct, comision_propia_pct, activo, conectado_mp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+             guardia_token, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas, activo, conectado_mp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
         [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', valorEntrada, tarifaOnline,
-         token, guardiaToken, organizerEmail || null, comisionMpPct, comisionPropiaPct]
+         token, guardiaToken, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null]
     );
     return { id: resultado.insertId, token };
 }
 
-async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, valorEntrada }) {
+async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas }) {
     await pool.query(
-        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, valor_entrada = ? WHERE id = ?`,
-        [nombre, descripcion, fecha, flyerUrl, valorEntrada, id]
+        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, valor_entrada = ?, fecha_cierre_ventas = ? WHERE id = ?`,
+        [nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas || null, id]
     );
 }
 
@@ -61,6 +61,7 @@ async function eliminarEvento(id) {
         await conexion.beginTransaction();
         await conexion.query('DELETE FROM tickets WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM compras WHERE evento_id = ?', [id]);
+        await conexion.query('DELETE FROM tipos_entrada WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM eventos WHERE id = ?', [id]);
         await conexion.commit();
     } catch (err) {
@@ -81,6 +82,13 @@ async function conectarMercadoPago(id, { accessToken, refreshToken, userId }) {
 
 async function toggleActivo(id) {
     await pool.query('UPDATE eventos SET activo = NOT activo WHERE id = ?', [id]);
+}
+
+// La venta de un evento se cierra sola cuando pasó su fecha_cierre_ventas (si tiene una
+// configurada). El cierre por capacidad se resuelve aparte, en tiposEntrada.eventoAgotado,
+// porque depende del cupo de cada tipo de entrada (no de una columna del evento).
+function ventaVencidaPorTiempo(evento) {
+    return Boolean(evento.fecha_cierre_ventas) && new Date(evento.fecha_cierre_ventas) <= new Date();
 }
 
 async function resumenVentas(eventoId) {
@@ -117,5 +125,5 @@ async function listadoVentas(eventoId) {
 module.exports = {
     obtenerEventosActivos, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento, obtenerEventoPorToken,
     obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
-    conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas
+    conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas, ventaVencidaPorTiempo
 };

@@ -1,18 +1,48 @@
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('./pool');
 
-// Registra N entradas nuevas para un evento y devuelve sus códigos (todo o nada, en transacción).
-async function registrarEntradas(eventoId, email, cantidad, { nombreApellido, paymentId } = {}) {
+// Se lanza cuando ya no queda cupo suficiente en el tipo de entrada pedido.
+class SinCupoError extends Error {
+    constructor(mensaje) {
+        super(mensaje);
+        this.name = 'SinCupoError';
+    }
+}
+
+// Registra N entradas nuevas de un tipo puntual (General/VIP/etc.) y devuelve sus códigos.
+// Todo pasa en UNA transacción: primero bloquea la fila del tipo de entrada con
+// SELECT ... FOR UPDATE (así ninguna otra compra simultánea puede leer un cupo "viejo"),
+// valida que alcance el cupo, lo descuenta, y recién ahí inserta los tickets. Si algo falla
+// o no alcanza el cupo, se hace rollback y no se vende ni se descuenta nada (todo o nada).
+async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nombreApellido, paymentId } = {}) {
     const conexion = await pool.getConnection();
     try {
         await conexion.beginTransaction();
+
+        const [filas] = await conexion.query(
+            'SELECT id, cupo_total, cupo_vendido FROM tipos_entrada WHERE id = ? AND evento_id = ? FOR UPDATE',
+            [tipoEntradaId, eventoId]
+        );
+        const tipo = filas[0];
+        if (!tipo) throw new Error('El tipo de entrada no existe para este evento.');
+
+        const disponibles = tipo.cupo_total - tipo.cupo_vendido;
+        if (disponibles < cantidad) {
+            throw new SinCupoError(`Cupo insuficiente: quedan ${disponibles} entrada/s disponibles.`);
+        }
+
+        await conexion.query(
+            'UPDATE tipos_entrada SET cupo_vendido = cupo_vendido + ? WHERE id = ?',
+            [cantidad, tipoEntradaId]
+        );
+
         const codigos = [];
         for (let i = 0; i < cantidad; i++) {
             const id = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
             codigos.push(id);
             await conexion.query(
-                'INSERT INTO tickets (id, evento_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?)',
-                [id, eventoId, email, nombreApellido || null, paymentId || null]
+                'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?, ?)',
+                [id, eventoId, tipoEntradaId, email, nombreApellido || null, paymentId || null]
             );
         }
         await conexion.commit();
@@ -51,4 +81,4 @@ async function marcarComoUsada(ticketId) {
     await pool.query('UPDATE tickets SET estado = ?, fecha_escaneada = NOW() WHERE id = ?', ['Usada', ticketId]);
 }
 
-module.exports = { registrarEntradas, obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada };
+module.exports = { registrarEntradas, obtenerUltimasEntradas, obtenerTicketConEvento, marcarComoUsada, SinCupoError };

@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const eventosDb = require('../db/eventos');
+const tiposEntradaDb = require('../db/tiposEntrada');
 const mp = require('../services/mercadopago');
 const { subirImagen } = require('../services/imgbb');
 const { requiereLogin, requiereAprobado, esDueñoOAdmin } = require('../middleware/auth');
@@ -22,13 +23,22 @@ router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
 });
 
 router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
-    const { nombre, descripcion, fecha, valor_entrada } = req.body;
+    const { nombre, descripcion, fecha, valor_entrada, cupo_general, fecha_cierre_ventas,
+            vip_activo, valor_vip, cupo_vip } = req.body;
     const valorEntradaNum = Number(valor_entrada);
+    const cupoGeneralNum = parseInt(cupo_general);
 
     const campos = { nombre, descripcion, fecha };
     const faltantes = Object.entries(campos).filter(([, v]) => !v || !String(v).trim()).map(([k]) => k);
-    if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !req.file) {
-        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer.' });
+    if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !cupoGeneralNum || cupoGeneralNum <= 0 || !req.file) {
+        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer y el cupo de entradas General.' });
+    }
+
+    const quiereVip = vip_activo === 'on';
+    const valorVipNum = Number(valor_vip);
+    const cupoVipNum = parseInt(cupo_vip);
+    if (quiereVip && (!valorVipNum || valorVipNum <= 0 || !cupoVipNum || cupoVipNum <= 0)) {
+        return res.render('crear-evento', { error: 'Si activás VIP, completá su precio y cupo.' });
     }
 
     try {
@@ -39,8 +49,20 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
             usuarioId: req.session.usuarioId,
             nombre, descripcion, fecha, flyerUrl,
             valorEntrada: valorEntradaNum, tarifaOnline,
-            organizerEmail: null, comisionMpPct, comisionPropiaPct
+            organizerEmail: null, comisionMpPct, comisionPropiaPct,
+            fechaCierreVentas: fecha_cierre_ventas || null
         });
+
+        await tiposEntradaDb.crearTipoEntrada({
+            eventoId: id, nombre: 'General', descripcion: null,
+            precio: valorEntradaNum, cupoTotal: cupoGeneralNum
+        });
+        if (quiereVip) {
+            await tiposEntradaDb.crearTipoEntrada({
+                eventoId: id, nombre: 'VIP', descripcion: null,
+                precio: valorVipNum, cupoTotal: cupoVipNum
+            });
+        }
 
         res.redirect(`/eventos/${id}`);
     } catch (error) {

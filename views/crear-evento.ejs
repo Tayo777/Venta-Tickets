@@ -46,8 +46,33 @@
         </div>
 
         <div class="form-group">
-            <label for="valor_entrada">Precio de la entrada ($) — lo que VOS querés recibir</label>
+            <label for="valor_entrada">Precio entrada General ($) — lo que VOS querés recibir</label>
             <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
+        </div>
+
+        <div class="form-group">
+            <label for="cupo_general">Cupo de entradas General</label>
+            <input type="number" step="1" min="1" id="cupo_general" name="cupo_general" required>
+        </div>
+
+        <div class="form-group">
+            <label><input type="checkbox" id="vip_activo" name="vip_activo" onchange="document.getElementById('campos_vip').style.display = this.checked ? 'block' : 'none'" style="width:auto;"> Agregar entrada VIP</label>
+        </div>
+
+        <div id="campos_vip" style="display:none;">
+            <div class="form-group">
+                <label for="valor_vip">Precio entrada VIP ($)</label>
+                <input type="number" step="1" min="1" id="valor_vip" name="valor_vip">
+            </div>
+            <div class="form-group">
+                <label for="cupo_vip">Cupo de entradas VIP</label>
+                <input type="number" step="1" min="1" id="cupo_vip" name="cupo_vip">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="fecha_cierre_ventas">Cierre automático de ventas (opcional)</label>
+            <input type="datetime-local" id="fecha_cierre_ventas" name="fecha_cierre_ventas">
         </div>
 
         <button type="submit">Crear mi evento</button>
