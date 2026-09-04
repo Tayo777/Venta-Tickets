@@ -19,6 +19,13 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false })); // CSP desactivada: la app usa estilos/scripts inline en las vistas
 
 app.set('view engine', 'ejs');
+// Formatea evento.fecha para mostrar (ahora se guarda en formato datetime-local desde el
+// calendario del form). Si es un evento viejo con texto libre no parseable, lo muestra tal cual.
+app.locals.formatearFecha = (fecha) => {
+    const d = new Date(fecha);
+    if (isNaN(d)) return fecha;
+    return d.toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+};
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));

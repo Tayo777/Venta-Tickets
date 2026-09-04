@@ -4,23 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar evento</title>
+    <link rel="stylesheet" href="/css/theme.css">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
-        .volver { color: #636e72; text-decoration: none; }
+        .contenedor { max-width: 600px; margin: 0 auto; padding: 30px 20px 60px; }
+        .volver { color: var(--text-muted); text-decoration: none; }
         .form-group { margin-bottom: 16px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; }
-        input, textarea { width: 100%; padding: 8px; box-sizing: border-box; font-family: inherit; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88rem; }
+        input, textarea { width: 100%; font-family: inherit; }
         textarea { resize: vertical; min-height: 70px; }
-        button { background: #009ee3; color: white; border: none; padding: 12px 15px; width: 100%; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-        .error { background: #fdecea; color: #c0392b; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9rem; }
-        img { max-width: 200px; display: block; margin-bottom: 10px; border-radius: 8px; }
+        img { max-width: 200px; display: block; margin-bottom: 10px; border-radius: var(--radius-md); }
     </style>
 </head>
 <body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
     <a class="volver" href="/eventos/<%= evento.id %>">&larr; Volver al evento</a>
     <h1>Editar evento</h1>
 
-    <% if (error) { %><div class="error"><%= error %></div><% } %>
+    <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
 
     <form action="/eventos/<%= evento.id %>/editar" method="POST" enctype="multipart/form-data"
           onsubmit="return confirm('¿Confirmás guardar estos cambios?');">
@@ -34,7 +35,14 @@
         </div>
         <div class="form-group">
             <label>Fecha y hora</label>
-            <input type="text" name="fecha" value="<%= evento.fecha %>" required>
+            <%
+                // Si la fecha ya es una fecha válida (formato datetime-local) se precarga en
+                // el calendario; si viene de un evento viejo con texto libre, se deja vacío
+                // para forzar a elegir una fecha real (ya no se admite texto suelto).
+                const fechaObj = new Date(evento.fecha);
+                const fechaPrecargada = !isNaN(fechaObj) ? fechaObj.toISOString().slice(0, 16) : '';
+            %>
+            <input type="datetime-local" name="fecha" value="<%= fechaPrecargada %>" required>
         </div>
         <div class="form-group">
             <label>Flyer actual</label>
@@ -46,7 +54,8 @@
             <label>Precio de la entrada ($)</label>
             <input type="number" step="1" min="1" name="valor_entrada" value="<%= evento.valor_entrada %>" required>
         </div>
-        <button type="submit">Guardar cambios</button>
+        <button class="btn btn-primary" type="submit" style="width:100%;">Guardar cambios</button>
     </form>
+    </div>
 </body>
 </html>

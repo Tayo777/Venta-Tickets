@@ -11,9 +11,34 @@
         h1 { margin-bottom: 0; }
         .subtitulo { color: #636e72; margin-top: 4px; }
         .aviso-ok { background: #d4f8e8; color: #1a7a4c; padding: 12px 15px; border-radius: 8px; margin: 15px 0; }
-        .conectar-box { background: #12131f; color: white; padding: 25px; border-radius: 10px; margin: 20px 0; text-align: center; }
+        /* Tarjeta de Mercado Pago destacada: borde violeta brillante sutil (doble capa de
+           box-shadow, no un simple "border") para que resalte como EL método recomendado. */
+        .conectar-box {
+            background: #12131f; color: white; padding: 30px; border-radius: 14px; margin: 20px 0;
+            text-align: center; position: relative;
+            box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.55), 0 0 32px rgba(139, 92, 246, 0.28);
+        }
+        .conectar-box .badge-recomendado {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white; font-size: 0.7rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+            padding: 5px 14px; border-radius: 999px;
+        }
+        .conectar-box h2 { margin-top: 6px; }
         .conectar-box p { color: #dfe6e9; font-size: 0.9rem; }
-        .btn-mp { display: inline-block; background: #009ee3; color: white; font-weight: bold; padding: 14px 30px; border-radius: 50px; text-decoration: none; margin-top: 10px; }
+        .beneficios-mp {
+            list-style: none; padding: 0; margin: 18px auto 22px; max-width: 320px;
+            text-align: left; display: flex; flex-direction: column; gap: 9px;
+        }
+        .beneficios-mp li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #dfe6e9; }
+        .beneficios-mp li::before { content: '✓'; color: #22d3ee; font-weight: bold; }
+        .btn-mp {
+            display: inline-block; background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white;
+            font-weight: bold; padding: 14px 34px; border-radius: 50px; text-decoration: none;
+            margin-top: 10px; transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+        .btn-mp:hover { box-shadow: 0 0 24px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
+        .btn-mp:active { transform: scale(0.97); }
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
         .card { background: #f4f4f4; border-radius: 10px; padding: 15px; text-align: center; }
         .card .numero { font-size: 1.5rem; font-weight: bold; color: #1a252c; }
@@ -43,7 +68,7 @@
 <body>
     <a class="volver" href="/mis-eventos">&larr; Mis eventos</a>
     <h1><%= evento.nombre %></h1>
-    <p class="subtitulo"><%= evento.fecha %></p>
+    <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
 
     <% if (conectado) { %>
         <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>
@@ -57,8 +82,15 @@
 
     <% if (!evento.conectado_mp) { %>
         <div class="conectar-box">
+            <span class="badge-recomendado">Recomendado</span>
             <h2>Conectá tu Mercado Pago</h2>
-            <p>Falta un solo paso para poder vender: conectá tu cuenta de Mercado Pago para que el dinero de cada venta te llegue directo a vos.</p>
+            <p>Falta un solo paso para poder vender: conectá tu cuenta para que el dinero de cada venta te llegue directo a vos.</p>
+            <ul class="beneficios-mp">
+                <li>Pagos al instante</li>
+                <li>Pagos seguros, sin intermediarios</li>
+                <li>El dinero llega directo a tu cuenta</li>
+                <li>Sin cargo extra por usar la plataforma</li>
+            </ul>
             <a class="btn-mp" href="<%= urlConexionMP %>">Conectar con Mercado Pago</a>
         </div>
     <% } else { %>

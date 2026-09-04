@@ -37,7 +37,7 @@
                     <h3><%= evento.nombre %>
                         <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Vendiendo' : 'Sin conectar MP' %></span>
                     </h3>
-                    <p><%= evento.fecha %></p>
+                    <p><%= formatearFecha(evento.fecha) %></p>
                 </div>
             </a>
         <% }) %>

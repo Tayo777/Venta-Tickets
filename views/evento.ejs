@@ -22,7 +22,7 @@
     <div class="contenedor">
     <a class="volver" href="/eventos">&larr; Ver todos los eventos</a>
     <h1><%= evento.nombre %></h1>
-    <p style="color:var(--text-muted);"><%= evento.fecha %></p>
+    <p style="color:var(--text-muted);"><%= formatearFecha(evento.fecha) %></p>
     <img src="<%= evento.flyer_url %>" alt="Flyer del evento">
 
     <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">

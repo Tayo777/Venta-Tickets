@@ -23,7 +23,7 @@
 </head>
 <body>
     <h1><%= evento.nombre %></h1>
-    <p class="subtitulo"><%= evento.fecha %></p>
+    <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
 
     <% if (conectado) { %>
         <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>

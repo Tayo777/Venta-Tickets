@@ -22,7 +22,7 @@ router.get('/mis-eventos', requiereLogin, async (req, res) => {
 });
 
 router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
-    res.render('crear-evento', { error: null });
+    res.render('crear-evento', { error: null, usuarioLogueado: true });
 });
 
 router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
@@ -34,14 +34,14 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
     const campos = { nombre, descripcion, fecha };
     const faltantes = Object.entries(campos).filter(([, v]) => !v || !String(v).trim()).map(([k]) => k);
     if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !cupoGeneralNum || cupoGeneralNum <= 0 || !req.file) {
-        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer y el cupo de entradas General.' });
+        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer y el cupo de entradas General.', usuarioLogueado: true });
     }
 
     const quiereVip = vip_activo === 'on';
     const valorVipNum = Number(valor_vip);
     const cupoVipNum = parseInt(cupo_vip);
     if (quiereVip && (!valorVipNum || valorVipNum <= 0 || !cupoVipNum || cupoVipNum <= 0)) {
-        return res.render('crear-evento', { error: 'Si activás VIP, completá su precio y cupo.' });
+        return res.render('crear-evento', { error: 'Si activás VIP, completá su precio y cupo.', usuarioLogueado: true });
     }
 
     try {
@@ -70,12 +70,12 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
         res.redirect(`/eventos/${id}`);
     } catch (error) {
         console.error('Error al crear el evento:', error);
-        res.render('crear-evento', { error: 'Hubo un error al crear el evento (revisá la imagen e intentá de nuevo).' });
+        res.render('crear-evento', { error: 'Hubo un error al crear el evento (revisá la imagen e intentá de nuevo).', usuarioLogueado: true });
     }
 });
 
 router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, (req, res) => {
-    res.render('editar-evento', { evento: req.evento, error: null });
+    res.render('editar-evento', { evento: req.evento, error: null, usuarioLogueado: true });
 });
 
 router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single('flyer'), async (req, res) => {
@@ -88,7 +88,7 @@ router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single(
         res.redirect(`/eventos/${req.evento.id}`);
     } catch (error) {
         console.error('Error al editar el evento:', error);
-        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.' });
+        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.', usuarioLogueado: true });
     }
 });
 

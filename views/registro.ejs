@@ -5,48 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Creá tu cuenta</title>
     <link rel="stylesheet" href="/css/theme.css">
-    <style>
-        .contenedor { max-width: 480px; margin: 60px auto; padding: 20px; }
-        .auth-card { padding: 32px; }
-        .auth-card h1 { margin: 0 0 5px; font-size: 1.5rem; }
-        .auth-card > p { color: var(--text-muted); font-size: 0.9rem; }
-        .form-group { margin-bottom: 14px; }
-        label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.88rem; }
-        input { width: 100%; }
-        button { width: 100%; margin-top: 10px; }
-        .link { text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--text-muted); }
-    </style>
+    <link rel="stylesheet" href="/css/auth-split.css">
 </head>
 <body>
     <%- include('partials/navbar') %>
-    <div class="contenedor">
-        <div class="auth-card card">
-            <h1>Creá tu cuenta</h1>
-            <p>Para poder crear eventos, primero necesitamos verificar tu mail y aprobar tu cuenta.</p>
+    <div class="auth-split">
+        <div class="auth-split-brand">
+            <div>
+                <h1>Únete a GetPass</h1>
+                <p>Creá tu cuenta y empezá a gestionar tus eventos de forma profesional.</p>
+            </div>
+        </div>
+        <div class="auth-split-form">
+            <div class="auth-form-box">
+                <h2>Creá tu cuenta</h2>
+                <p class="auth-form-sub">Para poder crear eventos, primero necesitamos verificar tu mail y aprobar tu cuenta.</p>
 
-            <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
+                <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
 
-            <form action="/registro" method="POST">
-                <div class="form-group">
-                    <label for="nombre">Nombre y apellido</label>
-                    <input type="text" id="nombre" name="nombre" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Mail</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="telefono">Teléfono (para que podamos contactarte)</label>
-                    <input type="tel" id="telefono" name="telefono" required placeholder="Ej: 3624123456">
-                </div>
-                <div class="form-group">
-                    <label for="password">Contraseña (mínimo 8 caracteres)</label>
-                    <input type="password" id="password" name="password" required minlength="8">
-                </div>
-                <button class="btn btn-primary" type="submit">Crear cuenta</button>
-            </form>
+                <form action="/registro" method="POST">
+                    <div class="form-group">
+                        <label for="nombre">Nombre y apellido</label>
+                        <input type="text" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Mail</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono">Teléfono (para que podamos contactarte)</label>
+                        <input type="tel" id="telefono" name="telefono" required placeholder="Ej: 3624123456">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña (mínimo 8 caracteres)</label>
+                        <input type="password" id="password" name="password" required minlength="8">
+                    </div>
+                    <button class="btn btn-primary" type="submit" style="width:100%; margin-top:10px;">Crear cuenta</button>
+                </form>
 
-            <p class="link">¿Ya tenés cuenta? <a href="/login">Iniciá sesión</a></p>
+                <p class="link">¿Ya tenés cuenta? <a href="/login">Iniciá sesión</a></p>
+            </div>
         </div>
     </div>
 </body>

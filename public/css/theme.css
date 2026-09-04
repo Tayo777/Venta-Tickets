@@ -122,7 +122,10 @@ a { color: var(--accent-2); }
     transform: translateY(-1px);
 }
 
-.btn:active { transform: scale(0.97); }
+/* Feedback táctil rápido al tocar/clickear (independiente de la transición global de 300ms,
+   que se siente lenta para este gesto puntual): se comprime y vuelve en 150ms. */
+.btn { transition-property: background-color, border-color, color, box-shadow, transform; }
+.btn:active { transform: scale(0.97); transition-duration: 150ms; }
 
 /* ---------- Cards / superficies ---------- */
 .card {
@@ -141,10 +144,13 @@ input, select, textarea {
     border-radius: var(--radius-sm);
     padding: 10px 14px;
 }
+input, select, textarea { border-radius: var(--radius-sm); }
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+    /* Contorno gris -> acento brillante en un golpe rápido, no en 300ms (se sentía "flojo"). */
+    transition-duration: 120ms;
 }
 label { color: var(--text-muted); }
 

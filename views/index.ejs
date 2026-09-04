@@ -58,7 +58,7 @@
                         <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>">
                         <div class="evento-info">
                             <h2><%= evento.nombre %></h2>
-                            <p><%= evento.fecha %></p>
+                            <p><%= formatearFecha(evento.fecha) %></p>
                         </div>
                     </a>
                 <% }) %>

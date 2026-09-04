@@ -5,36 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar sesión</title>
     <link rel="stylesheet" href="/css/theme.css">
-    <style>
-        .contenedor { max-width: 420px; margin: 60px auto; padding: 20px; }
-        .auth-card { padding: 32px; }
-        .auth-card h1 { margin-top: 0; font-size: 1.5rem; }
-        .form-group { margin-bottom: 14px; }
-        label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.88rem; }
-        input { width: 100%; }
-        button { width: 100%; margin-top: 10px; }
-        .link { text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--text-muted); }
-    </style>
+    <link rel="stylesheet" href="/css/auth-split.css">
 </head>
 <body>
     <%- include('partials/navbar') %>
-    <div class="contenedor">
-        <div class="auth-card card">
-            <h1>Iniciar sesión</h1>
-            <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
-            <form action="/login" method="POST">
-                <div class="form-group">
-                    <label for="email">Mail</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Contraseña</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <button class="btn btn-primary" type="submit">Entrar</button>
-            </form>
-            <p class="link"><a href="/recuperar-password">¿Olvidaste tu contraseña?</a></p>
-            <p class="link">¿No tenés cuenta? <a href="/registro">Creá una</a></p>
+    <div class="auth-split">
+        <div class="auth-split-brand">
+            <div>
+                <h1>Bienvenido de nuevo</h1>
+                <p>Entrá a tu cuenta para gestionar tus eventos, ver tus ventas y seguir vendiendo entradas.</p>
+            </div>
+        </div>
+        <div class="auth-split-form">
+            <div class="auth-form-box">
+                <h2>Iniciar sesión</h2>
+                <p class="auth-form-sub">Completá tus datos para entrar.</p>
+                <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
+                <form action="/login" method="POST">
+                    <div class="form-group">
+                        <label for="email">Mail</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button class="btn btn-primary" type="submit" style="width:100%; margin-top:10px;">Entrar</button>
+                </form>
+                <p class="link"><a href="/recuperar-password">¿Olvidaste tu contraseña?</a></p>
+                <p class="link">¿No tenés cuenta? <a href="/registro">Creá una</a></p>
+            </div>
         </div>
     </div>
 </body>
