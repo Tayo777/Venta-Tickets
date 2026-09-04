@@ -9,7 +9,6 @@ const requiredEnv = [
     'ADMIN_SEED_EMAIL', 'ADMIN_SEED_PASSWORD', // tu usuario admin, se crea solo la primera vez que arranca
     'SESSION_SECRET',                          // clave para firmar las sesiones de login (invéntala, larga y random)
     'IMGBB_API_KEY',                           // para poder subir flyers como imagen directamente
-    'QR_SECRET',                               // firma HMAC de los QR de entrada, para detectar falsificaciones
     'MP_WEBHOOK_SECRET',                       // firma HMAC de las notificaciones (webhooks) de Mercado Pago
     'JWT_SECRET',                               // firma los JWT de login de la app móvil de guardias
     'BASE_URL', 'MYSQL_URL'
@@ -41,7 +40,10 @@ module.exports = {
 
     IMGBB_API_KEY: process.env.IMGBB_API_KEY,
 
-    QR_SECRET: process.env.QR_SECRET,
+    // Ya NO se usa para firmar QRs nuevos (eso ahora es eventos.qr_secret, uno por evento) —
+    // se mantiene opcional solo como semilla de migración para eventos que ya existían antes
+    // de este cambio, así sus QRs ya emitidos no se invalidan de golpe (ver db/pool.js).
+    QR_SECRET_LEGACY: process.env.QR_SECRET,
     MP_WEBHOOK_SECRET: process.env.MP_WEBHOOK_SECRET,
     JWT_SECRET: process.env.JWT_SECRET,
 

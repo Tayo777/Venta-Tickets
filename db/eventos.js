@@ -43,13 +43,16 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, va
                               organizerEmail, comisionMpPct, comisionPropiaPct, fechaCierreVentas }) {
     const token = crypto.randomBytes(16).toString('hex');
     const guardiaToken = crypto.randomBytes(16).toString('hex');
+    // Secreto de firma HMAC PROPIO de este evento (ver services/firmaTickets.js) — cada
+    // evento tiene el suyo, generado acá, nunca compartido entre eventos ni con un .env global.
+    const qrSecret = crypto.randomBytes(32).toString('hex');
     const [resultado] = await pool.query(
         `INSERT INTO eventos
             (usuario_id, nombre, descripcion, fecha, flyer_url, valor_entrada, tarifa_online, token_informe,
-             guardia_token, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas, activo, conectado_mp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+             guardia_token, qr_secret, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas, activo, conectado_mp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
         [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', valorEntrada, tarifaOnline,
-         token, guardiaToken, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null]
+         token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null]
     );
     return { id: resultado.insertId, token };
 }

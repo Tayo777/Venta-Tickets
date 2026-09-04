@@ -41,7 +41,7 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
 
     try {
         const listaCodigos = await ticketsDb.registrarEntradas(evento.id, tipoEntrada.id, email, cantidad, {
-            nombreApellido, paymentId
+            nombreApellido, paymentId, qrSecret: evento.qr_secret
         });
         console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre}, tipo: ${tipoEntrada.nombre})`);
 

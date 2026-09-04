@@ -4,10 +4,11 @@ const { firmarId } = require('../services/firmaTickets');
 
 // Genera el código base y le anexa la firma HMAC — este es el ID real de la entrada
 // (se guarda en la DB, va en el QR, y es lo que /validar tiene que verificar antes de
-// consultar la base). Ver services/firmaTickets.js.
-function generarIdEntrada() {
+// consultar la base). qrSecret es el de ESE evento puntual (eventos.qr_secret) — ya no hay
+// un secreto global, así que quien llama tiene que pasarlo. Ver services/firmaTickets.js.
+function generarIdEntrada(qrSecret) {
     const idBase = 'EVT-' + uuidv4().substring(0, 8).toUpperCase();
-    return firmarId(idBase);
+    return firmarId(idBase, qrSecret);
 }
 
 // Se lanza cuando ya no queda cupo suficiente en el tipo de entrada pedido.
@@ -23,7 +24,7 @@ class SinCupoError extends Error {
 // SELECT ... FOR UPDATE (así ninguna otra compra simultánea puede leer un cupo "viejo"),
 // valida que alcance el cupo, lo descuenta, y recién ahí inserta los tickets. Si algo falla
 // o no alcanza el cupo, se hace rollback y no se vende ni se descuenta nada (todo o nada).
-async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nombreApellido, paymentId } = {}) {
+async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nombreApellido, paymentId, qrSecret } = {}) {
     const conexion = await pool.getConnection();
     try {
         await conexion.beginTransaction();
@@ -47,7 +48,7 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
 
         const codigos = [];
         for (let i = 0; i < cantidad; i++) {
-            const id = generarIdEntrada();
+            const id = generarIdEntrada(qrSecret);
             codigos.push(id);
             await conexion.query(
                 'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -67,10 +68,10 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
 // Entradas de cortesía: no pasan por Mercado Pago ni descuentan cupo pago (tipo_entrada_id
 // queda NULL), pensadas para invitados/prensa/staff. No necesitan transacción con FOR UPDATE
 // porque no compiten por ningún cupo compartido.
-async function registrarEntradasCortesia(eventoId, email, cantidad, { nombreApellido } = {}) {
+async function registrarEntradasCortesia(eventoId, email, cantidad, { nombreApellido, qrSecret } = {}) {
     const codigos = [];
     for (let i = 0; i < cantidad; i++) {
-        const id = generarIdEntrada();
+        const id = generarIdEntrada(qrSecret);
         codigos.push(id);
         await pool.query(
             "INSERT INTO tickets (id, evento_id, email, nombre_apellido, origen) VALUES (?, ?, ?, ?, 'cortesia')",
@@ -100,10 +101,11 @@ async function obtenerUltimasEntradas(email, limit) {
     return filas;
 }
 
-// Busca un ticket puntual junto con el nombre de su evento (para /validar).
+// Busca un ticket puntual junto con el nombre de su evento y el qr_secret CON EL QUE HAY QUE
+// VERIFICAR SU FIRMA (para /validar) — cada evento tiene el suyo, por eso viaja en este JOIN.
 async function obtenerTicketConEvento(ticketId) {
     const [filas] = await pool.query(
-        `SELECT t.*, e.nombre AS evento_nombre FROM tickets t
+        `SELECT t.*, e.nombre AS evento_nombre, e.qr_secret AS evento_qr_secret FROM tickets t
          JOIN eventos e ON t.evento_id = e.id
          WHERE t.id = ?`,
         [ticketId]

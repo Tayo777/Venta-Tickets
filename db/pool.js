@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
-const { MYSQL_URL } = require('../config/env');
+const crypto = require('crypto');
+const { MYSQL_URL, QR_SECRET_LEGACY } = require('../config/env');
 
 // Límites explícitos (no confiar en los defaults de la librería): Railway cobra/limita por
 // cantidad de conexiones simultáneas a MySQL, y sin un tope acá un pico de tráfico podría
@@ -217,6 +218,25 @@ async function inicializarDB() {
     // la columna si la tabla ya existía de una instalación previa a esto. Es idempotente:
     // si ya está en VARCHAR(40) o más, MySQL no hace nada.
     await pool.query(`ALTER TABLE tickets MODIFY COLUMN id VARCHAR(40) NOT NULL`);
+
+    // Migración: secreto de firma HMAC PROPIO por evento (antes era un único QR_SECRET
+    // global en .env). db/eventos.js::crearEvento ya genera uno nuevo con crypto.randomBytes
+    // para cada evento que se crea de acá en adelante — esto es el fallback para los eventos
+    // que ya existían ANTES de este cambio y todavía no tienen ninguno:
+    //   - Si había un QR_SECRET global viejo, se lo copiamos tal cual a esos eventos, para
+    //     no invalidar de golpe los QRs que ya se mandaron por mail.
+    //   - Si no había ninguno, les generamos uno nuevo — en ese caso puntual, los QRs ya
+    //     emitidos de esos eventos específicos van a dejar de validar (no hay forma de
+    //     evitarlo sin conocer el secreto viejo).
+    await agregarColumnaSiNoExiste('eventos', 'qr_secret', 'VARCHAR(64) NULL');
+    const [eventosSinSecret] = await pool.query('SELECT id FROM eventos WHERE qr_secret IS NULL');
+    for (const { id } of eventosSinSecret) {
+        const secretoFallback = QR_SECRET_LEGACY || crypto.randomBytes(32).toString('hex');
+        await pool.query('UPDATE eventos SET qr_secret = ? WHERE id = ?', [secretoFallback, id]);
+    }
+    if (eventosSinSecret.length > 0) {
+        console.log(`qr_secret asignado a ${eventosSinSecret.length} evento/s existente/s${QR_SECRET_LEGACY ? ' (usando el QR_SECRET viejo)' : ' (generado nuevo — sus QRs ya emitidos dejan de validar)'}.`);
+    }
 
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones + guardias).');
 }

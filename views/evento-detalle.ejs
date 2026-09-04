@@ -147,6 +147,20 @@
         }
         .guardia-acciones button.eliminar { color: #fca5a5; }
         .guardia-acciones button.eliminar:hover { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.35); }
+
+        /* Tarjeta bien visible de la app de guardias — mismo look que .conectar-box (borde
+           violeta brillante), para que salte a la vista igual que la de Mercado Pago. */
+        .app-guardias-card {
+            background: var(--zinc-900); border-radius: 14px; padding: 22px; margin: 20px 0;
+            box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 24px rgba(139, 92, 246, 0.18);
+        }
+        .app-guardias-header { display: flex; gap: 14px; align-items: flex-start; }
+        .app-guardias-icono { font-size: 1.8rem; line-height: 1; }
+        .app-guardias-header strong { color: white; font-size: 1.05rem; }
+        .app-guardias-header p { color: var(--zinc-400); font-size: 0.85rem; margin: 4px 0 0; }
+        .app-guardias-acciones { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .app-guardias-acciones .btn { width: auto; }
+        .app-guardias-copiado { display: block; margin-top: 10px; color: #34d399; font-size: 0.82rem; font-weight: 600; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -217,6 +231,21 @@
             <strong>🔒 Link privado para el guardia de seguridad:</strong>
             <a href="<%= urlGuardia %>" target="_blank"><%= urlGuardia %></a>
             <span class="aviso">No lo compartas con nadie que no sea personal de seguridad de ESTE evento. Cualquiera que lo abra puede validar entradas.</span>
+        </div>
+
+        <div class="app-guardias-card">
+            <div class="app-guardias-header">
+                <span class="app-guardias-icono">📱</span>
+                <div>
+                    <strong>App para Guardias</strong>
+                    <p>La instalan una sola vez en el celular de cada guardia y después inician sesión con el email/contraseña que les creaste arriba.</p>
+                </div>
+            </div>
+            <div class="app-guardias-acciones">
+                <a class="btn btn-primary" href="/downloads/app-guardias.apk" download>⬇ Descargar APK</a>
+                <button type="button" class="btn btn-ghost" id="btnCopiarLinkApk">Copiar link</button>
+            </div>
+            <span id="avisoCopiado" class="app-guardias-copiado" hidden>✅ Link copiado — pegalo en WhatsApp.</span>
         </div>
     <% } %>
 
@@ -474,6 +503,33 @@
 
             cargar();
             setInterval(cargar, 30000);
+        })();
+    </script>
+
+    <script>
+        // Botón "Copiar link" del APK, para que el organizador se lo pase a sus guardias por
+        // WhatsApp sin tener que escribir la URL a mano.
+        (function () {
+            const boton = document.getElementById('btnCopiarLinkApk');
+            if (!boton) return;
+
+            boton.addEventListener('click', async () => {
+                const url = new URL('/downloads/app-guardias.apk', window.location.origin).href;
+                const aviso = document.getElementById('avisoCopiado');
+                try {
+                    await navigator.clipboard.writeText(url);
+                } catch (error) {
+                    // Fallback para navegadores/contextos sin permiso de clipboard.
+                    const input = document.createElement('input');
+                    input.value = url;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                }
+                aviso.hidden = false;
+                setTimeout(() => { aviso.hidden = true; }, 3000);
+            });
         })();
     </script>
 </body>

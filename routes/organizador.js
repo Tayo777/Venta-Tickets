@@ -242,7 +242,7 @@ router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, async (req, 
 
     try {
         const evento = req.evento;
-        const codigos = await ticketsDb.registrarEntradasCortesia(evento.id, email, cant, { nombreApellido: nombre_apellido });
+        const codigos = await ticketsDb.registrarEntradasCortesia(evento.id, email, cant, { nombreApellido: nombre_apellido, qrSecret: evento.qr_secret });
 
         const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos });
         await enviarMailBrevo({

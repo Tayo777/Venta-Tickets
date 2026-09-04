@@ -48,7 +48,11 @@ router.post('/api/app/login', limitadorAuth, async (req, res) => {
             token,
             filaAsignada: guardia.fila_asignada,
             eventoId: evento.id,
-            eventoNombre: evento.nombre
+            eventoNombre: evento.nombre,
+            // La app necesita esto para poder generar/leer QRs de forma autónoma si en algún
+            // momento lo requiere client-side; hoy mismo la validación real siempre pasa por
+            // el servidor (sync-upload), que verifica con el qr_secret guardado en la DB.
+            qrSecret: evento.qr_secret
         });
     } catch (error) {
         console.error('Error en /api/app/login:', error);

@@ -40,16 +40,17 @@ function generarPantallaControl(titulo, mensaje, colorFondo) {
 router.get('/validar/:id', async (req, res) => {
     const ticketId = req.params.id;
 
-    // Verificación de firma ANTES de cualquier consulta a MySQL: un código inventado o
-    // adulterado (por ejemplo, alguien armando un QR a mano con un "EVT-" cualquiera) se
-    // rechaza al toque, sin gastarle ni una query a la base.
-    if (!verificarIdFirmado(ticketId)) {
-        return res.send(generarPantallaControl('❌ QR INVÁLIDO', 'Este código no es válido o fue falsificado.', '#c0392b'));
-    }
-
     try {
         const row = await ticketsDb.obtenerTicketConEvento(ticketId);
         if (!row) return res.send(generarPantallaControl('❌ RECHAZADO', 'Esta entrada NO existe en el sistema.', '#c0392b'));
+
+        // La firma se verifica con el qr_secret PROPIO de este evento (ya no hay uno global,
+        // así que recién se puede chequear una vez que sabemos a qué evento pertenece el
+        // ticket). Un código inventado o adulterado se rechaza acá, antes de mostrar nada
+        // y antes de que intentarValidar llegue a tocar el estado de la entrada.
+        if (!verificarIdFirmado(ticketId, row.evento_qr_secret)) {
+            return res.send(generarPantallaControl('❌ QR INVÁLIDO', 'Este código no es válido o fue falsificado.', '#c0392b'));
+        }
 
         const esGuardiaDeEsteEvento = req.cookies[`guardia_${row.evento_id}`] === '1';
         if (!esGuardiaDeEsteEvento) {
@@ -119,14 +120,12 @@ router.post('/api/guardia/:eventoId/validar/:ticketId', async (req, res) => {
     const { eventoId, ticketId } = req.params;
     if (!esGuardia(req, eventoId)) return res.status(403).json({ error: 'No autorizado.' });
 
-    // Mismo blindaje que en /validar: se corta antes de tocar la DB si la firma no cierra.
-    if (!verificarIdFirmado(ticketId)) {
-        return res.status(400).json({ resultado: 'firma_invalida', error: 'QR inválido o falsificado.' });
-    }
-
     try {
+        // intentarValidar ya verifica la firma con el qr_secret del evento correspondiente
+        // (necesita buscar la fila primero para saber cuál es — ver services/validarTicket.js).
         const { resultado, row } = await intentarValidar(ticketId, eventoId);
         if (resultado === 'no_existe') return res.status(404).json({ resultado });
+        if (resultado === 'firma_invalida') return res.status(400).json({ resultado, error: 'QR inválido o falsificado.' });
         if (resultado === 'otro_evento') return res.status(403).json({ resultado });
         res.json({ resultado, email: row.email });
     } catch (error) {
