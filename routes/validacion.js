@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const ticketsDb = require('../db/tickets');
 const eventosDb = require('../db/eventos');
-const { enviarNotificacionTelegram } = require('../services/telegram');
 const { verificarIdFirmado } = require('../services/firmaTickets');
+const { intentarValidar } = require('../services/validarTicket');
 
 // Arma una pantalla simple a pantalla completa, pensada para verse bien en el celular del guardia.
 function generarPantallaControl(titulo, mensaje, colorFondo) {
@@ -30,24 +30,6 @@ function generarPantallaControl(titulo, mensaje, colorFondo) {
     </body>
     </html>
     `;
-}
-
-// Intenta marcar una entrada como usada. Centraliza la regla (firma válida / existe / es de
-// este evento / no estaba ya usada) para que la comparta tanto /validar (navegación directa
-// del QR) como la API JSON que usa el scanner offline del guardia (ver /api/guardia más abajo).
-async function intentarValidar(ticketId, eventoId) {
-    // Blindaje contra QRs falsificados o alterados a mano: se verifica la firma HMAC ANTES
-    // de tocar la base de datos. Si no coincide, se corta acá — cero consultas a MySQL.
-    if (!verificarIdFirmado(ticketId)) return { resultado: 'firma_invalida' };
-
-    const row = await ticketsDb.obtenerTicketConEvento(ticketId);
-    if (!row) return { resultado: 'no_existe' };
-    if (String(row.evento_id) !== String(eventoId)) return { resultado: 'otro_evento', row };
-    if (row.estado === 'Usada') return { resultado: 'ya_usada', row };
-
-    await ticketsDb.marcarComoUsada(ticketId);
-    enviarNotificacionTelegram(`✅ <b>Ingreso registrado</b>\nEvento: ${row.evento_nombre}\nTitular: ${row.email}`);
-    return { resultado: 'ok', row };
 }
 
 // Diferencia entre el COMPRADOR (ve info, no valida) y el GUARDIA de ESE evento puntual

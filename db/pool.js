@@ -152,6 +152,20 @@ async function inicializarDB() {
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )`);
 
+    // Cuentas de guardia para la app móvil (login por email/password propio, distinto del
+    // "modo guardia" del navegador que usa cookie + link compartido). Cada guardia queda
+    // atado a UN evento y a UNA fila/puerta puntual.
+    await pool.query(`CREATE TABLE IF NOT EXISTS guardias (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        evento_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        fila_asignada INT NOT NULL,
+        activo TINYINT(1) NOT NULL DEFAULT 1,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
     // Migración: columnas del sistema de Marketplace/OAuth y de comisión real post-pago.
     // Se agregan solas si la tabla ya existía de antes (no rompe instalaciones previas).
     await agregarColumnaSiNoExiste('eventos', 'descripcion', 'TEXT');
@@ -185,6 +199,9 @@ async function inicializarDB() {
     await agregarIndiceSiNoExiste('tickets', 'idx_tickets_estado', 'estado');
     await agregarIndiceSiNoExiste('tickets', 'idx_tickets_evento_estado', 'evento_id, estado');
 
+    // Migración: reparto de entradas por fila/guardia (app móvil de seguridad).
+    await agregarColumnaSiNoExiste('tickets', 'fila_asignada', 'INT NULL DEFAULT NULL');
+
     // Migración: recuperación de contraseña.
     await agregarColumnaSiNoExiste('usuarios', 'reset_token', 'VARCHAR(64)');
     await agregarColumnaSiNoExiste('usuarios', 'reset_expira', 'DATETIME NULL');
@@ -201,7 +218,7 @@ async function inicializarDB() {
     // si ya está en VARCHAR(40) o más, MySQL no hace nada.
     await pool.query(`ALTER TABLE tickets MODIFY COLUMN id VARCHAR(40) NOT NULL`);
 
-    console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones).');
+    console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones + guardias).');
 }
 
 module.exports = { pool, poolCallback, inicializarDB, agregarColumnaSiNoExiste };

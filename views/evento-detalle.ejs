@@ -126,6 +126,27 @@
             border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-size: 0.82rem;
             color: #facc15; font-weight: 600;
         }
+
+        /* Tarjetas de guardias de la app móvil. */
+        .lista-guardias { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+        .guardia-card {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            background: var(--zinc-800); border-radius: 10px; padding: 10px 14px; font-size: 0.85rem;
+        }
+        .guardia-card.inactivo { opacity: 0.55; }
+        .badge-fila {
+            display: inline-block; margin-left: 8px; background: rgba(139, 92, 246, 0.15);
+            color: var(--accent-2); border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 999px; padding: 2px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        .guardia-acciones { display: flex; gap: 6px; flex-shrink: 0; }
+        .guardia-acciones form { margin: 0; }
+        .guardia-acciones button {
+            border: 1px solid var(--zinc-800); background: var(--zinc-900); color: var(--text);
+            border-radius: 999px; padding: 5px 12px; font-size: 0.75rem; cursor: pointer;
+        }
+        .guardia-acciones button.eliminar { color: #fca5a5; }
+        .guardia-acciones button.eliminar:hover { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.35); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -144,6 +165,12 @@
     <% } %>
     <% if (typeof reenviado !== 'undefined' && reenviado) { %>
         <div class="aviso-ok">📩 Entradas reenviadas correctamente.</div>
+    <% } %>
+    <% if (typeof filasAsignadas !== 'undefined' && filasAsignadas) { %>
+        <div class="aviso-ok">🚧 Entradas repartidas al azar en <%= filasAsignadas %> fila<%= filasAsignadas == 1 ? '' : 's' %>.</div>
+    <% } %>
+    <% if (typeof errorGuardia !== 'undefined' && errorGuardia) { %>
+        <div class="alerta-error" style="margin-bottom:15px;"><%= errorGuardia %></div>
     <% } %>
 
     <% if (!evento.conectado_mp) { %>
@@ -230,6 +257,59 @@
         <h3>📋 Exportación de contingencia</h3>
         <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
         <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
+    </div>
+
+    <div class="panel-op">
+        <h3>🚧 Cierre de evento — Reparto por fila</h3>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+            Define cuántas filas/guardias va a tener la puerta y reparte TODAS las entradas
+            vendidas entre ellas, al azar y en partes iguales (mezclando tipos de entrada).
+            Usalo el día del evento, una vez que ya sabés cuántas puertas vas a tener.
+        </p>
+        <form action="/eventos/<%= evento.id %>/asignar-filas" method="POST" class="fila"
+              onsubmit="return confirm('¿Repartir todas las entradas vendidas entre las filas indicadas? Si ya habías repartido antes, esto lo vuelve a mezclar de cero.');">
+            <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="3" required>
+            <button type="submit">Repartir entradas</button>
+        </form>
+    </div>
+
+    <div class="panel-op">
+        <h3>👮 Guardias (app móvil)</h3>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+            Creá una cuenta por guardia (email + contraseña) para que inicien sesión desde la
+            app móvil de seguridad — cada uno ve solo el número de fila que le asignes acá.
+        </p>
+        <form action="/eventos/<%= evento.id %>/guardias" method="POST" class="fila">
+            <input type="email" name="email" placeholder="Email del guardia" required>
+            <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
+            <input type="number" name="fila_asignada" placeholder="Fila" min="1" max="20" required style="max-width:80px;">
+            <button type="submit">+ Crear guardia</button>
+        </form>
+
+        <% if (guardias.length === 0) { %>
+            <p style="color:var(--text-faint); font-size:0.85rem; margin-top:10px;">Todavía no creaste ningún guardia para este evento.</p>
+        <% } else { %>
+            <div class="lista-guardias">
+                <% guardias.forEach(g => { %>
+                    <div class="guardia-card <%= g.activo ? '' : 'inactivo' %>">
+                        <div>
+                            <strong><%= g.email %></strong>
+                            <span class="badge-fila">Fila <%= g.fila_asignada %></span>
+                            <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? '' : '· Desactivado' %></span>
+                        </div>
+                        <div class="guardia-acciones">
+                            <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
+                                <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
+                            </form>
+                            <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
+                                  onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
+                                <button type="submit" class="eliminar">Borrar</button>
+                            </form>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
     </div>
 
     <% if (ventas.length > 0) { %>

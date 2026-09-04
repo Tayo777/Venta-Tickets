@@ -6,6 +6,7 @@ const tiposEntradaDb = require('../db/tiposEntrada');
 const ticketsDb = require('../db/tickets');
 const cuponesDb = require('../db/cupones');
 const comprasDb = require('../db/compras');
+const guardiasDb = require('../db/guardias');
 const mp = require('../services/mercadopago');
 const { subirImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
@@ -149,17 +150,84 @@ router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
     const evento = req.evento;
     const resumen = await eventosDb.resumenVentas(evento.id);
     const ventas = await eventosDb.listadoVentas(evento.id);
+    const guardias = await guardiasDb.obtenerGuardiasDeEvento(evento.id);
     const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
 
     res.render('evento-detalle', {
-        evento, resumen, ventas, recaudacion,
+        evento, resumen, ventas, guardias, recaudacion,
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
         urlPublica: `${BASE_URL}/evento/${evento.id}`,
         urlGuardia: `${BASE_URL}/login-guardia/${evento.id}?token=${evento.guardia_token}`,
         conectado: req.query.conectado === '1',
         cortesia: req.query.cortesia === '1',
-        reenviado: req.query.reenviado === '1'
+        reenviado: req.query.reenviado === '1',
+        filasAsignadas: req.query.filas_ok || null,
+        errorGuardia: null
     });
+});
+
+// Reparte todas las entradas vendidas entre N filas/guardias, al azar y en partes iguales
+// (ver ticketsDb.asignarFilasAleatorio). Pensado para correrlo el día del evento, una vez
+// que ya se sabe cuántos guardias/puertas va a haber.
+router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const cantidadFilas = parseInt(req.body.cantidad_filas);
+    if (!cantidadFilas || cantidadFilas < 1 || cantidadFilas > 20) {
+        return res.status(400).send('Ingresá una cantidad de filas válida (entre 1 y 20).');
+    }
+
+    try {
+        const total = await ticketsDb.asignarFilasAleatorio(req.evento.id, cantidadFilas);
+        res.redirect(`/eventos/${req.evento.id}?filas_ok=${cantidadFilas}`);
+        console.log(`Repartidas ${total} entradas en ${cantidadFilas} filas para el evento ${req.evento.id}.`);
+    } catch (error) {
+        console.error('Error al repartir filas:', error);
+        res.status(500).send('No se pudo repartir las entradas por fila.');
+    }
+});
+
+// --- Gestión de guardias (cuentas para la app móvil) ---
+
+router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    const { email, password, fila_asignada } = req.body;
+    const filaNum = parseInt(fila_asignada);
+
+    const rerenderConError = async (mensaje) => {
+        const resumen = await eventosDb.resumenVentas(req.evento.id);
+        const ventas = await eventosDb.listadoVentas(req.evento.id);
+        const guardias = await guardiasDb.obtenerGuardiasDeEvento(req.evento.id);
+        const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(req.evento.valor_entrada);
+        res.render('evento-detalle', {
+            evento: req.evento, resumen, ventas, guardias, recaudacion,
+            urlConexionMP: mp.urlConexionOAuth(req.evento.token_informe),
+            urlPublica: `${BASE_URL}/evento/${req.evento.id}`,
+            urlGuardia: `${BASE_URL}/login-guardia/${req.evento.id}?token=${req.evento.guardia_token}`,
+            conectado: false, cortesia: false, reenviado: false, filasAsignadas: null,
+            errorGuardia: mensaje
+        });
+    };
+
+    if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
+    if (!password || password.length < 8) return rerenderConError('La contraseña del guardia tiene que tener al menos 8 caracteres.');
+    if (!filaNum || filaNum < 1) return rerenderConError('Ingresá un número de fila válido.');
+
+    try {
+        await guardiasDb.crearGuardia({ eventoId: req.evento.id, email, password, filaAsignada: filaNum });
+        res.redirect(`/eventos/${req.evento.id}`);
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe un guardia con el email "${email}".`);
+        console.error('Error al crear guardia:', error);
+        rerenderConError('No se pudo crear el guardia.');
+    }
+});
+
+router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    await guardiasDb.eliminarGuardia(req.params.guardiaId, req.evento.id);
+    res.redirect(`/eventos/${req.evento.id}`);
+});
+
+router.post('/eventos/:id/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    await guardiasDb.toggleActivo(req.params.guardiaId, req.evento.id);
+    res.redirect(`/eventos/${req.evento.id}`);
 });
 
 // Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago

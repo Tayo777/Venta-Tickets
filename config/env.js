@@ -11,6 +11,7 @@ const requiredEnv = [
     'IMGBB_API_KEY',                           // para poder subir flyers como imagen directamente
     'QR_SECRET',                               // firma HMAC de los QR de entrada, para detectar falsificaciones
     'MP_WEBHOOK_SECRET',                       // firma HMAC de las notificaciones (webhooks) de Mercado Pago
+    'JWT_SECRET',                               // firma los JWT de login de la app móvil de guardias
     'BASE_URL', 'MYSQL_URL'
 ];
 
@@ -42,6 +43,7 @@ module.exports = {
 
     QR_SECRET: process.env.QR_SECRET,
     MP_WEBHOOK_SECRET: process.env.MP_WEBHOOK_SECRET,
+    JWT_SECRET: process.env.JWT_SECRET,
 
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,

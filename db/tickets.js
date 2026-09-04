@@ -138,8 +138,49 @@ async function obtenerIngresosPorHora(eventoId) {
     return filas;
 }
 
+// Reparte las entradas de un evento entre N filas/guardias, al azar y en partes iguales
+// (diferencia de a lo sumo 1 entrada entre filas). El mezclado (Fisher-Yates) pasa ANTES de
+// asignar el número de fila de forma cíclica, así el reparto queda al azar y mezcla tipos de
+// entrada entre sí (no separa General/VIP por fila). Todo en una transacción: o se reparte
+// completo, o no se toca nada.
+async function asignarFilasAleatorio(eventoId, cantidadFilas) {
+    const [tickets] = await pool.query('SELECT id FROM tickets WHERE evento_id = ?', [eventoId]);
+
+    for (let i = tickets.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tickets[i], tickets[j]] = [tickets[j], tickets[i]];
+    }
+
+    const conexion = await pool.getConnection();
+    try {
+        await conexion.beginTransaction();
+        for (let i = 0; i < tickets.length; i++) {
+            const fila = (i % cantidadFilas) + 1;
+            await conexion.query('UPDATE tickets SET fila_asignada = ? WHERE id = ?', [fila, tickets[i].id]);
+        }
+        await conexion.commit();
+    } catch (err) {
+        await conexion.rollback();
+        throw err;
+    } finally {
+        conexion.release();
+    }
+    return tickets.length;
+}
+
+// Volcado COMPLETO de todas las entradas del evento (todas las filas, no solo la del guardia
+// que pide la sync) — la app móvil necesita el mapa entero para que el modo offline funcione
+// aunque un guardia cruce a ayudar en otra fila.
+async function obtenerTicketsCompletosDeEvento(eventoId) {
+    const [filas] = await pool.query(
+        'SELECT id, estado, fila_asignada, tipo_entrada_id, email, nombre_apellido FROM tickets WHERE evento_id = ?',
+        [eventoId]
+    );
+    return filas;
+}
+
 module.exports = {
     registrarEntradas, registrarEntradasCortesia, obtenerEntradasDeCompra,
     obtenerUltimasEntradas, obtenerTicketConEvento, obtenerTicketsDeEvento, marcarComoUsada,
-    obtenerIngresosPorHora, SinCupoError
+    obtenerIngresosPorHora, asignarFilasAleatorio, obtenerTicketsCompletosDeEvento, SinCupoError
 };
