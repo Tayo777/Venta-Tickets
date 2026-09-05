@@ -256,7 +256,7 @@
                 </div>
             </div>
             <div class="app-guardias-acciones">
-                <a class="btn btn-primary" href="/downloads/app-guardias.apk" download>⬇ Descargar APK</a>
+                <a class="btn btn-primary" href="<%= URL_APK_GUARDIAS %>" target="_blank" rel="noopener noreferrer">⬇ Descargar APK</a>
                 <button type="button" class="btn btn-ghost" id="btnCopiarLinkApk">Copiar link</button>
             </div>
             <span id="avisoCopiado" class="app-guardias-copiado" hidden>✅ Link copiado — pegalo en WhatsApp.</span>
@@ -558,7 +558,7 @@
             if (!boton) return;
 
             boton.addEventListener('click', async () => {
-                const url = new URL('/downloads/app-guardias.apk', window.location.origin).href;
+                const url = <%- JSON.stringify(URL_APK_GUARDIAS) %>;
                 const aviso = document.getElementById('avisoCopiado');
                 try {
                     await navigator.clipboard.writeText(url);

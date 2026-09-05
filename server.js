@@ -26,6 +26,11 @@ app.locals.formatearFecha = (fecha) => {
     if (isNaN(d)) return fecha;
     return d.toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 };
+// Link público de descarga del APK de la app de guardias. Vive acá (y no hardcodeado en la
+// vista) para que el botón de descarga y el de "Copiar link" no puedan quedar apuntando a
+// lugares distintos, y para cambiarlo en un solo lugar cuando haya Play Store.
+app.locals.URL_APK_GUARDIAS = 'https://drive.google.com/file/d/1GqYema6b3oEHXcrWCLdWP3YH8oOh1l2i/view?usp=sharing';
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
