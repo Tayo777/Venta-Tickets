@@ -1,6 +1,7 @@
 const mysql = require('mysql2/promise');
 const crypto = require('crypto');
 const { MYSQL_URL, QR_SECRET_LEGACY } = require('../config/env');
+const { OFFSET_MYSQL } = require('../config/tiempo');
 
 // Límites explícitos (no confiar en los defaults de la librería): Railway cobra/limita por
 // cantidad de conexiones simultáneas a MySQL, y sin un tope acá un pico de tráfico podría
@@ -10,12 +11,30 @@ const { MYSQL_URL, QR_SECRET_LEGACY } = require('../config/env');
 //     fallar al toque (más lento en el pico, pero no se cae).
 //   - queueLimit: 0 = cola sin límite de tamaño (nunca rechaza un pedido por "demasiados
 //     esperando" — solo van a esperar más si el pico es grande).
+//   - timezone: con qué huso interpreta el driver las columnas DATETIME al convertirlas a
+//     Date de JS (y al revés). Va junto con el SET time_zone de más abajo: si el driver y el
+//     servidor MySQL no coinciden, las fechas se corren de a horas sin que nada falle.
 const pool = mysql.createPool({
     uri: MYSQL_URL,
     connectionLimit: 10,
     waitForConnections: true,
-    queueLimit: 0
+    queueLimit: 0,
+    timezone: OFFSET_MYSQL
 });
+
+// Cada conexión nueva arranca fijando el huso de la SESIÓN de MySQL en hora de Argentina.
+// Esto es lo que hace que NOW() (fecha_compra, fecha_escaneada) y las funciones de
+// agrupación DATE()/HOUR() que usan los gráficos trabajen en hora local y no en UTC.
+//
+// El evento 'connection' se emite de forma síncrona ANTES de que el pool entregue la conexión
+// a quien la pidió, así que este SET queda encolado primero en esa conexión: ninguna query de
+// la app puede colarse antes y ejecutarse con el huso viejo.
+function fijarZonaHoraria(conexion) {
+    conexion.query(`SET time_zone = '${OFFSET_MYSQL}'`, (err) => {
+        if (err) console.error('No se pudo fijar la zona horaria de la conexión MySQL:', err.message);
+    });
+}
+pool.on('connection', fijarZonaHoraria);
 
 // Aviso temprano de que el pool se está quedando sin conexiones libres: el evento 'enqueue'
 // se dispara cada vez que un pedido tiene que ESPERAR porque las 10 conexiones ya están
@@ -33,8 +52,10 @@ const poolCallback = require('mysql2').createPool({
     uri: MYSQL_URL,
     connectionLimit: 5,
     waitForConnections: true,
-    queueLimit: 0
+    queueLimit: 0,
+    timezone: OFFSET_MYSQL
 });
+poolCallback.on('connection', fijarZonaHoraria);
 poolCallback.on('enqueue', () => {
     console.warn('[MySQL pool de sesiones] Sin conexiones libres — un pedido quedó en cola esperando una (connectionLimit: 5).');
 });

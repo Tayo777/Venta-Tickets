@@ -59,6 +59,16 @@
         .card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 12px; padding: 16px; text-align: center; }
         .card .numero { font-size: 1.5rem; font-weight: 700; color: var(--text); }
         .card .etiqueta { color: var(--zinc-400); font-size: 0.78rem; margin-top: 4px; }
+        /* Bloque de cortesias: mismo grid, pero 2 cards + una nota que ocupa el resto del ancho. */
+        .grid-cortesias { grid-template-columns: repeat(2, 1fr) 2fr; margin-top: 12px; }
+        @media (max-width: 900px) { .grid-cortesias { grid-template-columns: repeat(2, 1fr); } }
+        .card-cortesia { border-style: dashed; }
+        .card-cortesia .numero { color: var(--zinc-300); }
+        .nota-cortesias {
+            display: flex; align-items: center; color: var(--zinc-400);
+            font-size: 0.78rem; line-height: 1.45; padding: 0 4px;
+        }
+        @media (max-width: 900px) { .nota-cortesias { grid-column: 1 / -1; } }
 
         /* Link de venta pública: informativo, tono neutro-acento. */
         .link-box { margin-top: 20px; background: var(--zinc-900); border: 1px solid var(--zinc-800); padding: 15px; border-radius: 12px; font-size: 0.85rem; word-break: break-all; }
@@ -233,6 +243,24 @@
             <div class="card"><div class="numero"><%= resumen.total_ingresadas || 0 %></div><div class="etiqueta">Ingresaron</div></div>
             <div class="card"><div class="numero"><%= resumen.total_compradores || 0 %></div><div class="etiqueta">Compradores</div></div>
             <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
+        </div>
+
+        <!-- Cuadro aparte a propósito: las cortesías ocupan cupo y entran por la puerta, pero
+             NO son plata. Por eso viven fuera del grid de arriba y con otro color, para que no
+             se confundan con las entradas vendidas ni sumen a la recaudación. -->
+        <div class="grid grid-cortesias">
+            <div class="card card-cortesia">
+                <div class="numero"><%= resumen.total_cortesias || 0 %></div>
+                <div class="etiqueta">Cortesías entregadas</div>
+            </div>
+            <div class="card card-cortesia">
+                <div class="numero"><%= (resumen.total_entradas || 0) %></div>
+                <div class="etiqueta">Entradas emitidas (vendidas + cortesías)</div>
+            </div>
+            <div class="nota-cortesias">
+                Las cortesías <strong>no suman</strong> a la recaudación ni a las ganancias:
+                descuentan cupo del tipo de entrada elegido, pero se emiten sin cobro.
+            </div>
         </div>
 
         <div class="panel-op" id="flujo-ingreso-box">
@@ -433,8 +461,8 @@
                     <td><%= v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : '-') %></td>
                     <td><%= v.id_entrada %></td>
                     <td><%= v.estado_entrada %></td>
-                    <td><%= v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '-' %></td>
-                    <td><%= v.fecha_y_hora_escaneada ? new Date(v.fecha_y_hora_escaneada).toLocaleString('es-AR') : '-' %></td>
+                    <td><%= formatearFechaHora(v.fecha_y_hora_compra) %></td>
+                    <td><%= formatearFechaHora(v.fecha_y_hora_escaneada) %></td>
                 </tr>
             <% }) %>
         </table>

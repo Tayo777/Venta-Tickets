@@ -1,3 +1,9 @@
+// Huso horario del proceso, ANTES de cargar cualquier otra cosa: Node lee process.env.TZ una
+// sola vez, así que si esto queda más abajo (o dentro de un require) no tiene efecto. Sin
+// esto, Railway corre en UTC y todas las fechas se muestran 3 horas adelantadas.
+const { ZONA_HORARIA } = require('./config/tiempo');
+process.env.TZ = ZONA_HORARIA;
+
 const env = require('./config/env'); // valida variables de entorno al arrancar
 
 const express = require('express');
@@ -24,7 +30,24 @@ app.set('view engine', 'ejs');
 app.locals.formatearFecha = (fecha) => {
     const d = new Date(fecha);
     if (isNaN(d)) return fecha;
-    return d.toLocaleString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    // timeZone explícita: no alcanza con process.env.TZ si algún día el proceso corre en otro
+    // lado (un cron, otra máquina). Así la fecha que ve el organizador es siempre la de Argentina.
+    return d.toLocaleString('es-AR', {
+        timeZone: ZONA_HORARIA,
+        weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+    });
+};
+
+// Fecha + hora corta para las tablas del panel (compra y escaneo). Misma zona horaria que
+// formatearFecha; devuelve '—' para las entradas que todavía no se escanearon.
+app.locals.formatearFechaHora = (fecha) => {
+    if (!fecha) return '—';
+    const d = new Date(fecha);
+    if (isNaN(d)) return fecha;
+    return d.toLocaleString('es-AR', {
+        timeZone: ZONA_HORARIA,
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
 };
 // Link público de descarga del APK de la app de guardias. Vive acá (y no hardcodeado en la
 // vista) para que el botón de descarga y el de "Copiar link" no puedan quedar apuntando a

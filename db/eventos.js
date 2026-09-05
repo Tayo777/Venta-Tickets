@@ -138,16 +138,44 @@ function ventaVencidaPorTiempo(evento) {
     return Boolean(evento.fecha_cierre_ventas) && new Date(evento.fecha_cierre_ventas) <= new Date();
 }
 
+// Métricas del panel. Regla clave: las CORTESÍAS no son plata.
+//   - total_vendidas / total_compradores / recaudacion cuentan SOLO entradas pagas.
+//   - total_cortesias va aparte, en su propio cuadro, para que se vea cuántas se regalaron
+//     sin que eso infle la recaudación ni las ganancias.
+//   - total_ingresadas sí incluye cortesías: en la puerta entra gente, no dinero.
+//
+// La recaudación se calcula sumando el precio del TIPO de cada entrada, no
+// "cantidad x valor_entrada" como antes: desde que hay varios tipos (General/VIP) a distinto
+// precio, esa multiplicación daba un número que no era ninguna plata real. Para entradas
+// viejas sin tipo asignado se cae a eventos.valor_entrada.
 async function resumenVentas(eventoId) {
     const [[resumen]] = await pool.query(
         `SELECT
-            COUNT(*) AS total_vendidas,
-            SUM(CASE WHEN estado = 'Usada' THEN 1 ELSE 0 END) AS total_ingresadas,
-            COUNT(DISTINCT email) AS total_compradores
-         FROM tickets WHERE evento_id = ?`,
+            COUNT(*) AS total_entradas,
+            SUM(CASE WHEN t.origen = 'cortesia' THEN 0 ELSE 1 END) AS total_vendidas,
+            SUM(CASE WHEN t.origen = 'cortesia' THEN 1 ELSE 0 END) AS total_cortesias,
+            SUM(CASE WHEN t.estado = 'Usada' THEN 1 ELSE 0 END) AS total_ingresadas,
+            COUNT(DISTINCT CASE WHEN t.origen = 'cortesia' THEN NULL ELSE t.email END) AS total_compradores,
+            COALESCE(SUM(CASE WHEN t.origen = 'cortesia' THEN 0
+                              ELSE COALESCE(te.precio, ev.valor_entrada, 0) END), 0) AS recaudacion
+         FROM tickets t
+         JOIN eventos ev ON ev.id = t.evento_id
+         LEFT JOIN tipos_entrada te ON te.id = t.tipo_entrada_id
+         WHERE t.evento_id = ?`,
         [eventoId]
     );
-    return resumen;
+
+    // MySQL devuelve los SUM/COUNT como string o null segun el driver y si la tabla esta
+    // vacia; se normaliza acá para que las vistas no tengan que hacer || 0 en cada card.
+    const num = (v) => Number(v) || 0;
+    return {
+        total_entradas: num(resumen.total_entradas),
+        total_vendidas: num(resumen.total_vendidas),
+        total_cortesias: num(resumen.total_cortesias),
+        total_ingresadas: num(resumen.total_ingresadas),
+        total_compradores: num(resumen.total_compradores),
+        recaudacion: num(resumen.recaudacion)
+    };
 }
 
 // Listado de ventas con las columnas pedidas para el panel del organizador/admin.

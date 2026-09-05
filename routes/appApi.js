@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const guardiasDb = require('../db/guardias');
 const eventosDb = require('../db/eventos');
 const ticketsDb = require('../db/tickets');
-const { intentarValidar } = require('../services/validarTicket');
+const { intentarValidar, extraerIdTicket } = require('../services/validarTicket');
 const { requiereJwtGuardia } = require('../middleware/authApi');
 const { limitadorAuth } = require('../middleware/rateLimiters');
 const { JWT_SECRET } = require('../config/env');
@@ -12,6 +12,23 @@ const { JWT_SECRET } = require('../config/env');
 // Duración de la sesión de un guardia en la app: alcanza y sobra para un turno de trabajo
 // (evento + previa + after). Si se vence a mitad del evento, el login es instantáneo de nuevo.
 const DURACION_TOKEN = '12h';
+
+// Hora real del escaneo que manda la app cuando validó sin señal. Acepta timestamp en ms
+// (Date.now() del celular) o texto ISO. Se descarta cualquier fecha absurda —futuro, o
+// anterior a 2020— para que un celular con la hora mal configurada no ensucie las estadísticas.
+function fechaDeEscaneo(entrada) {
+    if (!entrada || typeof entrada !== 'object') return null;
+    const crudo = entrada.ts ?? entrada.fecha ?? entrada.fechaEscaneo ?? entrada.fecha_escaneada;
+    if (crudo === null || crudo === undefined) return null;
+
+    const fecha = new Date(typeof crudo === 'number' ? crudo : String(crudo));
+    if (isNaN(fecha)) return null;
+
+    const ahora = Date.now();
+    if (fecha.getTime() > ahora + 60 * 1000) return null;
+    if (fecha.getTime() < Date.UTC(2020, 0, 1)) return null;
+    return fecha;
+}
 
 // Login de la app móvil de guardias. Devuelve el JWT + la fila asignada, para que la app
 // sepa de entrada qué puerta le toca cubrir (aunque igual descarga el mapa COMPLETO del
@@ -73,10 +90,22 @@ router.get('/api/app/sync-download', requiereJwtGuardia, async (req, res) => {
     }
 });
 
-// Sube el resultado de lo que la app validó offline: un array de IDs de ticket que el
-// guardia escaneó y marcó como usados en el celular. Cada uno se re-valida en serio acá
-// (firma HMAC + pertenece a este evento + no estaba ya usado) antes de tocar la DB — nunca
-// se confía en que "la app ya lo marcó como válido localmente".
+// Sube el resultado de lo que la app validó offline: los escaneos que el guardia hizo en el
+// celular y quedaron encolados. Cada uno se re-valida en serio acá (firma HMAC + pertenece a
+// este evento + no estaba ya usado) antes de tocar la DB — nunca se confía en que "la app ya
+// lo marcó como válido localmente".
+//
+// El formato de cada elemento es flexible a propósito, porque de esto dependía que los
+// escaneos llegaran o se perdieran en silencio. Se acepta:
+//   - el código pelado:            "EVT-AB12CD34.9f8e..."
+//   - el contenido crudo del QR:   "https://.../validar/EVT-AB12CD34.9f8e..."
+//   - un objeto de la cola local:  { id: "...", ts: 1725500000000 }  (o fecha / fechaEscaneo)
+// De ahí sale el código con extraerIdTicket(); si llega la URL entera sin recortar, buscarla
+// tal cual en la tabla tickets devolvía "no_existe" y el ingreso nunca quedaba registrado.
+//
+// Cuando el elemento trae la hora del escaneo, esa es la que se guarda en fecha_escaneada (es
+// la hora real en la puerta); si no, se usa la del server. Sin esto, un lote sincronizado a
+// las 4 AM marcaba todos los ingresos a las 4 AM y el gráfico de flujo de gente quedaba mal.
 router.post('/api/app/sync-upload', requiereJwtGuardia, async (req, res) => {
     const { tickets } = req.body;
     if (!Array.isArray(tickets) || tickets.length === 0) {
@@ -87,9 +116,21 @@ router.post('/api/app/sync-upload', requiereJwtGuardia, async (req, res) => {
     }
 
     const resultados = [];
-    for (const ticketId of tickets) {
+    const yaProcesados = new Set(); // el mismo código repetido en el lote se resuelve una sola vez
+
+    for (const entrada of tickets) {
+        const ticketId = extraerIdTicket(entrada);
+        if (!ticketId) {
+            resultados.push({ id: null, resultado: 'formato_invalido' });
+            continue;
+        }
+        if (yaProcesados.has(ticketId)) continue;
+        yaProcesados.add(ticketId);
+
         try {
-            const { resultado } = await intentarValidar(String(ticketId), req.guardia.eventoId);
+            const { resultado } = await intentarValidar(ticketId, req.guardia.eventoId, {
+                fechaEscaneo: fechaDeEscaneo(entrada)
+            });
             resultados.push({ id: ticketId, resultado });
         } catch (error) {
             console.error(`Error al sincronizar el ticket ${ticketId}:`, error);
@@ -97,7 +138,18 @@ router.post('/api/app/sync-upload', requiereJwtGuardia, async (req, res) => {
         }
     }
 
-    res.json({ resultados });
+    // El resumen le sirve a la app para saber qué puede borrar de su cola local y al
+    // organizador para verificar de un vistazo que la sincronización realmente entró.
+    const contar = (r) => resultados.filter((x) => x.resultado === r).length;
+    const resumen = {
+        recibidos: tickets.length,
+        registrados: contar('ok'),
+        yaEstaban: contar('ya_usada'),
+        rechazados: resultados.length - contar('ok') - contar('ya_usada')
+    };
+    console.log(`[sync-upload] evento ${req.guardia.eventoId} / guardia ${req.guardia.email}:`, resumen);
+
+    res.json({ resumen, resultados });
 });
 
 module.exports = router;

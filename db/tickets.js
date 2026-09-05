@@ -117,8 +117,24 @@ async function obtenerTicketConEvento(ticketId) {
     return filas[0] || null;
 }
 
-async function marcarComoUsada(ticketId) {
-    await pool.query('UPDATE tickets SET estado = ?, fecha_escaneada = NOW() WHERE id = ?', ['Usada', ticketId]);
+// `fechaEscaneo` es OPCIONAL y existe por el modo offline de la app de guardias: cuando el
+// escaneo se hizo sin señal, la hora real es la del celular en la puerta, no la del momento en
+// que se pudo sincronizar (que puede ser horas despues). Si no viene, se usa la hora del server.
+//
+// El WHERE incluye "estado <> 'Usada'": si dos guardias escanearon la misma entrada offline y
+// las dos sincronizan, gana la PRIMERA hora registrada y la segunda no la pisa.
+async function marcarComoUsada(ticketId, fechaEscaneo = null) {
+    if (fechaEscaneo instanceof Date && !isNaN(fechaEscaneo)) {
+        await pool.query(
+            "UPDATE tickets SET estado = 'Usada', fecha_escaneada = ? WHERE id = ? AND estado <> 'Usada'",
+            [fechaEscaneo, ticketId]
+        );
+        return;
+    }
+    await pool.query(
+        "UPDATE tickets SET estado = 'Usada', fecha_escaneada = NOW() WHERE id = ? AND estado <> 'Usada'",
+        [ticketId]
+    );
 }
 
 // Volcado liviano (solo id + estado) de todas las entradas de un evento, para que el celular

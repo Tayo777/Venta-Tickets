@@ -13,6 +13,7 @@ const { enviarMailBrevo } = require('../services/brevo');
 const { generarPdfBuffer } = require('../services/pdfEntradas');
 const { requiereLogin, requiereAprobado, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
+const { ZONA_HORARIA } = require('../config/tiempo');
 
 // Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -240,7 +241,11 @@ async function datosPanel(evento, extras = {}) {
         guardiasDb.obtenerGuardiasDeEvento(evento.id),
         tiposEntradaDb.obtenerTiposPorEvento(evento.id)
     ]);
-    const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
+    // La recaudacion la calcula resumenVentas() sumando el precio real de cada entrada paga
+    // (las cortesias no suman: se muestran en su propio cuadro). Antes se estimaba acá como
+    // total_vendidas * valor_entrada, que contaba las cortesias como si fueran plata cobrada
+    // e ignoraba que General y VIP valen distinto.
+    const recaudacion = resumen.recaudacion;
 
     return {
         evento, resumen, ventas, guardias, tipos, recaudacion,
@@ -467,6 +472,19 @@ router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (re
             return necesitaComillas ? `"${texto.replace(/"/g, '""')}"` : texto;
         };
 
+        // Fechas del CSV en hora de Argentina (misma zona que el panel), en formato
+        // dd/mm/aaaa hh:mm — así lo que exporta el organizador coincide con lo que ve en
+        // pantalla y Excel lo reconoce como fecha.
+        const fechaParaCsv = (fecha) => {
+            if (!fecha) return '';
+            const d = new Date(fecha);
+            if (isNaN(d)) return String(fecha);
+            return d.toLocaleString('es-AR', {
+                timeZone: ZONA_HORARIA,
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        };
+
         const encabezados = ['ID Entrada', 'Estado', 'Nombre y Apellido', 'Email', 'Tipo de entrada', 'Origen', 'Fecha de compra', 'Fecha escaneada'];
         const filas = ventas.map((v) => [
             v.id_entrada,
@@ -475,8 +493,8 @@ router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (re
             v.email || '',
             v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : ''),
             v.origen,
-            v.fecha_y_hora_compra ? new Date(v.fecha_y_hora_compra).toLocaleString('es-AR') : '',
-            v.fecha_y_hora_escaneada ? new Date(v.fecha_y_hora_escaneada).toLocaleString('es-AR') : ''
+            fechaParaCsv(v.fecha_y_hora_compra),
+            fechaParaCsv(v.fecha_y_hora_escaneada)
         ].map(escaparCsv).join(DELIMITADOR));
 
         // BOM UTF-8 explícito al inicio para que Excel detecte la codificación y muestre
