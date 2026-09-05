@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <% if (evento.conectado_mp) { %><meta http-equiv="refresh" content="30"><% } %>
     <title>Panel de <%= evento.nombre %></title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
@@ -22,6 +21,24 @@
         .volver:hover { color: var(--accent-2); transform: translateX(-2px); }
         h1 { margin-bottom: 0; }
         .subtitulo { color: var(--text-muted); margin-top: 4px; }
+
+        /* Encabezado: título a la izquierda, botón de actualizar bien visible a la derecha. */
+        .encabezado-evento {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 14px; flex-wrap: wrap;
+        }
+        .btn-actualizar {
+            display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+            background: var(--zinc-900); color: var(--text); border: 1px solid var(--zinc-800);
+            border-radius: 999px; padding: 10px 20px; font-size: 0.88rem; font-weight: 600;
+            cursor: pointer; transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
+        }
+        .btn-actualizar:hover { border-color: var(--accent); color: var(--accent-2); }
+        .btn-actualizar:active { transform: scale(0.97); }
+        .btn-actualizar:disabled { opacity: 0.6; cursor: default; transform: none; }
+        .btn-actualizar.girando { animation: girar-actualizar 800ms linear infinite; }
+        @keyframes girar-actualizar { to { transform: rotate(360deg); } }
+        @media (max-width: 480px) { .btn-actualizar { width: 100%; justify-content: center; } }
         .aviso-ok { background: var(--success-bg); color: var(--success); padding: 12px 15px; border-radius: 10px; margin: 15px 0; border: 1px solid rgba(52, 211, 153, 0.25); }
 
         /* Tarjeta de Mercado Pago destacada: borde violeta brillante sutil (doble capa de
@@ -215,8 +232,18 @@
     <%- include('partials/navbar') %>
     <div class="contenedor">
     <a class="volver" href="/mis-eventos">&larr; Volver a Mis Eventos</a>
-    <h1><%= evento.nombre %></h1>
-    <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
+    <div class="encabezado-evento">
+        <div>
+            <h1><%= evento.nombre %></h1>
+            <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
+        </div>
+        <!-- Antes el panel se refrescaba solo cada 30s (meta refresh) y los gráficos cada
+             20-30s (setInterval), consumiendo el server sin que nadie estuviera mirando.
+             Ahora todo se actualiza SOLO cuando el organizador lo pide con este botón. -->
+        <button type="button" id="btn-actualizar-panel" class="btn-actualizar" onclick="actualizarPanel(this)">
+            🔄 Actualizar
+        </button>
+    </div>
 
     <% if (soloLectura) { %>
         <div class="aviso-solo-lectura">
@@ -551,7 +578,6 @@
             }
 
             cargar();
-            setInterval(cargar, 20000); // se refresca solo, independiente del reload de toda la página
         })();
     </script>
 
@@ -642,7 +668,6 @@
             }
 
             cargar();
-            setInterval(cargar, 30000);
         })();
     </script>
 
@@ -687,6 +712,18 @@
                 setTimeout(() => { aviso.hidden = true; }, 3000);
             });
         })();
+    </script>
+
+    <script>
+        // Reemplaza el polling automático (meta refresh + setInterval de los gráficos, que
+        // pegaban al server cada 20-30s aunque nadie estuviera mirando la pantalla). Recarga
+        // TODA la página a pedido: así números, tabla de ventas, guardias y ambos gráficos
+        // quedan al día en un solo click, sin mantener nada corriendo en segundo plano.
+        function actualizarPanel(boton) {
+            boton.disabled = true;
+            boton.classList.add('girando');
+            location.reload();
+        }
     </script>
 </body>
 </html>
