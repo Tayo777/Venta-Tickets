@@ -353,7 +353,7 @@
         </p>
         <form action="/eventos/<%= evento.id %>/asignar-filas" method="POST" class="fila"
               onsubmit="return confirm('¿Repartir todas las entradas vendidas entre las filas indicadas? Si ya habías repartido antes, esto lo vuelve a mezclar de cero.');">
-            <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="3" required>
+            <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="1" required>
             <button type="submit">Repartir entradas</button>
         </form>
     </div>
