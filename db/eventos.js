@@ -144,10 +144,11 @@ function ventaVencidaPorTiempo(evento) {
 //     sin que eso infle la recaudación ni las ganancias.
 //   - total_ingresadas sí incluye cortesías: en la puerta entra gente, no dinero.
 //
-// La recaudación se calcula sumando el precio del TIPO de cada entrada, no
-// "cantidad x valor_entrada" como antes: desde que hay varios tipos (General/VIP) a distinto
-// precio, esa multiplicación daba un número que no era ninguna plata real. Para entradas
-// viejas sin tipo asignado se cae a eventos.valor_entrada.
+// La recaudación se suma con tickets.precio_pagado, el precio HISTÓRICO que se congeló en
+// cada ticket al momento de venderse (ver db/tickets.js -> registrarEntradas), NO el precio
+// actual del tipo de entrada. Si se usara el precio actual, subir el valor de "General" a
+// mitad de evento recalcularía para arriba las ventas viejas y la recaudación mostrada
+// dejaría de coincidir con la plata que realmente entró.
 async function resumenVentas(eventoId) {
     const [[resumen]] = await pool.query(
         `SELECT
@@ -156,11 +157,8 @@ async function resumenVentas(eventoId) {
             SUM(CASE WHEN t.origen = 'cortesia' THEN 1 ELSE 0 END) AS total_cortesias,
             SUM(CASE WHEN t.estado = 'Usada' THEN 1 ELSE 0 END) AS total_ingresadas,
             COUNT(DISTINCT CASE WHEN t.origen = 'cortesia' THEN NULL ELSE t.email END) AS total_compradores,
-            COALESCE(SUM(CASE WHEN t.origen = 'cortesia' THEN 0
-                              ELSE COALESCE(te.precio, ev.valor_entrada, 0) END), 0) AS recaudacion
+            COALESCE(SUM(CASE WHEN t.origen = 'cortesia' THEN 0 ELSE t.precio_pagado END), 0) AS recaudacion
          FROM tickets t
-         JOIN eventos ev ON ev.id = t.evento_id
-         LEFT JOIN tipos_entrada te ON te.id = t.tipo_entrada_id
          WHERE t.evento_id = ?`,
         [eventoId]
     );
@@ -176,6 +174,34 @@ async function resumenVentas(eventoId) {
         total_compradores: num(resumen.total_compradores),
         recaudacion: num(resumen.recaudacion)
     };
+}
+
+// Desglose de ventas por tipo de entrada (General, VIP, etc.) para el panel: cuántas se
+// vendieron de cada una, cuántas fueron cortesía, y el subtotal recaudado (con el mismo
+// precio_pagado histórico de arriba, no el precio actual del tipo). Los tipos ya borrados
+// o inactivos también aparecen si tienen ventas — solo se excluyen si nunca vendieron nada.
+async function desgloseVentasPorTipo(eventoId) {
+    const [filas] = await pool.query(
+        `SELECT
+            COALESCE(te.id, 0) AS tipo_id,
+            COALESCE(te.nombre, 'Sin tipo asignado') AS tipo_nombre,
+            SUM(CASE WHEN t.origen = 'cortesia' THEN 0 ELSE 1 END) AS vendidas,
+            SUM(CASE WHEN t.origen = 'cortesia' THEN 1 ELSE 0 END) AS cortesias,
+            COALESCE(SUM(CASE WHEN t.origen = 'cortesia' THEN 0 ELSE t.precio_pagado END), 0) AS subtotal
+         FROM tickets t
+         LEFT JOIN tipos_entrada te ON te.id = t.tipo_entrada_id
+         WHERE t.evento_id = ?
+         GROUP BY COALESCE(te.id, 0), COALESCE(te.nombre, 'Sin tipo asignado')
+         ORDER BY tipo_nombre`,
+        [eventoId]
+    );
+    return filas.map((f) => ({
+        tipoId: f.tipo_id,
+        tipoNombre: f.tipo_nombre,
+        vendidas: Number(f.vendidas) || 0,
+        cortesias: Number(f.cortesias) || 0,
+        subtotal: Number(f.subtotal) || 0
+    }));
 }
 
 // Listado de ventas con las columnas pedidas para el panel del organizador/admin.
@@ -204,6 +230,6 @@ async function listadoVentas(eventoId) {
 module.exports = {
     obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
     obtenerEventoPorToken, obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
-    conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas, ventaVencidaPorTiempo,
+    conectarMercadoPago, toggleActivo, resumenVentas, desgloseVentasPorTipo, listadoVentas, ventaVencidaPorTiempo,
     eventoFinalizado, separarPorEstado, marcarFinalizado
 };

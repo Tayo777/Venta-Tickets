@@ -293,6 +293,32 @@ async function inicializarDB() {
         console.log(`qr_secret asignado a ${eventosSinSecret.length} evento/s existente/s${QR_SECRET_LEGACY ? ' (usando el QR_SECRET viejo)' : ' (generado nuevo — sus QRs ya emitidos dejan de validar)'}.`);
     }
 
+    // precio_pagado: el precio HISTÓRICO real que pagó cada ticket, congelado al momento de
+    // la venta (ver db/tickets.js -> registrarEntradas). Sin esto, la recaudación se calculaba
+    // multiplicando por el precio ACTUAL del tipo de entrada — si el organizador sube el
+    // precio de General a mitad de evento, las ventas viejas se recalculaban solas para
+    // arriba y la recaudación mostrada dejaba de coincidir con la plata real cobrada.
+    // Las cortesías se guardan con precio_pagado = 0 (no cobraron nada).
+    await agregarColumnaSiNoExiste('tickets', 'precio_pagado', 'DECIMAL(10,2) NULL');
+    const [ticketsSinPrecio] = await pool.query(
+        `SELECT t.id, t.origen, t.tipo_entrada_id, te.precio AS precio_tipo, e.valor_entrada
+         FROM tickets t
+         JOIN eventos e ON e.id = t.evento_id
+         LEFT JOIN tipos_entrada te ON te.id = t.tipo_entrada_id
+         WHERE t.precio_pagado IS NULL`
+    );
+    for (const t of ticketsSinPrecio) {
+        // Backfill de tickets vendidos ANTES de esta columna: es lo más cerca que se puede
+        // estar del precio real sin haberlo guardado en su momento (precio del tipo si lo
+        // tenía, si no el precio general del evento). De acá en adelante ya no hace falta
+        // adivinar: cada venta nueva graba su propio precio_pagado en el momento exacto.
+        const precio = t.origen === 'cortesia' ? 0 : Number(t.precio_tipo ?? t.valor_entrada ?? 0);
+        await pool.query('UPDATE tickets SET precio_pagado = ? WHERE id = ?', [precio, t.id]);
+    }
+    if (ticketsSinPrecio.length > 0) {
+        console.log(`precio_pagado completado (backfill) en ${ticketsSinPrecio.length} entrada/s existente/s.`);
+    }
+
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones + guardias).');
 }
 

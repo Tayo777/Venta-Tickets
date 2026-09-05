@@ -235,20 +235,21 @@ router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, puedeElimina
 // Panel privado del evento: solo el dueño o el admin pueden entrar. Acá está el link de
 // guardia (encriptado, uno por evento) y el listado de ventas — nada de esto es público.
 async function datosPanel(evento, extras = {}) {
-    const [resumen, ventas, guardias, tipos] = await Promise.all([
+    const [resumen, ventas, guardias, tipos, desglosePorTipo] = await Promise.all([
         eventosDb.resumenVentas(evento.id),
         eventosDb.listadoVentas(evento.id),
         guardiasDb.obtenerGuardiasDeEvento(evento.id),
-        tiposEntradaDb.obtenerTiposPorEvento(evento.id)
+        tiposEntradaDb.obtenerTiposPorEvento(evento.id),
+        eventosDb.desgloseVentasPorTipo(evento.id)
     ]);
-    // La recaudacion la calcula resumenVentas() sumando el precio real de cada entrada paga
-    // (las cortesias no suman: se muestran en su propio cuadro). Antes se estimaba acá como
-    // total_vendidas * valor_entrada, que contaba las cortesias como si fueran plata cobrada
-    // e ignoraba que General y VIP valen distinto.
+    // La recaudacion la calcula resumenVentas() sumando precio_pagado (el precio HISTÓRICO
+    // real de cada ticket, congelado al venderse — ver db/tickets.js), no el precio actual
+    // del tipo de entrada. Así, si el organizador sube el precio de "General" a mitad de
+    // evento, las ventas viejas siguen contando lo que efectivamente se cobró.
     const recaudacion = resumen.recaudacion;
 
     return {
-        evento, resumen, ventas, guardias, tipos, recaudacion,
+        evento, resumen, ventas, guardias, tipos, recaudacion, desglosePorTipo,
         esAdmin: extras.esAdmin === true,
         // Si está finalizado, la vista oculta/deshabilita todo lo que modifica (el servidor
         // igual lo bloquea con eventoEditable, esto es solo para no ofrecer botones muertos).

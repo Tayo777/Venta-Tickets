@@ -59,16 +59,34 @@
         .card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 12px; padding: 16px; text-align: center; }
         .card .numero { font-size: 1.5rem; font-weight: 700; color: var(--text); }
         .card .etiqueta { color: var(--zinc-400); font-size: 0.78rem; margin-top: 4px; }
-        /* Bloque de cortesias: mismo grid, pero 2 cards + una nota que ocupa el resto del ancho. */
-        .grid-cortesias { grid-template-columns: repeat(2, 1fr) 2fr; margin-top: 12px; }
-        @media (max-width: 900px) { .grid-cortesias { grid-template-columns: repeat(2, 1fr); } }
+        /* Bloque de cortesias: 2 cards chicas (no 4, para no competir en ancho con las de
+           arriba) + la nota SIEMPRE en su propia línea debajo, nunca compartiendo fila con
+           las cards — así el texto tiene todo el ancho del panel para acomodarse y no se
+           aprieta ni se corta en pantallas medianas. */
+        .bloque-cortesias { margin-top: 12px; }
+        .grid-cortesias { grid-template-columns: repeat(2, minmax(0, 220px)); }
+        @media (max-width: 480px) { .grid-cortesias { grid-template-columns: repeat(2, 1fr); } }
         .card-cortesia { border-style: dashed; }
         .card-cortesia .numero { color: var(--zinc-300); }
         .nota-cortesias {
-            display: flex; align-items: center; color: var(--zinc-400);
-            font-size: 0.78rem; line-height: 1.45; padding: 0 4px;
+            color: var(--zinc-400); font-size: 0.78rem; line-height: 1.5;
+            margin: 10px 0 0; max-width: 640px;
         }
-        @media (max-width: 900px) { .nota-cortesias { grid-column: 1 / -1; } }
+
+        /* Desglose por tipo de entrada: una fila por tipo, con nombre / cantidad / subtotal
+           en columnas de ancho fijo para que quede alineado como una mini tabla. */
+        .tabla-desglose { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+        .fila-desglose {
+            display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 14px;
+            padding: 10px 4px; border-bottom: 1px solid var(--zinc-800); font-size: 0.85rem;
+        }
+        .fila-desglose:last-child { border-bottom: none; }
+        .fila-desglose-nombre { color: var(--text); font-weight: 600; }
+        .fila-desglose-cant { color: var(--zinc-400); font-size: 0.8rem; white-space: nowrap; }
+        .fila-desglose-subtotal { color: var(--accent-2); font-weight: 700; white-space: nowrap; }
+        @media (max-width: 480px) {
+            .fila-desglose { grid-template-columns: 1fr; gap: 3px; }
+        }
 
         /* Link de venta pública: informativo, tono neutro-acento. */
         .link-box { margin-top: 20px; background: var(--zinc-900); border: 1px solid var(--zinc-800); padding: 15px; border-radius: 12px; font-size: 0.85rem; word-break: break-all; }
@@ -245,23 +263,47 @@
             <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
         </div>
 
-        <!-- Cuadro aparte a propósito: las cortesías ocupan cupo y entran por la puerta, pero
-             NO son plata. Por eso viven fuera del grid de arriba y con otro color, para que no
-             se confundan con las entradas vendidas ni sumen a la recaudación. -->
-        <div class="grid grid-cortesias">
-            <div class="card card-cortesia">
-                <div class="numero"><%= resumen.total_cortesias || 0 %></div>
-                <div class="etiqueta">Cortesías entregadas</div>
+        <!-- Bloque aparte a propósito: las cortesías ocupan cupo y entran por la puerta, pero
+             NO son plata. Vive fuera del grid de arriba y con otro estilo, para que no se
+             confunda con las entradas vendidas ni sume a la recaudación. La nota va SIEMPRE
+             debajo, en su propia línea de ancho completo — no comparte fila con las cards,
+             así el texto nunca queda apretado contra ellas ni se corta en pantallas medianas. -->
+        <div class="bloque-cortesias">
+            <div class="grid grid-cortesias">
+                <div class="card card-cortesia">
+                    <div class="numero"><%= resumen.total_cortesias || 0 %></div>
+                    <div class="etiqueta">Cortesías entregadas</div>
+                </div>
+                <div class="card card-cortesia">
+                    <div class="numero"><%= (resumen.total_entradas || 0) %></div>
+                    <div class="etiqueta">Entradas emitidas (vendidas + cortesías)</div>
+                </div>
             </div>
-            <div class="card card-cortesia">
-                <div class="numero"><%= (resumen.total_entradas || 0) %></div>
-                <div class="etiqueta">Entradas emitidas (vendidas + cortesías)</div>
-            </div>
-            <div class="nota-cortesias">
+            <p class="nota-cortesias">
                 Las cortesías <strong>no suman</strong> a la recaudación ni a las ganancias:
                 descuentan cupo del tipo de entrada elegido, pero se emiten sin cobro.
+            </p>
+        </div>
+
+        <!-- Desglose por tipo de entrada: cuántas se vendieron de cada categoría y cuánto
+             recaudó cada una, usando el mismo precio histórico que la recaudación total. -->
+        <% if (desglosePorTipo && desglosePorTipo.length > 0) { %>
+        <div class="panel-op">
+            <h3>🎟️ Desglose por tipo de entrada</h3>
+            <div class="tabla-desglose">
+                <% desglosePorTipo.forEach((t) => { %>
+                    <div class="fila-desglose">
+                        <span class="fila-desglose-nombre"><%= t.tipoNombre %></span>
+                        <span class="fila-desglose-cant">
+                            <%= t.vendidas %> vendida<%= t.vendidas === 1 ? '' : 's' %><%
+                            if (t.cortesias > 0) { %> + <%= t.cortesias %> cortesía<%= t.cortesias === 1 ? '' : 's' %><% } %>
+                        </span>
+                        <span class="fila-desglose-subtotal">$<%= t.subtotal.toLocaleString('es-AR') %></span>
+                    </div>
+                <% }) %>
             </div>
         </div>
+        <% } %>
 
         <div class="panel-op" id="flujo-ingreso-box">
             <h3>📈 Flujo de ingreso por hora</h3>

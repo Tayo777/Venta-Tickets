@@ -40,7 +40,7 @@ async function registrarEntradas(eventoId, lineas, { email, nombreApellido, paym
         const codigos = [];
         for (const linea of ordenadas) {
             const [filas] = await conexion.query(
-                'SELECT id, nombre, cupo_total, cupo_vendido FROM tipos_entrada WHERE id = ? AND evento_id = ? FOR UPDATE',
+                'SELECT id, nombre, precio, cupo_total, cupo_vendido FROM tipos_entrada WHERE id = ? AND evento_id = ? FOR UPDATE',
                 [linea.tipoEntradaId, eventoId]
             );
             const tipo = filas[0];
@@ -56,12 +56,17 @@ async function registrarEntradas(eventoId, lineas, { email, nombreApellido, paym
                 [linea.cantidad, tipo.id]
             );
 
+            // El precio queda CONGELADO acá, en el momento de la venta: es la recaudación
+            // histórica real. Si más adelante el organizador sube el precio del tipo, esta
+            // fila no se recalcula sola — es la plata que efectivamente se cobró. Las
+            // cortesías se guardan en 0 (no son plata, ver db/eventos.js -> resumenVentas).
+            const precioPagado = origen === 'cortesia' ? 0 : Number(tipo.precio);
             for (let i = 0; i < linea.cantidad; i++) {
                 const id = generarIdEntrada(qrSecret);
                 codigos.push(id);
                 await conexion.query(
-                    'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id, origen) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [id, eventoId, tipo.id, email, nombreApellido || null, paymentId || null, origen]
+                    'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id, origen, precio_pagado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [id, eventoId, tipo.id, email, nombreApellido || null, paymentId || null, origen, precioPagado]
                 );
             }
         }
