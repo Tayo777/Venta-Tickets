@@ -318,6 +318,35 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditab
     }
 });
 
+// Editar un guardia. La contraseña es opcional: si el campo viene vacío, se conserva la que
+// ya tenía (ver guardiasDb.editarGuardia).
+router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    const { email, password, fila_asignada } = req.body;
+    const filaNum = parseInt(fila_asignada);
+
+    const rerenderConError = async (mensaje) => {
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje }));
+    };
+
+    if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
+    if (!filaNum || filaNum < 1) return rerenderConError('Ingresá un número de fila válido.');
+    // Solo se valida el largo si REALMENTE escribió una contraseña nueva.
+    if (password && password.length < 8) {
+        return rerenderConError('La contraseña nueva del guardia tiene que tener al menos 8 caracteres.');
+    }
+
+    try {
+        await guardiasDb.editarGuardia(req.params.guardiaId, req.evento.id, {
+            email, filaAsignada: filaNum, password
+        });
+        res.redirect(`/eventos/${req.evento.id}`);
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe otro guardia con el email "${email}".`);
+        console.error('Error al editar guardia:', error);
+        rerenderConError('No se pudo guardar el cambio del guardia.');
+    }
+});
+
 router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.eliminarGuardia(req.params.guardiaId, req.evento.id);
     res.redirect(`/eventos/${req.evento.id}`);

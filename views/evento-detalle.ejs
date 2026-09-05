@@ -136,10 +136,23 @@
         /* Tarjetas de guardias de la app móvil. */
         .lista-guardias { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
         .guardia-card {
-            display: flex; justify-content: space-between; align-items: center; gap: 10px;
-            background: var(--zinc-800); border-radius: 10px; padding: 10px 14px; font-size: 0.85rem;
+            background: var(--zinc-800); border-radius: 10px; padding: 12px 14px; font-size: 0.85rem;
         }
         .guardia-card.inactivo { opacity: 0.55; }
+        .guardia-editar .fila { margin-top: 0; }
+        .guardia-pie { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .guardia-pie .guardia-acciones { margin-left: auto; }
+
+        /* Campo de contraseña con el botón de ojo adentro, a la derecha. */
+        .campo-password { position: relative; flex: 1; min-width: 150px; display: flex; }
+        .campo-password input { flex: 1; padding-right: 42px; }
+        .campo-password .ojo {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; padding: 4px 8px; cursor: pointer;
+            font-size: 1rem; line-height: 1; opacity: 0.6;
+        }
+        .campo-password .ojo:hover { opacity: 1; }
+        .campo-password .ojo.visible { opacity: 1; }
         .badge-fila {
             display: inline-block; margin-left: 8px; background: rgba(139, 92, 246, 0.15);
             color: var(--accent-2); border: 1px solid rgba(139, 92, 246, 0.3);
@@ -353,7 +366,10 @@
         </p>
         <form action="/eventos/<%= evento.id %>/guardias" method="POST" class="fila">
             <input type="email" name="email" placeholder="Email del guardia" required>
-            <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
+            <div class="campo-password">
+                <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
+                <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
+            </div>
             <input type="number" name="fila_asignada" placeholder="Fila" min="1" max="20" required style="max-width:80px;">
             <button type="submit">+ Crear guardia</button>
         </form>
@@ -364,19 +380,29 @@
             <div class="lista-guardias">
                 <% guardias.forEach(g => { %>
                     <div class="guardia-card <%= g.activo ? '' : 'inactivo' %>">
-                        <div>
-                            <strong><%= g.email %></strong>
+                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/editar" method="POST" class="guardia-editar">
+                            <div class="fila">
+                                <input type="email" name="email" value="<%= g.email %>" required>
+                                <div class="campo-password">
+                                    <input type="password" name="password" placeholder="Dejar vacío = no cambiar" minlength="8">
+                                    <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
+                                </div>
+                                <input type="number" name="fila_asignada" value="<%= g.fila_asignada %>" min="1" max="20" required style="max-width:80px;">
+                                <button type="submit">Guardar</button>
+                            </div>
+                        </form>
+                        <div class="guardia-pie">
                             <span class="badge-fila">Fila <%= g.fila_asignada %></span>
-                            <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? '' : '· Desactivado' %></span>
-                        </div>
-                        <div class="guardia-acciones">
-                            <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
-                                <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
-                            </form>
-                            <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
-                                  onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
-                                <button type="submit" class="eliminar">Borrar</button>
-                            </form>
+                            <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? 'Activo' : 'Desactivado' %></span>
+                            <div class="guardia-acciones">
+                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
+                                    <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
+                                </form>
+                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
+                                      onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
+                                    <button type="submit" class="eliminar">Borrar</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 <% }) %>
@@ -548,6 +574,22 @@
             cargar();
             setInterval(cargar, 30000);
         })();
+    </script>
+
+    <script>
+        // Botón de "ojo" para ver/ocultar la contraseña de los guardias. Se resuelve por
+        // delegación en el document: los campos son varios (el de alta más uno por guardia) y
+        // así funciona para todos sin tener que enganchar un listener a cada uno.
+        document.addEventListener('click', (evento) => {
+            const boton = evento.target.closest('.campo-password .ojo');
+            if (!boton) return;
+
+            const input = boton.parentElement.querySelector('input');
+            const mostrando = input.type === 'text';
+            input.type = mostrando ? 'password' : 'text';
+            boton.classList.toggle('visible', !mostrando);
+            boton.textContent = mostrando ? '👁' : '🙈';
+        });
     </script>
 
     <script>

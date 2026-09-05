@@ -104,6 +104,10 @@
 
     <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">
         <input type="hidden" name="evento_id" value="<%= evento.id %>">
+        <!-- Marca de versión del formulario. Si el navegador manda una página vieja guardada
+             en su caché (pasó tras un deploy), el servidor lo detecta por la ausencia de este
+             campo y le pide recargar, en vez de tirar un error genérico que no explica nada. -->
+        <input type="hidden" name="form_version" value="2">
         <div class="form-group">
             <label for="nombre_apellido">Nombre y apellido:</label>
             <input type="text" id="nombre_apellido" name="nombre_apellido" required placeholder="Como figura en tu documento">
@@ -317,6 +321,14 @@
 
         document.getElementById('btnAplicarCupon').addEventListener('click', aplicarCupon);
         document.getElementById('cupon_input').addEventListener('input', () => marcarInputCupon(null));
+
+        // Cuando el usuario vuelve con el botón "atrás", Safari (sobre todo en iPhone) restaura
+        // la página tal cual estaba, congelada, sin volver a ejecutar el script. Si volvió desde
+        // Mercado Pago, las cantidades que ve pueden no coincidir con el estado real de los
+        // botones y del total. Al restaurarse (event.persisted) se recalcula todo de cero.
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) recalcular();
+        });
 
         recalcular();
     </script>

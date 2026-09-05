@@ -63,6 +63,22 @@ app.use((req, res, next) => {
     next();
 });
 
+// Las páginas dinámicas no se cachean NUNCA. Va después de express.static, así que los
+// assets (CSS, imágenes, el APK) siguen cacheándose normal — esto aplica solo al HTML.
+//
+// Por qué: sin esto, el navegador se guarda la página de compra y te la vuelve a mostrar
+// más tarde. Eso trae dos problemas reales:
+//   1. Después de un deploy, alguien puede seguir usando el formulario VIEJO (fue exactamente
+//      la causa del checkout que fallaba de forma intermitente, y por qué "volver atrás y
+//      adelante" lo arreglaba: forzaba a pedir la página de nuevo).
+//   2. Muestra cupos y precios desactualizados, que en esta app cambian todo el tiempo.
+//
+// Safari en iOS es el más agresivo guardando estas copias (bfcache), por eso ahí se notaba más.
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+});
+
 // Rutas, organizadas por área (ver carpeta /routes)
 app.use(require('./routes/landing'));
 app.use(require('./routes/auth'));

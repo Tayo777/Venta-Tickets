@@ -130,6 +130,15 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
     const items = normalizarItems(req.body.items);
     const cantidadTotal = items.reduce((acc, i) => acc + i.cantidad, 0);
 
+    // El navegador mandó una copia vieja de la página (típico después de un deploy: queda
+    // cacheada y el formulario ya no coincide con lo que el servidor espera). No tiene sentido
+    // hablarle de entradas: lo único que resuelve esto es recargar.
+    if (req.body.form_version !== '2') {
+        return res.status(409).send(
+            'Esta página quedó desactualizada en tu navegador. Recargala (o volvé a entrar al evento) y elegí tus entradas de nuevo — no se generó ningún cobro.'
+        );
+    }
+
     if (!nombre_apellido || !String(nombre_apellido).trim()) {
         return res.status(400).send('Falta el nombre y apellido del comprador.');
     }

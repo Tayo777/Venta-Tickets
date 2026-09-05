@@ -10,6 +10,22 @@ async function crearGuardia({ eventoId, email, password, filaAsignada }) {
     return resultado.insertId;
 }
 
+// Edita un guardia. `password` es OPCIONAL: si viene vacío o sin definir, la contraseña actual
+// queda intacta (no se toca el hash). Solo se re-hashea cuando el organizador escribió una nueva.
+async function editarGuardia(guardiaId, eventoId, { email, filaAsignada, password }) {
+    const campos = ['email = ?', 'fila_asignada = ?'];
+    const valores = [String(email).trim().toLowerCase(), filaAsignada];
+
+    if (password && String(password).length > 0) {
+        campos.push('password_hash = ?');
+        valores.push(await bcrypt.hash(password, 12));
+    }
+
+    // El evento_id en el WHERE evita que el dueño del evento A toque un guardia del evento B.
+    valores.push(guardiaId, eventoId);
+    await pool.query(`UPDATE guardias SET ${campos.join(', ')} WHERE id = ? AND evento_id = ?`, valores);
+}
+
 async function obtenerGuardiaPorEmail(email) {
     const [filas] = await pool.query('SELECT * FROM guardias WHERE email = ?', [String(email).trim().toLowerCase()]);
     return filas[0] || null;
@@ -35,6 +51,6 @@ async function toggleActivo(guardiaId, eventoId) {
 }
 
 module.exports = {
-    crearGuardia, obtenerGuardiaPorEmail, obtenerGuardiasDeEvento, verificarPassword,
+    crearGuardia, editarGuardia, obtenerGuardiaPorEmail, obtenerGuardiasDeEvento, verificarPassword,
     eliminarGuardia, toggleActivo
 };
