@@ -127,8 +127,12 @@
                         </div>
                         <div class="stepper">
                             <button type="button" class="menos" data-tipo="<%= t.id %>" aria-label="Quitar una entrada">−</button>
-                            <!-- Arranca SIEMPRE en 0: nadie compra sin elegir explícitamente. -->
-                            <input type="number" name="items[<%= t.id %>]" id="cant_<%= t.id %>"
+                            <!-- Arranca SIEMPRE en 0: nadie compra sin elegir explícitamente.
+                                 El nombre lleva el prefijo "t" a propósito: con items[9] el
+                                 parser de Express (qs) toma el 9 como ÍNDICE DE ARRAY, compacta
+                                 el array y pierde el id del tipo. Con items[t9] lo trata como
+                                 clave de objeto y el id llega intacto. -->
+                            <input type="number" name="items[t<%= t.id %>]" id="cant_<%= t.id %>"
                                    class="cantidad-tipo" value="0" min="0" max="<%= t.cupo_disponible %>"
                                    data-precio="<%= t.precio %>" data-tarifa="<%= t.tarifa %>"
                                    data-stock="<%= t.cupo_disponible %>" readonly>
@@ -174,7 +178,7 @@
         function carritoActual() {
             return inputs
                 .map((input) => ({
-                    tipoEntradaId: Number(input.name.match(/\[(\d+)\]/)[1]),
+                    tipoEntradaId: Number(input.name.match(/\[t(\d+)\]/)[1]),
                     cantidad: Number(input.value) || 0,
                     precio: Number(input.dataset.precio),
                     tarifa: Number(input.dataset.tarifa), // tarifa de servicio de ESTE tipo

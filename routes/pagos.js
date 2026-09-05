@@ -15,29 +15,34 @@ const MAX_ENTRADAS_POR_COMPRA = 5;
 
 // Normaliza el carrito a [{ tipoEntradaId, cantidad }], descartando las cantidades en 0.
 //
-// Llega en tres formas distintas y hay que soportar las tres:
-//
+// Llega de dos lados:
 //   a) Del fetch de validar-cupón: array de objetos [{ tipoEntradaId, cantidad }].
-//   b) Del form HTML (inputs name="items[<tipoId>]"): OJO, el parser de Express (qs) convierte
-//      las claves NUMÉRICAS en un ARRAY posicional, no en un objeto. `items[3]=2` termina
-//      siendo un array donde el índice 3 vale '2'.
-//   c) Del mismo form, pero cuando algún id supera el arrayLimit de qs (20): ahí sí devuelve
-//      un objeto { "25": "2" }.
+//   b) Del form HTML: inputs name="items[t<tipoId>]" -> { items: { t9: '2', t10: '0' } }.
 //
-// (b) y (c) se resuelven igual con Object.entries(), que sobre un array devuelve
-// [índice, valor] salteando los huecos — y el índice ES el id del tipo de entrada.
-// Distinguir (a) es lo único que necesita un chequeo aparte: es el único caso donde los
-// elementos son objetos en vez de valores sueltos.
+// El prefijo "t" de (b) NO es cosmético. El parser de Express (qs) trata el contenido entre
+// corchetes como índice de array si es un número, y además COMPACTA los índices salteados:
+// "items[9]=2&items[10]=0" llega como ["2","0"] y los ids 9 y 10 se pierden para siempre.
+// Con una clave no numérica lo trata como objeto y el id sobrevive intacto.
+//
+// El fallback de abajo (array de valores sueltos) queda solo como red de seguridad para no
+// romper si algún form viejo quedara cacheado en el navegador de alguien: en ese caso no hay
+// forma de recuperar los ids, así que devuelve vacío y el checkout avisa en vez de cobrar mal.
 function normalizarItems(items) {
     if (!items || typeof items !== 'object') return [];
 
-    const esArrayDeObjetos = Array.isArray(items) && items.some((i) => i && typeof i === 'object');
-    const pares = esArrayDeObjetos
-        ? items.map((i) => [i.tipoEntradaId, i.cantidad])
-        : Object.entries(items);
+    if (Array.isArray(items)) {
+        if (!items.some((i) => i && typeof i === 'object')) return []; // ids perdidos: no adivinar
+        return items
+            .map((i) => ({ tipoEntradaId: parseInt(i.tipoEntradaId), cantidad: parseInt(i.cantidad) || 0 }))
+            .filter((i) => i.tipoEntradaId > 0 && i.cantidad > 0);
+    }
 
-    return pares
-        .map(([tipoId, cant]) => ({ tipoEntradaId: parseInt(tipoId), cantidad: parseInt(cant) || 0 }))
+    return Object.entries(items)
+        .map(([clave, cant]) => ({
+            // Acepta "t9" (lo que manda el form) y "9" por las dudas.
+            tipoEntradaId: parseInt(String(clave).replace(/^t/i, '')),
+            cantidad: parseInt(cant) || 0
+        }))
         .filter((i) => i.tipoEntradaId > 0 && i.cantidad > 0);
 }
 
