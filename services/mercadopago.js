@@ -11,6 +11,42 @@ function calcularTarifa(valorEntrada) {
     return { comisionMpPct: MP_FEE_ESTIMADA_PCT, comisionPropiaPct: PLATFORM_FEE_PCT, tarifaOnline };
 }
 
+// Tarifa de servicio de UNA entrada, proporcional a SU precio.
+//
+// Dos cosas se arreglan acá respecto del esquema viejo (un monto fijo por entrada guardado en
+// eventos.tarifa_online, calculado una sola vez sobre el precio de referencia del evento):
+//
+// 1. PROPORCIONALIDAD. Con varios tipos a distinto precio, una VIP de $5000 pagaba la misma
+//    tarifa fija que una General de $1000, pero la comisión de Mercado Pago es porcentual:
+//    en la cara esa tarifa no alcanzaba y el hueco salía del margen del organizador.
+//
+// 2. GROSS-UP. Aplicar el porcentaje sobre el PRECIO se queda corto, porque Mercado Pago cobra
+//    su comisión sobre el TOTAL cobrado (precio + tarifa), que siempre es mayor. Para que al
+//    organizador le quede exactamente el precio que puso, hay que despejar el total:
+//
+//        total − pctMp·total − pctPropia·precio = precio
+//        total·(1 − pctMp) = precio·(1 + pctPropia)
+//        total = precio·(1 + pctPropia) / (1 − pctMp)
+//        tarifa = total − precio
+//
+//    (pctPropia va sobre el precio porque así se cobra el marketplace_fee, ver calcularTotales.)
+//
+// Los porcentajes salen del evento (se congelan al crearlo, y comision_mp_pct se va afinando
+// con datos reales — ver db/compras.js). Si un evento viejo los tiene en NULL, se cae a los
+// valores por defecto de configuración.
+function tarifaPorEntrada(evento, precioEntrada) {
+    const precio = Number(precioEntrada);
+    if (!(precio > 0)) return 0;
+
+    const pctPropia = Number(evento.comision_propia_pct ?? PLATFORM_FEE_PCT) / 100;
+    // Se acota entre 0 y 0.5 por las dudas: con un pctMp >= 1 la fórmula se iría al infinito
+    // o daría negativo si algún dato quedara corrupto.
+    const pctMp = Math.min(Math.max(Number(evento.comision_mp_pct ?? MP_FEE_ESTIMADA_PCT) / 100, 0), 0.5);
+
+    const total = precio * (1 + pctPropia) / (1 - pctMp);
+    return Math.max(0, Math.round(total - precio));
+}
+
 // Arma la URL de Mercado Pago donde el organizador inicia sesión y autoriza tu app (Marketplace).
 function urlConexionOAuth(tokenEvento) {
     const redirectUri = encodeURIComponent(`${BASE_URL}/oauth/mercadopago/callback`);
@@ -41,38 +77,63 @@ async function intercambiarCodigoOAuth(code) {
 // Crea la preferencia de pago usando el Access Token PROPIO del organizador (el dinero entra
 // directo a su cuenta), con marketplace_fee = comisión de la plataforma, que Mercado Pago
 // transfiere sola a tu cuenta en cada venta.
-async function crearPreferencia(evento, tipoEntrada, { email, nombreApellido, cantidad, descuentoTotal = 0, cuponCodigo = null }) {
-    const subtotalBruto = Number(tipoEntrada.precio) * cantidad;
+// Calcula el desglose económico de una compra de varios tipos de entrada a la vez.
+// Se usa en DOS lugares (armar la preferencia y, después del pago, registrar la compra), por
+// eso vive acá y no inline: si los dos lados calcularan por su cuenta y uno cambiara, se
+// cobraría una cosa y se registraría otra.
+//
+// `lineas` = [{ tipoEntrada, cantidad }]
+function calcularTotales(evento, lineas, descuentoTotal = 0) {
+    const cantidadTotal = lineas.reduce((acc, l) => acc + l.cantidad, 0);
+    const subtotalBruto = lineas.reduce((acc, l) => acc + Number(l.tipoEntrada.precio) * l.cantidad, 0);
+
     // El descuento del cupón ya viene validado y calculado por db/cupones.js (ver /crear-pago
     // en routes/pagos.js) — acá solo se aplica, nunca se recalcula ni se confía en un valor
     // que pudiera venir del navegador.
-    const subtotal = Math.max(subtotalBruto - Number(descuentoTotal || 0), 0);
-    const tarifaTotal = Number(evento.tarifa_online) * cantidad;
-    const total = subtotal + tarifaTotal;
+    const subtotalEntradas = Math.max(subtotalBruto - Number(descuentoTotal || 0), 0);
 
-    // Nuestra comisión: % (comision_propia_pct) sobre lo que el organizador REALMENTE cobra
-    // por las entradas (ya con el cupón aplicado), no sobre el precio de lista.
-    const nuestraComision = Math.round(subtotal * Number(evento.comision_propia_pct) / 100);
+    // La tarifa se calcula línea por línea, proporcional al precio de CADA tipo (ver
+    // tarifaPorEntrada): así una VIP cara aporta la tarifa que le corresponde y no la
+    // subsidia la General barata.
+    const tarifaTotal = lineas.reduce(
+        (acc, l) => acc + tarifaPorEntrada(evento, l.tipoEntrada.precio) * l.cantidad, 0
+    );
+    const total = subtotalEntradas + tarifaTotal;
 
-    // external_reference viaja pegado al pago DENTRO de Mercado Pago (no depende de que el
-    // navegador vuelva a /success), así el job de reconciliación puede reconstruir a quién
-    // hay que entregarle las entradas aunque el redirect nunca haya llegado a pasar.
-    const referenciaExterna = JSON.stringify({
-        eventoId: evento.id, tipoEntradaId: tipoEntrada.id, email, nombreApellido: nombreApellido || '', cantidad,
-        descuentoTotal: Number(descuentoTotal || 0), cuponCodigo: cuponCodigo || null
-    });
+    // Nuestra comisión (marketplace_fee) se calcula SOLO sobre lo que el organizador cobra por
+    // las entradas ya con el cupón aplicado — nunca sobre la tarifa online (esa cubre la
+    // comisión de Mercado Pago, no es ingreso del organizador) ni sobre el precio de lista.
+    // El clamp final es una red de seguridad contable: Mercado Pago rechaza la preferencia si
+    // el fee supera el monto cobrado, algo que podría pasar con un cupón del 100%.
+    const comisionBruta = Math.round(subtotalEntradas * Number(evento.comision_propia_pct) / 100);
+    const nuestraComision = Math.min(comisionBruta, Math.floor(total));
 
+    return { cantidadTotal, subtotalBruto, subtotalEntradas, tarifaTotal, total, nuestraComision };
+}
+
+async function crearPreferencia(evento, lineas, { email, nombreApellido, descuentoTotal = 0, cuponCodigo = null, checkoutToken }) {
+    const { total, nuestraComision } = calcularTotales(evento, lineas, descuentoTotal);
+
+    const detalle = lineas.map((l) => `${l.cantidad}x ${l.tipoEntrada.nombre}`).join(', ');
     const tituloCupon = cuponCodigo ? ` (cupón ${cuponCodigo})` : '';
+
     const eventoClient = new MercadoPagoConfig({ accessToken: evento.mp_access_token });
     const preference = new Preference(eventoClient);
     const result = await preference.create({
         body: {
-            items: [{ title: `${evento.nombre} - ${tipoEntrada.nombre} x ${cantidad}${tituloCupon}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
+            // UN solo ítem con el total exacto, aunque el carrito tenga varios tipos. Itemizar
+            // por tipo obligaría a prorratear el descuento y la tarifa entre líneas, y el
+            // redondeo de cada una haría que la suma no cierre contra el total real por unos
+            // pesos. Con un único ítem, lo que se cobra es exactamente lo que calculamos.
+            items: [{ title: `${evento.nombre} - ${detalle}${tituloCupon}`, quantity: 1, unit_price: total, currency_id: 'ARS' }],
             payer: { email },
             marketplace_fee: nuestraComision,
-            external_reference: referenciaExterna,
+            // Solo viaja el token del checkout: los datos reales (qué tipos, cuántos, quién,
+            // qué cupón) quedan en NUESTRA base (tabla checkouts). Así no dependemos del
+            // límite de 256 chars de este campo ni exponemos datos del comprador en la pasarela.
+            external_reference: checkoutToken,
             back_urls: {
-                success: `${BASE_URL}/success?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombreApellido || '')}&cant=${cantidad}&evento_id=${evento.id}&tipo_entrada_id=${tipoEntrada.id}&descuento=${Number(descuentoTotal || 0)}&cupon=${encodeURIComponent(cuponCodigo || '')}`,
+                success: `${BASE_URL}/success?checkout=${checkoutToken}`,
                 failure: `${BASE_URL}/evento/${evento.id}`,
                 pending: `${BASE_URL}/evento/${evento.id}`
             },
@@ -130,6 +191,6 @@ async function buscarPagosAprobadosRecientes(accessToken, { minutosAtras = 180 }
 }
 
 module.exports = {
-    calcularTarifa, urlConexionOAuth, intercambiarCodigoOAuth, crearPreferencia, obtenerFeeReal,
-    buscarPagosAprobadosRecientes
+    calcularTarifa, tarifaPorEntrada, calcularTotales, urlConexionOAuth, intercambiarCodigoOAuth,
+    crearPreferencia, obtenerFeeReal, buscarPagosAprobadosRecientes
 };

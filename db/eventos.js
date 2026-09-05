@@ -40,7 +40,8 @@ async function obtenerEventoPorGuardiaToken(token) {
 
 // Crea un evento nuevo, siempre atado a un usuario (usuarioId) que es su dueño.
 async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, valorEntrada, tarifaOnline,
-                              organizerEmail, comisionMpPct, comisionPropiaPct, fechaCierreVentas }) {
+                              organizerEmail, comisionMpPct, comisionPropiaPct, fechaCierreVentas,
+                              lugarNombre, direccion, ciudad, mapsUrl }) {
     const token = crypto.randomBytes(16).toString('hex');
     const guardiaToken = crypto.randomBytes(16).toString('hex');
     // Secreto de firma HMAC PROPIO de este evento (ver services/firmaTickets.js) — cada
@@ -49,19 +50,47 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, va
     const [resultado] = await pool.query(
         `INSERT INTO eventos
             (usuario_id, nombre, descripcion, fecha, flyer_url, valor_entrada, tarifa_online, token_informe,
-             guardia_token, qr_secret, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas, activo, conectado_mp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+             guardia_token, qr_secret, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas,
+             lugar_nombre, direccion, ciudad, maps_url, activo, conectado_mp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
         [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', valorEntrada, tarifaOnline,
-         token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null]
+         token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null,
+         lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null]
     );
     return { id: resultado.insertId, token };
 }
 
-async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas }) {
+async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas,
+                                   lugarNombre, direccion, ciudad, mapsUrl }) {
     await pool.query(
-        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, valor_entrada = ?, fecha_cierre_ventas = ? WHERE id = ?`,
-        [nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas || null, id]
+        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, valor_entrada = ?,
+            fecha_cierre_ventas = ?, lugar_nombre = ?, direccion = ?, ciudad = ?, maps_url = ?
+         WHERE id = ?`,
+        [nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas || null,
+         lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null, id]
     );
+}
+
+// Un evento cuenta como FINALIZADO si el organizador/admin lo marcó a mano, o si ya pasó su
+// fecha. Los finalizados quedan en modo solo lectura: se pueden mirar (estadísticas, ventas,
+// historial) pero no modificar, y solo el admin los puede borrar de la base.
+function eventoFinalizado(evento) {
+    if (!evento) return false;
+    if (evento.finalizado) return true;
+    const fecha = new Date(evento.fecha);
+    return !isNaN(fecha) && fecha < new Date();
+}
+
+// Separa una lista de eventos en las dos secciones que muestra el panel.
+function separarPorEstado(eventos) {
+    return {
+        activos: eventos.filter((e) => !eventoFinalizado(e)),
+        finalizados: eventos.filter((e) => eventoFinalizado(e))
+    };
+}
+
+async function marcarFinalizado(id, finalizado) {
+    await pool.query('UPDATE eventos SET finalizado = ? WHERE id = ?', [finalizado ? 1 : 0, id]);
 }
 
 // Borra el evento y todo lo que depende de él (transacción: o se borra todo, o nada).
@@ -72,6 +101,9 @@ async function eliminarEvento(id) {
         await conexion.query('DELETE FROM tickets WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM compras WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM tipos_entrada WHERE evento_id = ?', [id]);
+        await conexion.query('DELETE FROM cupones WHERE evento_id = ?', [id]);
+        await conexion.query('DELETE FROM guardias WHERE evento_id = ?', [id]);
+        await conexion.query('DELETE FROM checkouts WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM eventos WHERE id = ?', [id]);
         await conexion.commit();
     } catch (err) {
@@ -139,5 +171,6 @@ async function listadoVentas(eventoId) {
 module.exports = {
     obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
     obtenerEventoPorToken, obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
-    conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas, ventaVencidaPorTiempo
+    conectarMercadoPago, toggleActivo, resumenVentas, listadoVentas, ventaVencidaPorTiempo,
+    eventoFinalizado, separarPorEstado, marcarFinalizado
 };

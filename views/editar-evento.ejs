@@ -40,6 +40,13 @@
         .cupon-acciones button.eliminar:hover { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.35); }
         .cupon-acciones button.activar:hover, .cupon-acciones button.desactivar:hover { border-color: var(--accent); color: var(--accent-2); }
         .vacio-cupones { color: var(--text-faint); font-size: 0.85rem; }
+
+        .subtitulo-seccion { font-size: 1.05rem; margin: 32px 0 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+        .ayuda { font-size: 0.78rem; color: var(--text-faint); margin: 6px 0 0; }
+        .opcional { font-weight: 400; color: var(--text-faint); font-size: 0.78rem; }
+        .tipo-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .tipo-pie .detalle { color: var(--text-muted); font-size: 0.8rem; }
+        .cupon-acciones button.guardar { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border: none; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -78,11 +85,113 @@
             <input type="file" name="flyer" accept="image/*">
         </div>
         <div class="form-group">
-            <label>Precio de la entrada ($)</label>
+            <label>Precio de referencia del evento ($)</label>
             <input type="number" step="1" min="1" name="valor_entrada" value="<%= evento.valor_entrada %>" required>
+            <p class="ayuda">Se usa para calcular la tarifa de servicio. El precio que paga cada comprador sale del tipo de entrada que elija, más abajo.</p>
         </div>
+        <div class="form-group">
+            <label>Cierre automático de ventas <span class="opcional">(opcional)</span></label>
+            <%
+                const cierreObj = evento.fecha_cierre_ventas ? new Date(evento.fecha_cierre_ventas) : null;
+                const cierrePrecargado = cierreObj && !isNaN(cierreObj) ? cierreObj.toISOString().slice(0, 16) : '';
+            %>
+            <input type="datetime-local" name="fecha_cierre_ventas" value="<%= cierrePrecargado %>">
+        </div>
+
+        <h2 class="subtitulo-seccion">📍 Ubicación</h2>
+        <div class="form-group">
+            <label>Nombre del lugar</label>
+            <input type="text" name="lugar_nombre" value="<%= evento.lugar_nombre || '' %>" placeholder="Ej: Club Atlético Central">
+        </div>
+        <div class="form-group">
+            <label>Dirección exacta</label>
+            <input type="text" name="direccion" value="<%= evento.direccion || '' %>" placeholder="Ej: Av. Siempre Viva 742">
+        </div>
+        <div class="form-group">
+            <label>Ciudad</label>
+            <input type="text" name="ciudad" value="<%= evento.ciudad || '' %>" placeholder="Ej: Resistencia, Chaco">
+        </div>
+        <div class="form-group">
+            <label>Link de Google Maps <span class="opcional">(opcional)</span></label>
+            <input type="url" name="maps_url" value="<%= evento.maps_url || '' %>" placeholder="https://maps.google.com/...">
+        </div>
+
         <button class="btn btn-primary" type="submit" style="width:100%;">Guardar cambios</button>
     </form>
+
+    <div class="seccion-cupones">
+        <h2>🎟️ Tipos de entrada</h2>
+        <p style="color:var(--text-muted); font-size:0.88rem;">
+            El comprador elige cuántas quiere de cada tipo. La descripción es opcional, pero es
+            lo que le explica qué incluye cada entrada al momento de comprar.
+        </p>
+
+        <% if (errorTipo) { %><div class="alerta-error" style="margin-bottom:15px;"><%= errorTipo %></div><% } %>
+
+        <form class="form-cupon card" action="/eventos/<%= evento.id %>/tipos" method="POST">
+            <div class="fila">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Nombre</label>
+                    <input type="text" name="nombre" placeholder="Ej: VIP Early Bird" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Precio ($)</label>
+                    <input type="number" name="precio" min="0" step="1" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Cupo</label>
+                    <input type="number" name="cupo_total" min="1" step="1" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
+                <input type="text" name="descripcion" placeholder="Qué incluye: barra libre, acceso al pit, etc.">
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%;">+ Agregar tipo de entrada</button>
+        </form>
+
+        <div class="lista-cupones">
+            <% tipos.forEach(t => { %>
+                <div class="cupon-card card <%= t.activo ? '' : 'inactivo' %>" style="display:block;">
+                    <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/editar" method="POST">
+                        <div class="fila">
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Nombre</label>
+                                <input type="text" name="nombre" value="<%= t.nombre %>" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Precio ($)</label>
+                                <input type="number" name="precio" value="<%= Number(t.precio) %>" min="0" step="1" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Cupo</label>
+                                <input type="number" name="cupo_total" value="<%= t.cupo_total %>" min="1" step="1" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Descripción <span class="opcional">(opcional)</span></label>
+                            <input type="text" name="descripcion" value="<%= t.descripcion || '' %>" placeholder="Qué incluye esta entrada">
+                        </div>
+                        <div class="tipo-pie">
+                            <span class="detalle">Vendidas: <%= t.cupo_vendido %> / <%= t.cupo_total %> · <%= t.activo ? 'Visible en la venta' : 'Desactivado' %></span>
+                            <div class="cupon-acciones">
+                                <button type="submit" class="guardar">Guardar</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="cupon-acciones" style="margin-top:8px;">
+                        <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/toggle" method="POST">
+                            <button type="submit" class="<%= t.activo ? 'desactivar' : 'activar' %>"><%= t.activo ? 'Desactivar' : 'Activar' %></button>
+                        </form>
+                        <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/eliminar" method="POST"
+                              onsubmit="return confirm('¿Borrar el tipo <%= t.nombre %>?');">
+                            <button type="submit" class="eliminar">Borrar</button>
+                        </form>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    </div>
 
     <div class="seccion-cupones">
         <h2>🎟️ Gestión de Cupones</h2>

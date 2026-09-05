@@ -14,6 +14,9 @@
         input, textarea, select { width: 100%; font-family: inherit; }
         textarea { resize: vertical; min-height: 70px; }
         .nota { font-size: 0.78rem; color: var(--text-faint); margin-top: 20px; }
+        .subtitulo-seccion { font-size: 1.05rem; margin: 32px 0 4px; padding-top: 20px; border-top: 1px solid var(--border); }
+        .ayuda { font-size: 0.8rem; color: var(--text-faint); margin: 0 0 16px; }
+        .opcional { font-weight: 400; color: var(--text-faint); font-size: 0.78rem; }
     </style>
 </head>
 <body>
@@ -48,27 +51,63 @@
             <input type="file" id="flyer" name="flyer" accept="image/*" required>
         </div>
 
+        <h2 class="subtitulo-seccion">📍 Ubicación</h2>
         <div class="form-group">
-            <label for="valor_entrada">Precio entrada General ($) — lo que VOS querés recibir</label>
-            <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
+            <label for="lugar_nombre">Nombre del lugar</label>
+            <input type="text" id="lugar_nombre" name="lugar_nombre" placeholder="Ej: Club Atlético Central">
+        </div>
+        <div class="form-group">
+            <label for="direccion">Dirección exacta</label>
+            <input type="text" id="direccion" name="direccion" placeholder="Ej: Av. Siempre Viva 742">
+        </div>
+        <div class="form-group">
+            <label for="ciudad">Ciudad</label>
+            <input type="text" id="ciudad" name="ciudad" placeholder="Ej: Resistencia, Chaco">
+        </div>
+        <div class="form-group">
+            <label for="maps_url">Link de Google Maps <span class="opcional">(opcional)</span></label>
+            <input type="url" id="maps_url" name="maps_url" placeholder="https://maps.google.com/...">
         </div>
 
+        <h2 class="subtitulo-seccion">🎟️ Tipos de entrada</h2>
+        <p class="ayuda">Después vas a poder agregar más tipos, editarlos o desactivarlos desde el panel del evento.</p>
+
         <div class="form-group">
-            <label for="cupo_general">Cupo de entradas General</label>
+            <label for="tipo1_nombre">Nombre del tipo de entrada</label>
+            <input type="text" id="tipo1_nombre" name="tipo1_nombre" value="General" placeholder="Ej: General, VIP Early Bird" required>
+        </div>
+        <div class="form-group">
+            <label for="tipo1_descripcion">Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
+            <textarea id="tipo1_descripcion" name="tipo1_descripcion" placeholder="Qué incluye esta entrada: acceso general, barra libre, etc."></textarea>
+        </div>
+        <div class="form-group">
+            <label for="valor_entrada">Precio ($) — lo que VOS querés recibir</label>
+            <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
+        </div>
+        <div class="form-group">
+            <label for="cupo_general">Cupo disponible</label>
             <input type="number" step="1" min="1" id="cupo_general" name="cupo_general" required>
         </div>
 
         <div class="form-group">
-            <label><input type="checkbox" id="vip_activo" name="vip_activo" onchange="document.getElementById('campos_vip').style.display = this.checked ? 'block' : 'none'" style="width:auto;"> Agregar entrada VIP</label>
+            <label><input type="checkbox" id="vip_activo" name="vip_activo" onchange="document.getElementById('campos_vip').style.display = this.checked ? 'block' : 'none'" style="width:auto;"> Agregar un segundo tipo de entrada</label>
         </div>
 
         <div id="campos_vip" style="display:none;">
             <div class="form-group">
-                <label for="valor_vip">Precio entrada VIP ($)</label>
+                <label for="tipo2_nombre">Nombre del segundo tipo</label>
+                <input type="text" id="tipo2_nombre" name="tipo2_nombre" value="VIP" placeholder="Ej: VIP">
+            </div>
+            <div class="form-group">
+                <label for="tipo2_descripcion">Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
+                <textarea id="tipo2_descripcion" name="tipo2_descripcion" placeholder="Qué incluye: acceso al sector VIP, meet &amp; greet, etc."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="valor_vip">Precio ($)</label>
                 <input type="number" step="1" min="1" id="valor_vip" name="valor_vip">
             </div>
             <div class="form-group">
-                <label for="cupo_vip">Cupo de entradas VIP</label>
+                <label for="cupo_vip">Cupo disponible</label>
                 <input type="number" step="1" min="1" id="cupo_vip" name="cupo_vip">
             </div>
         </div>

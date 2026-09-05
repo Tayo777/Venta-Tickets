@@ -10,11 +10,27 @@ async function crearTipoEntrada({ eventoId, nombre, descripcion, precio, cupoTot
     return resultado.insertId;
 }
 
-async function editarTipoEntrada(id, { nombre, descripcion, precio, cupoTotal, activo }) {
+async function editarTipoEntrada(id, eventoId, { nombre, descripcion, precio, cupoTotal }) {
     await pool.query(
-        `UPDATE tipos_entrada SET nombre = ?, descripcion = ?, precio = ?, cupo_total = ?, activo = ? WHERE id = ?`,
-        [nombre, descripcion || null, precio, cupoTotal, activo ? 1 : 0, id]
+        `UPDATE tipos_entrada SET nombre = ?, descripcion = ?, precio = ?, cupo_total = ?
+         WHERE id = ? AND evento_id = ?`,
+        [nombre, descripcion || null, precio, cupoTotal, id, eventoId]
     );
+}
+
+async function toggleActivo(id, eventoId) {
+    await pool.query('UPDATE tipos_entrada SET activo = NOT activo WHERE id = ? AND evento_id = ?', [id, eventoId]);
+}
+
+// Solo se puede borrar un tipo que todavía no vendió NADA — si ya tiene entradas emitidas,
+// borrarlo dejaría tickets huérfanos (y rompería el historial de ventas). En ese caso el
+// organizador lo desactiva en vez de borrarlo.
+async function eliminarTipoEntrada(id, eventoId) {
+    const [[fila]] = await pool.query('SELECT COUNT(*) AS emitidas FROM tickets WHERE tipo_entrada_id = ?', [id]);
+    if (fila.emitidas > 0) return { borrado: false, motivo: 'Este tipo ya tiene entradas emitidas: desactivalo en vez de borrarlo.' };
+
+    await pool.query('DELETE FROM tipos_entrada WHERE id = ? AND evento_id = ?', [id, eventoId]);
+    return { borrado: true };
 }
 
 // Todos los tipos de un evento, con el cupo disponible ya calculado (para mostrar en la web).
@@ -46,4 +62,7 @@ async function eventoAgotado(eventoId) {
     return fila.tipos_con_cupo === 0;
 }
 
-module.exports = { crearTipoEntrada, editarTipoEntrada, obtenerTiposPorEvento, obtenerTipoEntrada, eventoAgotado };
+module.exports = {
+    crearTipoEntrada, editarTipoEntrada, toggleActivo, eliminarTipoEntrada,
+    obtenerTiposPorEvento, obtenerTipoEntrada, eventoAgotado
+};

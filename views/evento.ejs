@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         .contenedor { max-width: 600px; margin: 0 auto; padding: 30px 20px; }
-        img { width: 100%; max-height: 400px; object-fit: cover; border-radius: var(--radius-md); }
+        img.flyer { width: 100%; max-height: 400px; object-fit: cover; border-radius: var(--radius-md); }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; }
         input, select { width: 100%; }
@@ -15,6 +15,38 @@
         .summary h3 { margin-top: 0; }
         button { width: 100%; font-size: 1rem; padding: 13px; }
         .volver { display: inline-block; margin-bottom: 15px; color: var(--text-muted); text-decoration: none; }
+
+        /* Ubicación */
+        .ubicacion { padding: 16px; margin-top: 18px; }
+        .ubicacion h3 { margin: 0 0 8px; font-size: 1rem; }
+        .ubicacion p { margin: 2px 0; color: var(--text-muted); font-size: 0.9rem; }
+        .ubicacion a { display: inline-block; margin-top: 8px; font-size: 0.85rem; }
+
+        /* Un selector por tipo de entrada, todos arrancan en 0 */
+        .tipos-lista { display: flex; flex-direction: column; gap: 12px; }
+        .tipo-card { padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+        .tipo-info h4 { margin: 0 0 3px; font-size: 1rem; }
+        .tipo-info .precio { color: var(--accent-2); font-weight: 700; font-size: 0.95rem; }
+        .tipo-info .tarifa-unitaria { color: var(--text-faint); font-size: 0.75rem; margin-left: 6px; }
+        .tipo-info .desc { color: var(--text-muted); font-size: 0.82rem; margin: 5px 0 0; }
+        .tipo-info .stock { color: var(--text-faint); font-size: 0.75rem; margin: 5px 0 0; }
+
+        .stepper { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .stepper button {
+            width: 34px; height: 34px; padding: 0; font-size: 1.1rem; line-height: 1;
+            border-radius: 50%; border: 1px solid var(--border); background: var(--bg-elevated-2);
+            color: var(--text); cursor: pointer;
+        }
+        .stepper button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-2); }
+        .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .stepper input {
+            width: 46px; text-align: center; padding: 6px 4px; font-weight: 700;
+            -moz-appearance: textfield;
+        }
+        .stepper input::-webkit-outer-spin-button,
+        .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .aviso-maximo { font-size: 0.78rem; color: var(--text-faint); margin: 10px 0 0; }
 
         .cupon-fila { display: flex; gap: 8px; align-items: stretch; }
         .cupon-fila input { flex: 1; text-transform: uppercase; transition: border-color 150ms ease, box-shadow 150ms ease; }
@@ -28,6 +60,9 @@
         .summary p { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; color: var(--text-muted); font-size: 0.92rem; }
         .summary p.fila-total { color: var(--text); font-size: 1.05rem; font-weight: 700; margin-top: 10px; }
         .summary p.fila-descuento { color: var(--success); }
+        .summary .detalle-tipos { display: block; color: var(--text-faint); font-size: 0.8rem; margin: 0 0 10px; }
+
+        button[disabled] { opacity: 0.45; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -36,7 +71,19 @@
     <a class="volver" href="/eventos">&larr; Ver todos los eventos</a>
     <h1><%= evento.nombre %></h1>
     <p style="color:var(--text-muted);"><%= formatearFecha(evento.fecha) %></p>
-    <img src="<%= evento.flyer_url %>" alt="Flyer del evento">
+    <img class="flyer" src="<%= evento.flyer_url %>" alt="Flyer del evento">
+
+    <% if (evento.lugar_nombre || evento.direccion || evento.ciudad) { %>
+        <div class="ubicacion card">
+            <h3>📍 Dónde es</h3>
+            <% if (evento.lugar_nombre) { %><p><strong style="color:var(--text);"><%= evento.lugar_nombre %></strong></p><% } %>
+            <% if (evento.direccion) { %><p><%= evento.direccion %></p><% } %>
+            <% if (evento.ciudad) { %><p><%= evento.ciudad %></p><% } %>
+            <% if (evento.maps_url) { %>
+                <a href="<%= evento.maps_url %>" target="_blank" rel="noopener noreferrer">Ver en Google Maps →</a>
+            <% } %>
+        </div>
+    <% } %>
 
     <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">
         <input type="hidden" name="evento_id" value="<%= evento.id %>">
@@ -50,25 +97,30 @@
         </div>
 
         <div class="form-group">
-            <label for="tipo_entrada_id">Tipo de entrada:</label>
-            <select id="tipo_entrada_id" name="tipo_entrada_id" onchange="calcularTotal()">
+            <label>Elegí tus entradas:</label>
+            <div class="tipos-lista">
                 <% tipos.forEach(t => { %>
-                    <option value="<%= t.id %>" data-precio="<%= t.precio %>">
-                        <%= t.nombre %> - $<%= t.precio %> (quedan <%= t.cupo_disponible %>)<% if (t.descripcion) { %> — <%= t.descripcion %><% } %>
-                    </option>
+                    <div class="tipo-card card">
+                        <div class="tipo-info">
+                            <h4><%= t.nombre %></h4>
+                            <span class="precio">$<%= Number(t.precio) %></span>
+                            <span class="tarifa-unitaria">+ $<%= t.tarifa %> de servicio</span>
+                            <% if (t.descripcion) { %><p class="desc"><%= t.descripcion %></p><% } %>
+                            <p class="stock">Quedan <%= t.cupo_disponible %></p>
+                        </div>
+                        <div class="stepper">
+                            <button type="button" class="menos" data-tipo="<%= t.id %>" aria-label="Quitar una entrada">−</button>
+                            <!-- Arranca SIEMPRE en 0: nadie compra sin elegir explícitamente. -->
+                            <input type="number" name="items[<%= t.id %>]" id="cant_<%= t.id %>"
+                                   class="cantidad-tipo" value="0" min="0" max="<%= t.cupo_disponible %>"
+                                   data-precio="<%= t.precio %>" data-tarifa="<%= t.tarifa %>"
+                                   data-stock="<%= t.cupo_disponible %>" readonly>
+                            <button type="button" class="mas" data-tipo="<%= t.id %>" aria-label="Agregar una entrada">+</button>
+                        </div>
+                    </div>
                 <% }) %>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="cantidad">Cantidad de Entradas (Máx. 5):</label>
-            <select id="cantidad" name="cantidad" onchange="calcularTotal()">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-            </select>
+            </div>
+            <p class="aviso-maximo">Podés llevar hasta <span id="maxEntradas"></span> entradas por compra, combinando los tipos que quieras.</p>
         </div>
 
         <div class="form-group">
@@ -83,44 +135,98 @@
 
         <div class="summary card">
             <h3>Detalle del Pago:</h3>
-            <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal"></span></span></p>
-            <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento"></span></span></p>
-            <p><span>Tarifa online</span> <span>$<span id="valTarifa"></span></span></p>
+            <span class="detalle-tipos" id="detalleTipos">Todavía no elegiste entradas.</span>
+            <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal">0.00</span></span></p>
+            <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento">0.00</span></span></p>
+            <p><span>Tarifa online</span> <span>$<span id="valTarifa">0.00</span></span></p>
             <hr style="border-color:var(--border);">
-            <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar"></span></span></p>
+            <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar">0.00</span></span></p>
         </div>
 
-        <button class="btn btn-primary" type="submit" style="margin-top: 15px;">Pagar con Mercado Pago</button>
+        <button class="btn btn-primary" type="submit" id="btnPagar" style="margin-top: 15px;" disabled>Pagar con Mercado Pago</button>
     </form>
 
     <script>
-        const tarifaOnline = <%= evento.tarifa_online %>;
         const eventoId = <%= evento.id %>;
+        const MAX_ENTRADAS = 5; // tope por compra sumando TODOS los tipos (igual se valida en el server)
         let cuponAplicado = null; // { codigo, tipo, valor, descuento } — null si no hay ninguno vigente
 
-        function calcularTotal() {
-            const select = document.getElementById('tipo_entrada_id');
-            const precio = Number(select.options[select.selectedIndex].dataset.precio);
-            const cantidad = Number(document.getElementById('cantidad').value);
+        document.getElementById('maxEntradas').textContent = MAX_ENTRADAS;
+        const inputs = Array.from(document.querySelectorAll('.cantidad-tipo'));
 
-            const subtotal = precio * cantidad;
-            const tarifaTotal = tarifaOnline * cantidad;
-            document.getElementById('valSubtotal').innerText = subtotal.toFixed(2);
-            document.getElementById('valTarifa').innerText = tarifaTotal.toFixed(2);
+        function carritoActual() {
+            return inputs
+                .map((input) => ({
+                    tipoEntradaId: Number(input.name.match(/\[(\d+)\]/)[1]),
+                    cantidad: Number(input.value) || 0,
+                    precio: Number(input.dataset.precio),
+                    tarifa: Number(input.dataset.tarifa), // tarifa de servicio de ESTE tipo
+                    nombre: input.closest('.tipo-card').querySelector('h4').textContent
+                }))
+                .filter((i) => i.cantidad > 0);
+        }
+
+        function recalcular() {
+            const carrito = carritoActual();
+            const cantidadTotal = carrito.reduce((acc, i) => acc + i.cantidad, 0);
+            const subtotal = carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
+            // Igual criterio que el servidor (mp.tarifaPorEntrada): la tarifa sale del precio
+            // de cada tipo, no de un monto fijo por entrada.
+            const tarifaTotal = carrito.reduce((acc, i) => acc + i.tarifa * i.cantidad, 0);
+
+            document.getElementById('detalleTipos').textContent = carrito.length === 0
+                ? 'Todavía no elegiste entradas.'
+                : carrito.map((i) => `${i.cantidad}x ${i.nombre}`).join(' · ');
+
+            document.getElementById('valSubtotal').textContent = subtotal.toFixed(2);
+            document.getElementById('valTarifa').textContent = tarifaTotal.toFixed(2);
 
             const filaDescuento = document.getElementById('filaDescuento');
             let subtotalConDescuento = subtotal;
-            if (cuponAplicado) {
+            if (cuponAplicado && cantidadTotal > 0) {
                 subtotalConDescuento = Math.max(subtotal - cuponAplicado.descuento, 0);
-                document.getElementById('valDescuento').innerText = cuponAplicado.descuento.toFixed(2);
+                document.getElementById('valDescuento').textContent = cuponAplicado.descuento.toFixed(2);
                 filaDescuento.hidden = false;
             } else {
                 filaDescuento.hidden = true;
             }
 
-            document.getElementById('totalPagar').innerText = (subtotalConDescuento + tarifaTotal).toFixed(2);
+            document.getElementById('totalPagar').textContent = (subtotalConDescuento + tarifaTotal).toFixed(2);
+
+            // El botón de pago solo se habilita si hay AL MENOS una entrada elegida.
+            document.getElementById('btnPagar').disabled = cantidadTotal === 0;
+
+            // Los "+" se apagan cuando se llegó al tope de la compra o al stock de ese tipo.
+            inputs.forEach((input) => {
+                const stock = Number(input.dataset.stock);
+                const actual = Number(input.value) || 0;
+                const botonMas = input.parentElement.querySelector('.mas');
+                const botonMenos = input.parentElement.querySelector('.menos');
+                botonMas.disabled = cantidadTotal >= MAX_ENTRADAS || actual >= stock;
+                botonMenos.disabled = actual === 0;
+            });
         }
-        calcularTotal();
+
+        function cambiarCantidad(tipoId, delta) {
+            const input = document.getElementById(`cant_${tipoId}`);
+            const stock = Number(input.dataset.stock);
+            const cantidadTotal = carritoActual().reduce((acc, i) => acc + i.cantidad, 0);
+
+            let nuevo = (Number(input.value) || 0) + delta;
+            nuevo = Math.max(0, Math.min(nuevo, stock));
+            if (delta > 0 && cantidadTotal >= MAX_ENTRADAS) return;
+
+            input.value = nuevo;
+            recalcular();
+            // Si había un cupón aplicado, se revalida contra el servidor con el carrito nuevo:
+            // el descuento depende del subtotal, así que no puede quedar el número viejo.
+            if (cuponAplicado) aplicarCupon();
+        }
+
+        document.querySelectorAll('.stepper .mas').forEach((b) =>
+            b.addEventListener('click', () => cambiarCantidad(b.dataset.tipo, 1)));
+        document.querySelectorAll('.stepper .menos').forEach((b) =>
+            b.addEventListener('click', () => cambiarCantidad(b.dataset.tipo, -1)));
 
         function marcarInputCupon(estado) {
             const input = document.getElementById('cupon_input');
@@ -129,16 +235,22 @@
         }
 
         // Valida el cupón contra el servidor (nunca se calcula el descuento del lado del
-        // cliente) y actualiza el total en pantalla al toque. Se repite automáticamente si
-        // el comprador cambia el tipo de entrada o la cantidad DESPUÉS de aplicar un cupón,
-        // así el número que ve siempre está anclado a lo que el servidor va a cobrar de verdad.
+        // cliente) usando el carrito completo, y actualiza el total en pantalla al toque.
         async function aplicarCupon() {
             const codigo = document.getElementById('cupon_input').value.trim();
             const mensaje = document.getElementById('cuponMensaje');
             if (!codigo) return;
 
-            const tipoEntradaId = document.getElementById('tipo_entrada_id').value;
-            const cantidad = document.getElementById('cantidad').value;
+            const items = carritoActual().map((i) => ({ tipoEntradaId: i.tipoEntradaId, cantidad: i.cantidad }));
+            if (items.length === 0) {
+                cuponAplicado = null;
+                document.getElementById('cupon_codigo_hidden').value = '';
+                mensaje.hidden = false;
+                mensaje.className = 'cupon-mensaje error';
+                mensaje.textContent = '❌ Elegí al menos una entrada antes de aplicar el cupón.';
+                marcarInputCupon('rechazado');
+                return recalcular();
+            }
 
             mensaje.hidden = false;
             mensaje.className = 'cupon-mensaje';
@@ -148,7 +260,7 @@
                 const resp = await fetch(`/api/eventos/${eventoId}/validar-cupon`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codigo, tipo_entrada_id: tipoEntradaId, cantidad })
+                    body: JSON.stringify({ codigo, items })
                 });
                 const data = await resp.json();
 
@@ -170,18 +282,17 @@
                     marcarInputCupon('aplicado');
                 }
             } catch (error) {
-                mensaje.hidden = false;
                 mensaje.textContent = '❌ No se pudo validar el cupón, probá de nuevo.';
                 mensaje.classList.add('error');
                 marcarInputCupon('rechazado');
             }
-            calcularTotal();
+            recalcular();
         }
 
         document.getElementById('btnAplicarCupon').addEventListener('click', aplicarCupon);
         document.getElementById('cupon_input').addEventListener('input', () => marcarInputCupon(null));
-        document.getElementById('tipo_entrada_id').addEventListener('change', () => { if (cuponAplicado) aplicarCupon(); });
-        document.getElementById('cantidad').addEventListener('change', () => { if (cuponAplicado) aplicarCupon(); });
+
+        recalcular();
     </script>
     </div>
 </body>

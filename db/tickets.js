@@ -19,42 +19,53 @@ class SinCupoError extends Error {
     }
 }
 
-// Registra N entradas nuevas de un tipo puntual (General/VIP/etc.) y devuelve sus códigos.
-// Todo pasa en UNA transacción: primero bloquea la fila del tipo de entrada con
-// SELECT ... FOR UPDATE (así ninguna otra compra simultánea puede leer un cupo "viejo"),
-// valida que alcance el cupo, lo descuenta, y recién ahí inserta los tickets. Si algo falla
-// o no alcanza el cupo, se hace rollback y no se vende ni se descuenta nada (todo o nada).
-async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nombreApellido, paymentId, qrSecret } = {}) {
+// Registra las entradas de una compra que puede incluir VARIOS tipos a la vez
+// (ej. 2 General + 1 VIP) y devuelve todos los códigos generados.
+//
+// `lineas` es [{ tipoEntradaId, cantidad }]. Todo pasa en UNA sola transacción: por cada tipo
+// se bloquea su fila con SELECT ... FOR UPDATE (así ninguna compra simultánea puede leer un
+// cupo "viejo"), se valida el cupo, se descuenta y se insertan los tickets. Si CUALQUIER línea
+// se queda sin cupo, se hace rollback de la compra entera — no existe la venta a medias donde
+// el comprador paga por 3 entradas y recibe 2.
+async function registrarEntradas(eventoId, lineas, { email, nombreApellido, paymentId, qrSecret, origen = 'compra' } = {}) {
     const conexion = await pool.getConnection();
     try {
         await conexion.beginTransaction();
 
-        const [filas] = await conexion.query(
-            'SELECT id, cupo_total, cupo_vendido FROM tipos_entrada WHERE id = ? AND evento_id = ? FOR UPDATE',
-            [tipoEntradaId, eventoId]
-        );
-        const tipo = filas[0];
-        if (!tipo) throw new Error('El tipo de entrada no existe para este evento.');
-
-        const disponibles = tipo.cupo_total - tipo.cupo_vendido;
-        if (disponibles < cantidad) {
-            throw new SinCupoError(`Cupo insuficiente: quedan ${disponibles} entrada/s disponibles.`);
-        }
-
-        await conexion.query(
-            'UPDATE tipos_entrada SET cupo_vendido = cupo_vendido + ? WHERE id = ?',
-            [cantidad, tipoEntradaId]
-        );
+        // Se bloquean los tipos SIEMPRE en el mismo orden (por id). Si dos compras simultáneas
+        // llevan los mismos tipos en distinto orden, sin esto podrían quedar esperándose
+        // mutuamente cada una con medio lock agarrado (deadlock clásico).
+        const ordenadas = [...lineas].sort((a, b) => a.tipoEntradaId - b.tipoEntradaId);
 
         const codigos = [];
-        for (let i = 0; i < cantidad; i++) {
-            const id = generarIdEntrada(qrSecret);
-            codigos.push(id);
-            await conexion.query(
-                'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id) VALUES (?, ?, ?, ?, ?, ?)',
-                [id, eventoId, tipoEntradaId, email, nombreApellido || null, paymentId || null]
+        for (const linea of ordenadas) {
+            const [filas] = await conexion.query(
+                'SELECT id, nombre, cupo_total, cupo_vendido FROM tipos_entrada WHERE id = ? AND evento_id = ? FOR UPDATE',
+                [linea.tipoEntradaId, eventoId]
             );
+            const tipo = filas[0];
+            if (!tipo) throw new Error('El tipo de entrada no existe para este evento.');
+
+            const disponibles = tipo.cupo_total - tipo.cupo_vendido;
+            if (disponibles < linea.cantidad) {
+                throw new SinCupoError(`Cupo insuficiente en "${tipo.nombre}": quedan ${disponibles} entrada/s.`);
+            }
+
+            await conexion.query(
+                'UPDATE tipos_entrada SET cupo_vendido = cupo_vendido + ? WHERE id = ?',
+                [linea.cantidad, tipo.id]
+            );
+
+            for (let i = 0; i < linea.cantidad; i++) {
+                const id = generarIdEntrada(qrSecret);
+                codigos.push(id);
+                await conexion.query(
+                    'INSERT INTO tickets (id, evento_id, tipo_entrada_id, email, nombre_apellido, payment_id, origen) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [id, eventoId, tipo.id, email, nombreApellido || null, paymentId || null, origen]
+                );
+            }
         }
+
         await conexion.commit();
         return codigos;
     } catch (err) {
@@ -65,20 +76,13 @@ async function registrarEntradas(eventoId, tipoEntradaId, email, cantidad, { nom
     }
 }
 
-// Entradas de cortesía: no pasan por Mercado Pago ni descuentan cupo pago (tipo_entrada_id
-// queda NULL), pensadas para invitados/prensa/staff. No necesitan transacción con FOR UPDATE
-// porque no compiten por ningún cupo compartido.
-async function registrarEntradasCortesia(eventoId, email, cantidad, { nombreApellido, qrSecret } = {}) {
-    const codigos = [];
-    for (let i = 0; i < cantidad; i++) {
-        const id = generarIdEntrada(qrSecret);
-        codigos.push(id);
-        await pool.query(
-            "INSERT INTO tickets (id, evento_id, email, nombre_apellido, origen) VALUES (?, ?, ?, ?, 'cortesia')",
-            [id, eventoId, email, nombreApellido || null]
-        );
-    }
-    return codigos;
+// Entradas de cortesía: no pasan por Mercado Pago, pero SÍ corresponden a un tipo de entrada
+// concreto y descuentan su cupo igual que una venta (si regalás 10 VIP, quedan 10 VIP menos
+// para vender). Por eso reusa exactamente la misma transacción con FOR UPDATE de arriba.
+async function registrarEntradasCortesia(eventoId, tipoEntradaId, email, cantidad, { nombreApellido, qrSecret } = {}) {
+    return registrarEntradas(eventoId, [{ tipoEntradaId, cantidad }], {
+        email, nombreApellido, qrSecret, paymentId: null, origen: 'cortesia'
+    });
 }
 
 // Todas las entradas vigentes de un email para un evento puntual (para reenviar el QR).

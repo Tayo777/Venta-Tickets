@@ -11,22 +11,25 @@ const { generarPdfBuffer } = require('./pdfEntradas');
 // llamar tanto desde /success (redirect del navegador) como desde el job de reconciliación
 // (services/reconciliarPagos.js) sin duplicar entradas ni mails si ambos caminos procesan
 // el mismo pago.
-async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nombreApellido, cantidad, descuentoTotal = 0, cuponCodigo = null }) {
+// `lineas` = [{ tipoEntrada, cantidad }] — una compra puede llevar varios tipos a la vez.
+async function procesarPagoAprobado({ evento, lineas, paymentId, email, nombreApellido, descuentoTotal = 0, cuponCodigo = null }) {
     const yaProcesado = await comprasDb.yaProcesada(paymentId);
     if (yaProcesado) {
         return { yaProcesado: true };
     }
+
+    // Mismo cálculo que usó services/mercadopago.js para armar la preferencia, reutilizado
+    // literalmente (no reimplementado): lo que se registra en `compras` es exactamente lo que
+    // se le cobró al comprador, cupón incluido.
+    const { cantidadTotal, total: montoTotal } = mp.calcularTotales(evento, lineas, descuentoTotal);
 
     // Entre el chequeo de arriba y este INSERT hay una ventana de carrera: si Mercado Pago
     // reintenta el webhook (o el webhook y el job de reconciliación caen justo al mismo
     // tiempo), dos llamadas pueden pasar el "yaProcesada" en false antes de que ninguna haya
     // insertado todavía. El INDEX UNIQUE de compras.payment_id es la red de seguridad real:
     // la segunda va a fallar acá con ER_DUP_ENTRY, y eso es lo que atrapamos.
-    // montoTotal ya refleja el descuento del cupón (si hubo uno) — es lo que REALMENTE se cobró.
-    const montoTotal = Math.max((Number(tipoEntrada.precio) * cantidad) - Number(descuentoTotal || 0), 0)
-        + (Number(evento.tarifa_online) * cantidad);
     try {
-        await comprasDb.registrarCompra({ paymentId, eventoId: evento.id, email, cantidad, montoTotal });
+        await comprasDb.registrarCompra({ paymentId, eventoId: evento.id, email, cantidad: cantidadTotal, montoTotal });
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
             // Otro proceso ganó la carrera y ya registró este payment_id un instante antes.
@@ -40,10 +43,13 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
     }
 
     try {
-        const listaCodigos = await ticketsDb.registrarEntradas(evento.id, tipoEntrada.id, email, cantidad, {
-            nombreApellido, paymentId, qrSecret: evento.qr_secret
-        });
-        console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre}, tipo: ${tipoEntrada.nombre})`);
+        const listaCodigos = await ticketsDb.registrarEntradas(
+            evento.id,
+            lineas.map((l) => ({ tipoEntradaId: l.tipoEntrada.id, cantidad: l.cantidad })),
+            { email, nombreApellido, paymentId, qrSecret: evento.qr_secret }
+        );
+        const detalle = lineas.map((l) => `${l.cantidad}x ${l.tipoEntrada.nombre}`).join(', ');
+        console.log(`Guardadas ${listaCodigos.length} entradas en DB para: ${email} (evento: ${evento.nombre}, ${detalle})`);
 
         // Contador informativo del cupón (ver db/cupones.js): recién ahora, con el pago YA
         // confirmado y las entradas YA generadas, tiene sentido sumarle un uso.
@@ -61,7 +67,7 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
             await enviarMailBrevo({
                 to: email,
                 subject: '🎟️ Tus entradas oficiales',
-                text: `¡Gracias por tu compra! Adjuntamos ${cantidad} entrada/s para ${evento.nombre}.`,
+                text: `¡Gracias por tu compra! Adjuntamos ${cantidadTotal} entrada/s para ${evento.nombre} (${detalle}).`,
                 attachmentBase64: pdfBuffer.toString('base64'),
                 attachmentName: 'Entradas_Evento.pdf'
             });
@@ -71,7 +77,7 @@ async function procesarPagoAprobado({ evento, tipoEntrada, paymentId, email, nom
         }
 
         enviarNotificacionTelegram(
-            `🎟️ <b>Nueva venta</b>\nEvento: ${evento.nombre}\n${cantidad} entrada/s\nComprador: ${email}`
+            `🎟️ <b>Nueva venta</b>\nEvento: ${evento.nombre}\n${detalle}\nComprador: ${email}`
         );
 
         // Consultamos la comisión REAL que cobró Mercado Pago en esta transacción puntual

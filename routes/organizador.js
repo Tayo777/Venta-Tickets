@@ -11,7 +11,7 @@ const mp = require('../services/mercadopago');
 const { subirImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
 const { generarPdfBuffer } = require('../services/pdfEntradas');
-const { requiereLogin, requiereAprobado, esDueñoOAdmin } = require('../middleware/auth');
+const { requiereLogin, requiereAprobado, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
 
 // Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
@@ -21,7 +21,11 @@ router.get('/mis-eventos', requiereLogin, async (req, res) => {
     const eventos = req.session.rol === 'admin'
         ? await eventosDb.obtenerTodos()
         : await eventosDb.obtenerEventosDeUsuario(req.session.usuarioId);
-    res.render('mis-eventos', { eventos, esAdmin: req.session.rol === 'admin' });
+
+    // El panel los muestra en dos acordeones separados: los activos se administran normal,
+    // los finalizados quedan en solo lectura (ver middleware/auth.js -> eventoEditable).
+    const { activos, finalizados } = eventosDb.separarPorEstado(eventos);
+    res.render('mis-eventos', { activos, finalizados, esAdmin: req.session.rol === 'admin' });
 });
 
 router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
@@ -29,22 +33,24 @@ router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
 });
 
 router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
-    const { nombre, descripcion, fecha, valor_entrada, cupo_general, fecha_cierre_ventas,
-            vip_activo, valor_vip, cupo_vip } = req.body;
+    const { nombre, descripcion, fecha, fecha_cierre_ventas,
+            lugar_nombre, direccion, ciudad, maps_url,
+            tipo1_nombre, tipo1_descripcion, valor_entrada, cupo_general,
+            vip_activo, tipo2_nombre, tipo2_descripcion, valor_vip, cupo_vip } = req.body;
     const valorEntradaNum = Number(valor_entrada);
     const cupoGeneralNum = parseInt(cupo_general);
 
-    const campos = { nombre, descripcion, fecha };
+    const campos = { nombre, descripcion, fecha, tipo1_nombre };
     const faltantes = Object.entries(campos).filter(([, v]) => !v || !String(v).trim()).map(([k]) => k);
     if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !cupoGeneralNum || cupoGeneralNum <= 0 || !req.file) {
-        return res.render('crear-evento', { error: 'Completá todos los campos, incluida la imagen del flyer y el cupo de entradas General.', usuarioLogueado: true });
+        return res.render('crear-evento', { error: 'Completá todos los campos obligatorios: datos del evento, imagen del flyer, y nombre/precio/cupo del primer tipo de entrada.', usuarioLogueado: true });
     }
 
     const quiereVip = vip_activo === 'on';
     const valorVipNum = Number(valor_vip);
     const cupoVipNum = parseInt(cupo_vip);
-    if (quiereVip && (!valorVipNum || valorVipNum <= 0 || !cupoVipNum || cupoVipNum <= 0)) {
-        return res.render('crear-evento', { error: 'Si activás VIP, completá su precio y cupo.', usuarioLogueado: true });
+    if (quiereVip && (!tipo2_nombre || !String(tipo2_nombre).trim() || !valorVipNum || valorVipNum <= 0 || !cupoVipNum || cupoVipNum <= 0)) {
+        return res.render('crear-evento', { error: 'Si agregás un segundo tipo de entrada, completá su nombre, precio y cupo.', usuarioLogueado: true });
     }
 
     try {
@@ -56,16 +62,17 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
             nombre, descripcion, fecha, flyerUrl,
             valorEntrada: valorEntradaNum, tarifaOnline,
             organizerEmail: null, comisionMpPct, comisionPropiaPct,
-            fechaCierreVentas: fecha_cierre_ventas || null
+            fechaCierreVentas: fecha_cierre_ventas || null,
+            lugarNombre: lugar_nombre, direccion, ciudad, mapsUrl: maps_url
         });
 
         await tiposEntradaDb.crearTipoEntrada({
-            eventoId: id, nombre: 'General', descripcion: null,
+            eventoId: id, nombre: tipo1_nombre.trim(), descripcion: tipo1_descripcion,
             precio: valorEntradaNum, cupoTotal: cupoGeneralNum
         });
         if (quiereVip) {
             await tiposEntradaDb.crearTipoEntrada({
-                eventoId: id, nombre: 'VIP', descripcion: null,
+                eventoId: id, nombre: tipo2_nombre.trim(), descripcion: tipo2_descripcion,
                 precio: valorVipNum, cupoTotal: cupoVipNum
             });
         }
@@ -77,36 +84,105 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
     }
 });
 
-router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, async (req, res) => {
-    const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
-    res.render('editar-evento', { evento: req.evento, error: null, cupones, errorCupon: null, usuarioLogueado: true });
+// Deja todo lo que necesita la pantalla de edición (evento + cupones + tipos de entrada).
+async function datosEdicion(evento, extras = {}) {
+    const [cupones, tipos] = await Promise.all([
+        cuponesDb.obtenerCuponesDeEvento(evento.id),
+        tiposEntradaDb.obtenerTiposPorEvento(evento.id)
+    ]);
+    return { evento, cupones, tipos, error: null, errorCupon: null, errorTipo: null, usuarioLogueado: true, ...extras };
+}
+
+router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    res.render('editar-evento', await datosEdicion(req.evento));
 });
 
-router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, upload.single('flyer'), async (req, res) => {
-    const { nombre, descripcion, fecha, valor_entrada } = req.body;
+router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable, upload.single('flyer'), async (req, res) => {
+    const { nombre, descripcion, fecha, valor_entrada, fecha_cierre_ventas,
+            lugar_nombre, direccion, ciudad, maps_url } = req.body;
     try {
         const flyerUrl = req.file ? await subirImagen(req.file.buffer) : req.evento.flyer_url;
         await eventosDb.editarEvento(req.evento.id, {
-            nombre, descripcion, fecha, flyerUrl, valorEntrada: Number(valor_entrada)
+            nombre, descripcion, fecha, flyerUrl, valorEntrada: Number(valor_entrada),
+            fechaCierreVentas: fecha_cierre_ventas || null,
+            lugarNombre: lugar_nombre, direccion, ciudad, mapsUrl: maps_url
         });
         res.redirect(`/eventos/${req.evento.id}`);
     } catch (error) {
         console.error('Error al editar el evento:', error);
-        const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
-        res.render('editar-evento', { evento: req.evento, error: 'No se pudo guardar el cambio.', cupones, errorCupon: null, usuarioLogueado: true });
+        res.render('editar-evento', await datosEdicion(req.evento, { error: 'No se pudo guardar el cambio.' }));
     }
+});
+
+// --- Gestión de tipos de entrada (misma pantalla de edición) ---
+
+router.post('/eventos/:id/tipos', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    const { nombre, descripcion, precio, cupo_total } = req.body;
+    const precioNum = Number(precio);
+    const cupoNum = parseInt(cupo_total);
+
+    if (!nombre || !String(nombre).trim() || !cupoNum || cupoNum <= 0 || isNaN(precioNum) || precioNum < 0) {
+        return res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: 'Completá nombre, precio y cupo del tipo de entrada.' }));
+    }
+
+    try {
+        await tiposEntradaDb.crearTipoEntrada({
+            eventoId: req.evento.id, nombre: nombre.trim(), descripcion, precio: precioNum, cupoTotal: cupoNum
+        });
+        res.redirect(`/eventos/${req.evento.id}/editar`);
+    } catch (error) {
+        console.error('Error al crear el tipo de entrada:', error);
+        res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: 'No se pudo crear el tipo de entrada.' }));
+    }
+});
+
+router.post('/eventos/:id/tipos/:tipoId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    const { nombre, descripcion, precio, cupo_total } = req.body;
+    const precioNum = Number(precio);
+    const cupoNum = parseInt(cupo_total);
+
+    if (!nombre || !String(nombre).trim() || !cupoNum || cupoNum <= 0 || isNaN(precioNum) || precioNum < 0) {
+        return res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: 'Completá nombre, precio y cupo del tipo de entrada.' }));
+    }
+
+    // El cupo nuevo no puede quedar por debajo de lo YA vendido de ese tipo: dejaría el
+    // contador en negativo y el tipo aparecería "sobrevendido".
+    const tipo = await tiposEntradaDb.obtenerTipoEntrada(req.params.tipoId);
+    if (!tipo || tipo.evento_id !== req.evento.id) return res.status(404).send('Tipo de entrada no encontrado.');
+    if (cupoNum < tipo.cupo_vendido) {
+        return res.render('editar-evento', await datosEdicion(req.evento, {
+            errorTipo: `No podés bajar el cupo de "${tipo.nombre}" a ${cupoNum}: ya vendiste ${tipo.cupo_vendido}.`
+        }));
+    }
+
+    await tiposEntradaDb.editarTipoEntrada(req.params.tipoId, req.evento.id, {
+        nombre: nombre.trim(), descripcion, precio: precioNum, cupoTotal: cupoNum
+    });
+    res.redirect(`/eventos/${req.evento.id}/editar`);
+});
+
+router.post('/eventos/:id/tipos/:tipoId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    await tiposEntradaDb.toggleActivo(req.params.tipoId, req.evento.id);
+    res.redirect(`/eventos/${req.evento.id}/editar`);
+});
+
+router.post('/eventos/:id/tipos/:tipoId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    const { borrado, motivo } = await tiposEntradaDb.eliminarTipoEntrada(req.params.tipoId, req.evento.id);
+    if (!borrado) {
+        return res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: motivo }));
+    }
+    res.redirect(`/eventos/${req.evento.id}/editar`);
 });
 
 // --- Gestión de cupones del evento (misma pantalla de edición) ---
 
-router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { codigo, tipo, valor, usos_maximos } = req.body;
     const valorNum = Number(valor);
     const usosMaximosNum = usos_maximos ? parseInt(usos_maximos) : null;
 
     const renderConError = async (mensaje) => {
-        const cupones = await cuponesDb.obtenerCuponesDeEvento(req.evento.id);
-        res.render('editar-evento', { evento: req.evento, error: null, cupones, errorCupon: mensaje, usuarioLogueado: true });
+        res.render('editar-evento', await datosEdicion(req.evento, { errorCupon: mensaje }));
     };
 
     if (!codigo || !String(codigo).trim()) return renderConError('Ingresá un código para el cupón.');
@@ -124,17 +200,17 @@ router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, async (req, r
     }
 });
 
-router.post('/eventos/:id/cupones/:cuponId/toggle', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/cupones/:cuponId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await cuponesDb.toggleActivo(req.params.cuponId, req.evento.id);
     res.redirect(`/eventos/${req.evento.id}/editar`);
 });
 
-router.post('/eventos/:id/cupones/:cuponId/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/cupones/:cuponId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await cuponesDb.eliminarCupon(req.params.cuponId, req.evento.id);
     res.redirect(`/eventos/${req.evento.id}/editar`);
 });
 
-router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, puedeEliminarEvento, async (req, res) => {
     try {
         await eventosDb.eliminarEvento(req.evento.id);
         res.redirect('/mis-eventos');
@@ -146,30 +222,52 @@ router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, async (req, 
 
 // Panel privado del evento: solo el dueño o el admin pueden entrar. Acá está el link de
 // guardia (encriptado, uno por evento) y el listado de ventas — nada de esto es público.
-router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
-    const evento = req.evento;
-    const resumen = await eventosDb.resumenVentas(evento.id);
-    const ventas = await eventosDb.listadoVentas(evento.id);
-    const guardias = await guardiasDb.obtenerGuardiasDeEvento(evento.id);
+async function datosPanel(evento, extras = {}) {
+    const [resumen, ventas, guardias, tipos] = await Promise.all([
+        eventosDb.resumenVentas(evento.id),
+        eventosDb.listadoVentas(evento.id),
+        guardiasDb.obtenerGuardiasDeEvento(evento.id),
+        tiposEntradaDb.obtenerTiposPorEvento(evento.id)
+    ]);
     const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(evento.valor_entrada);
 
-    res.render('evento-detalle', {
-        evento, resumen, ventas, guardias, recaudacion,
+    return {
+        evento, resumen, ventas, guardias, tipos, recaudacion,
+        esAdmin: extras.esAdmin === true,
+        // Si está finalizado, la vista oculta/deshabilita todo lo que modifica (el servidor
+        // igual lo bloquea con eventoEditable, esto es solo para no ofrecer botones muertos).
+        soloLectura: eventosDb.eventoFinalizado(evento),
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
         urlPublica: `${BASE_URL}/evento/${evento.id}`,
         urlGuardia: `${BASE_URL}/login-guardia/${evento.id}?token=${evento.guardia_token}`,
+        conectado: false, cortesia: false, reenviado: false, filasAsignadas: null,
+        errorGuardia: null,
+        ...extras
+    };
+}
+
+router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    res.render('evento-detalle', await datosPanel(req.evento, {
+        esAdmin: req.session.rol === 'admin',
         conectado: req.query.conectado === '1',
         cortesia: req.query.cortesia === '1',
         reenviado: req.query.reenviado === '1',
-        filasAsignadas: req.query.filas_ok || null,
-        errorGuardia: null
-    });
+        filasAsignadas: req.query.filas_ok || null
+    }));
+});
+
+// Marca/desmarca el evento como finalizado a mano. Un evento con fecha pasada ya cuenta como
+// finalizado solo (ver eventosDb.eventoFinalizado); esto sirve para cerrarlo antes de tiempo,
+// o para reabrir uno que se marcó por error (mientras su fecha no haya pasado).
+router.post('/eventos/:id/finalizar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+    await eventosDb.marcarFinalizado(req.evento.id, req.body.finalizar === '1');
+    res.redirect(`/eventos/${req.evento.id}`);
 });
 
 // Reparte todas las entradas vendidas entre N filas/guardias, al azar y en partes iguales
 // (ver ticketsDb.asignarFilasAleatorio). Pensado para correrlo el día del evento, una vez
 // que ya se sabe cuántos guardias/puertas va a haber.
-router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const cantidadFilas = parseInt(req.body.cantidad_filas);
     if (!cantidadFilas || cantidadFilas < 1 || cantidadFilas > 20) {
         return res.status(400).send('Ingresá una cantidad de filas válida (entre 1 y 20).');
@@ -187,23 +285,12 @@ router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, async (
 
 // --- Gestión de guardias (cuentas para la app móvil) ---
 
-router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { email, password, fila_asignada } = req.body;
     const filaNum = parseInt(fila_asignada);
 
     const rerenderConError = async (mensaje) => {
-        const resumen = await eventosDb.resumenVentas(req.evento.id);
-        const ventas = await eventosDb.listadoVentas(req.evento.id);
-        const guardias = await guardiasDb.obtenerGuardiasDeEvento(req.evento.id);
-        const recaudacion = (Number(resumen.total_vendidas) || 0) * Number(req.evento.valor_entrada);
-        res.render('evento-detalle', {
-            evento: req.evento, resumen, ventas, guardias, recaudacion,
-            urlConexionMP: mp.urlConexionOAuth(req.evento.token_informe),
-            urlPublica: `${BASE_URL}/evento/${req.evento.id}`,
-            urlGuardia: `${BASE_URL}/login-guardia/${req.evento.id}?token=${req.evento.guardia_token}`,
-            conectado: false, cortesia: false, reenviado: false, filasAsignadas: null,
-            errorGuardia: mensaje
-        });
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje }));
     };
 
     if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
@@ -220,29 +307,39 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, async (req, 
     }
 });
 
-router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.eliminarGuardia(req.params.guardiaId, req.evento.id);
     res.redirect(`/eventos/${req.evento.id}`);
 });
 
-router.post('/eventos/:id/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:id/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.toggleActivo(req.params.guardiaId, req.evento.id);
     res.redirect(`/eventos/${req.evento.id}`);
 });
 
-// Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago
-// ni descontar cupo pago (van con tipo_entrada_id NULL, origen 'cortesia').
-router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, async (req, res) => {
-    const { email, nombre_apellido, cantidad } = req.body;
+// Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago.
+// Corresponden a un TIPO de entrada concreto y descuentan su cupo igual que una venta (si
+// regalás 10 VIP, quedan 10 VIP menos para vender).
+router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+    const { email, nombre_apellido, cantidad, tipo_entrada_id } = req.body;
     const cant = parseInt(cantidad);
+    const tipoEntradaId = parseInt(tipo_entrada_id);
 
     if (!email || !String(email).trim() || !nombre_apellido || !String(nombre_apellido).trim() || cant < 1 || cant > 20) {
         return res.status(400).send('Completá email, nombre y una cantidad válida (máx. 20).');
     }
 
+    const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(tipoEntradaId);
+    if (!tipoEntrada || tipoEntrada.evento_id !== req.evento.id) {
+        return res.status(400).send('Elegí a qué tipo de entrada corresponde la cortesía.');
+    }
+    if (tipoEntrada.cupo_disponible < cant) {
+        return res.status(409).send(`No hay cupo suficiente en "${tipoEntrada.nombre}": quedan ${tipoEntrada.cupo_disponible} entrada/s.`);
+    }
+
     try {
         const evento = req.evento;
-        const codigos = await ticketsDb.registrarEntradasCortesia(evento.id, email, cant, { nombreApellido: nombre_apellido, qrSecret: evento.qr_secret });
+        const codigos = await ticketsDb.registrarEntradasCortesia(evento.id, tipoEntradaId, email, cant, { nombreApellido: nombre_apellido, qrSecret: evento.qr_secret });
 
         const pdfBuffer = await generarPdfBuffer({ nombreEvento: evento.nombre, email, codigos });
         await enviarMailBrevo({

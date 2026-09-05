@@ -21,18 +21,27 @@ async function guardarComisionReal(paymentId, { comisionMpReal, montoNeto }) {
     );
 }
 
-// Recalcula la tarifa de un evento usando el PROMEDIO de comisiones reales ya observadas
-// en sus ventas anteriores (en vez de la estimación fija genérica). Se llama después de cada
-// venta, así que a partir de la 2da entrada vendida el precio ya refleja datos reales de ESE
-// evento puntual, y se va afinando solo con cada venta nueva.
+// Afina comision_mp_pct con el PROMEDIO de comisiones reales ya observadas en las ventas de
+// este evento (en vez de quedarse con la estimación genérica). Se llama después de cada venta,
+// así que a partir de la 2da entrada vendida los precios ya reflejan datos reales de ESE
+// evento, y se va afinando solo.
+//
+// Ojo: este porcentaje es AHORA el que fija la tarifa de cada entrada (ver
+// mp.tarifaPorEntrada), no un dato meramente informativo como antes. eventos.tarifa_online
+// pasó a ser solo un valor de referencia sobre el precio base del evento, que se guarda para
+// mostrarlo — el checkout no lo usa más.
 async function ajustarTarifaConDatosReales(eventoId) {
     const [[evento]] = await pool.query('SELECT valor_entrada, comision_propia_pct FROM eventos WHERE id = ?', [eventoId]);
     if (!evento) return;
 
+    // El porcentaje real de Mercado Pago se mide contra el MONTO EFECTIVAMENTE COBRADO de cada
+    // compra (monto_total), no contra "cantidad x precio de referencia": desde que una compra
+    // puede mezclar varios tipos de entrada a distinto precio (y llevar cupón), esa cuenta
+    // vieja ya no representaba lo que se cobró y desviaba la estimación.
     const [[{ pctPromedio, muestras }]] = await pool.query(
-        `SELECT AVG(comision_mp_real / (cantidad * ?)) * 100 AS pctPromedio, COUNT(*) AS muestras
-         FROM compras WHERE evento_id = ? AND comision_mp_real IS NOT NULL`,
-        [evento.valor_entrada, eventoId]
+        `SELECT AVG(comision_mp_real / monto_total) * 100 AS pctPromedio, COUNT(*) AS muestras
+         FROM compras WHERE evento_id = ? AND comision_mp_real IS NOT NULL AND monto_total > 0`,
+        [eventoId]
     );
 
     if (!muestras || pctPromedio === null) return; // todavía no hay datos reales, se sigue usando la estimación

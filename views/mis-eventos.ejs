@@ -36,8 +36,24 @@
         }
         .badge.activo { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
         .badge.sin-conectar { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
+        .badge.finalizado { color: var(--zinc-400); background: rgba(161, 161, 170, 0.12); border-color: rgba(161, 161, 170, 0.25); }
 
         .vacio { text-align: center; color: var(--text-faint); margin-top: 60px; }
+
+        /* Acordeones: "Eventos activos" arranca abierto, "Finalizados" cerrado (es historial). */
+        .acordeon { border: 1px solid var(--zinc-800); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+        .acordeon > summary {
+            cursor: pointer; padding: 14px 18px; background: var(--zinc-900);
+            font-weight: 600; font-size: 0.95rem; list-style: none; display: flex;
+            justify-content: space-between; align-items: center; gap: 10px;
+        }
+        .acordeon > summary::-webkit-details-marker { display: none; }
+        .acordeon > summary::after { content: '▾'; color: var(--zinc-400); transition: transform 200ms ease; }
+        .acordeon[open] > summary::after { transform: rotate(180deg); }
+        .acordeon > summary:hover { background: var(--zinc-800); }
+        .acordeon-cuerpo { padding: 14px; }
+        .acordeon-contador { color: var(--zinc-400); font-weight: 400; font-size: 0.82rem; }
+        .acordeon-nota { color: var(--text-faint); font-size: 0.8rem; margin: 0 0 12px; }
     </style>
 </head>
 <body>
@@ -48,19 +64,39 @@
         <a class="btn btn-primary" href="/crear-evento">+ Crear evento</a>
     </div>
 
-    <% if (eventos.length === 0) { %>
+    <% if (activos.length === 0 && finalizados.length === 0) { %>
         <p class="vacio">Todavía no creaste ningún evento.</p>
     <% } else { %>
-        <% eventos.forEach(evento => { %>
-            <a class="evento-row" href="/eventos/<%= evento.id %>">
-                <div>
-                    <h3><%= evento.nombre %>
-                        <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Vendiendo' : 'Sin conectar MP' %></span>
-                    </h3>
-                    <p><%= formatearFecha(evento.fecha) %></p>
-                </div>
-            </a>
-        <% }) %>
+        <details class="acordeon" open>
+            <summary>
+                <span>🟢 Eventos activos <span class="acordeon-contador">(<%= activos.length %>)</span></span>
+            </summary>
+            <div class="acordeon-cuerpo">
+                <% if (activos.length === 0) { %>
+                    <p class="acordeon-nota">No tenés eventos activos en este momento.</p>
+                <% } else { %>
+                    <% activos.forEach(evento => { %>
+                        <%- include('partials/tarjeta-evento', { evento, finalizado: false }) %>
+                    <% }) %>
+                <% } %>
+            </div>
+        </details>
+
+        <details class="acordeon">
+            <summary>
+                <span>🏁 Eventos finalizados <span class="acordeon-contador">(<%= finalizados.length %>)</span></span>
+            </summary>
+            <div class="acordeon-cuerpo">
+                <p class="acordeon-nota">Quedan en modo solo lectura: podés entrar a ver estadísticas, ventas e historial, pero ya no se editan.</p>
+                <% if (finalizados.length === 0) { %>
+                    <p class="acordeon-nota">Todavía no hay eventos finalizados.</p>
+                <% } else { %>
+                    <% finalizados.forEach(evento => { %>
+                        <%- include('partials/tarjeta-evento', { evento, finalizado: true }) %>
+                    <% }) %>
+                <% } %>
+            </div>
+        </details>
     <% } %>
     </div>
 </body>

@@ -219,6 +219,29 @@ async function inicializarDB() {
     // si ya está en VARCHAR(40) o más, MySQL no hace nada.
     await pool.query(`ALTER TABLE tickets MODIFY COLUMN id VARCHAR(40) NOT NULL`);
 
+    // Migración: ubicación del evento (se muestra en la página pública de compra).
+    await agregarColumnaSiNoExiste('eventos', 'lugar_nombre', 'VARCHAR(255)');
+    await agregarColumnaSiNoExiste('eventos', 'direccion', 'VARCHAR(500)');
+    await agregarColumnaSiNoExiste('eventos', 'ciudad', 'VARCHAR(150)');
+    await agregarColumnaSiNoExiste('eventos', 'maps_url', 'VARCHAR(500)');
+
+    // Migración: evento finalizado (queda en modo SOLO LECTURA). Es un override manual —
+    // un evento también cuenta como finalizado si ya pasó su fecha, sin tocar esta columna
+    // (ver eventosDb.eventoFinalizado). Nunca se borra solo: solo el admin puede eliminarlo.
+    await agregarColumnaSiNoExiste('eventos', 'finalizado', 'TINYINT(1) NOT NULL DEFAULT 0');
+
+    // Carritos de checkout: guarda QUÉ se está comprando (varios tipos de entrada a la vez,
+    // cupón, comprador) contra un token corto. Ese token es lo único que viaja a Mercado Pago
+    // como external_reference. Antes se mandaba un JSON con todo adentro, que ya rozaba el
+    // límite de 256 chars de ese campo y encima exponía datos del comprador en la pasarela.
+    await pool.query(`CREATE TABLE IF NOT EXISTS checkouts (
+        token CHAR(32) PRIMARY KEY,
+        evento_id INT NOT NULL,
+        datos TEXT NOT NULL,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )`);
+
     // Migración: secreto de firma HMAC PROPIO por evento (antes era un único QR_SECRET
     // global en .env). db/eventos.js::crearEvento ya genera uno nuevo con crypto.randomBytes
     // para cada evento que se crea de acá en adelante — esto es el fallback para los eventos

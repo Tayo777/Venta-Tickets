@@ -31,4 +31,25 @@ async function esDueñoOAdmin(req, res, next) {
     next();
 }
 
-module.exports = { requiereLogin, requiereAprobado, requiereAdmin, esDueñoOAdmin };
+// Bloquea cualquier MODIFICACIÓN sobre un evento ya finalizado (por fecha o marcado a mano).
+// Los finalizados quedan en modo solo lectura: se siguen pudiendo ver estadísticas, ventas e
+// historial, pero no editar el evento, emitir cortesías, tocar cupones ni guardias.
+// Va siempre DESPUÉS de esDueñoOAdmin, que es quien deja el evento en req.evento.
+function eventoEditable(req, res, next) {
+    if (eventosDb.eventoFinalizado(req.evento)) {
+        return res.status(403).send('Este evento ya finalizó y quedó en modo solo lectura. Podés consultar sus estadísticas e historial, pero no modificarlo.');
+    }
+    next();
+}
+
+// Un evento finalizado solo lo puede borrar el admin (decisión manual, nunca automática).
+// Mientras está activo, el dueño también puede borrar el suyo.
+function puedeEliminarEvento(req, res, next) {
+    const esAdmin = req.session.rol === 'admin';
+    if (eventosDb.eventoFinalizado(req.evento) && !esAdmin) {
+        return res.status(403).send('Los eventos finalizados solo los puede eliminar un administrador.');
+    }
+    next();
+}
+
+module.exports = { requiereLogin, requiereAprobado, requiereAdmin, esDueñoOAdmin, eventoEditable, puedeEliminarEvento };

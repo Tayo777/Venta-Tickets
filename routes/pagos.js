@@ -4,10 +4,59 @@ const eventosDb = require('../db/eventos');
 const ticketsDb = require('../db/tickets');
 const tiposEntradaDb = require('../db/tiposEntrada');
 const cuponesDb = require('../db/cupones');
+const checkoutsDb = require('../db/checkouts');
 const mp = require('../services/mercadopago');
 const { procesarPagoAprobado } = require('../services/procesarPago');
 const { generarPdfEnResponse } = require('../services/pdfEntradas');
 const { limitadorCheckout } = require('../middleware/rateLimiters');
+
+// Tope de entradas por compra, sumando TODOS los tipos del carrito.
+const MAX_ENTRADAS_POR_COMPRA = 5;
+
+// El carrito puede llegar de dos formas: del form HTML como objeto ({ "3": "2", "5": "0" },
+// por los inputs name="items[<tipoId>]") o del fetch de validar-cupón como array de objetos.
+// Se normalizan las dos a [{ tipoEntradaId, cantidad }], descartando las cantidades en 0.
+function normalizarItems(items) {
+    if (!items) return [];
+    const pares = Array.isArray(items)
+        ? items.map((i) => [i.tipoEntradaId, i.cantidad])
+        : Object.entries(items);
+
+    return pares
+        .map(([tipoId, cant]) => ({ tipoEntradaId: parseInt(tipoId), cantidad: parseInt(cant) || 0 }))
+        .filter((i) => i.tipoEntradaId && i.cantidad > 0);
+}
+
+// Relee cada tipo de entrada DESDE LA BASE (nunca se confía en el precio que mandó el
+// navegador) y valida que siga disponible y con cupo. Devuelve { lineas } o { error }.
+async function resolverLineas(eventoId, items) {
+    const lineas = [];
+    for (const item of items) {
+        const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(item.tipoEntradaId);
+        if (!tipoEntrada || tipoEntrada.evento_id !== eventoId || !tipoEntrada.activo) {
+            return { error: 'Alguno de los tipos de entrada elegidos ya no está disponible.' };
+        }
+        if (tipoEntrada.cupo_disponible < item.cantidad) {
+            return { error: `Ya no quedan ${item.cantidad} entradas "${tipoEntrada.nombre}" (quedan ${tipoEntrada.cupo_disponible}).` };
+        }
+        lineas.push({ tipoEntrada, cantidad: item.cantidad });
+    }
+    return { lineas };
+}
+
+// Versión para DESPUÉS del pago: relee los tipos igual, pero sin volver a exigir cupo. El
+// dinero ya se cobró, así que acá no corresponde rechazar por stock — si el cupo se agotó en
+// el medio, lo detecta la transacción de registrarEntradas y dispara el aviso de reembolso
+// manual (ver services/procesarPago.js). Devuelve null si algún tipo ya no existe.
+async function resolverLineasParaCobro(eventoId, items) {
+    const lineas = [];
+    for (const item of items) {
+        const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(item.tipoEntradaId);
+        if (!tipoEntrada || tipoEntrada.evento_id !== eventoId) return null;
+        lineas.push({ tipoEntrada, cantidad: item.cantidad });
+    }
+    return lineas;
+}
 
 // Preview del cupón para el checkout: el frontend lo llama al tocar "Aplicar cupón" para
 // mostrar el descuento sin cobrar todavía. Es de solo lectura (no reserva el cupón ni lo
@@ -15,21 +64,27 @@ const { limitadorCheckout } = require('../middleware/rateLimiters');
 // de cobrar, porque nunca hay que confiar en un descuento calculado del lado del cliente.
 router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
     const eventoId = parseInt(req.params.id);
-    const { codigo, tipo_entrada_id, cantidad } = req.body;
-    const cant = parseInt(cantidad) || 1;
+    const { codigo } = req.body;
+    const items = normalizarItems(req.body.items);
+
+    if (items.length === 0) {
+        return res.json({ valido: false, motivo: 'Elegí al menos una entrada antes de aplicar el cupón.' });
+    }
 
     try {
         const evento = await eventosDb.obtenerEvento(eventoId);
-        const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(parseInt(tipo_entrada_id));
-        if (!evento || !tipoEntrada || tipoEntrada.evento_id !== eventoId) {
-            return res.status(404).json({ valido: false, motivo: 'Tipo de entrada no encontrado.' });
-        }
+        if (!evento) return res.status(404).json({ valido: false, motivo: 'Evento no encontrado.' });
 
-        const subtotal = Number(tipoEntrada.precio) * cant;
+        const { lineas, error } = await resolverLineas(eventoId, items);
+        if (error) return res.status(409).json({ valido: false, motivo: error });
+
+        // El descuento del cupón aplica sobre el subtotal de ENTRADAS del carrito completo
+        // (todos los tipos sumados), no sobre la tarifa online.
+        const subtotal = lineas.reduce((acc, l) => acc + Number(l.tipoEntrada.precio) * l.cantidad, 0);
         const resultado = await cuponesDb.validarCupon(codigo, eventoId, subtotal);
         if (!resultado.valido) return res.json(resultado);
 
-        const tarifaTotal = Number(evento.tarifa_online) * cant;
+        const { total } = mp.calcularTotales(evento, lineas, resultado.descuento);
         res.json({
             valido: true,
             motivo: null,
@@ -38,7 +93,7 @@ router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
             subtotal,
             descuento: resultado.descuento,
             nuevoSubtotal: resultado.nuevoSubtotal,
-            nuevoTotal: resultado.nuevoSubtotal + tarifaTotal
+            nuevoTotal: total
         });
     } catch (error) {
         console.error('Error al validar cupón:', error);
@@ -47,16 +102,19 @@ router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
 });
 
 router.post('/crear-pago', limitadorCheckout, async (req, res) => {
-    const { email, nombre_apellido, cantidad, evento_id, tipo_entrada_id, cupon_codigo } = req.body;
-    const cant = parseInt(cantidad);
+    const { email, nombre_apellido, evento_id, cupon_codigo } = req.body;
     const eventoId = parseInt(evento_id);
-    const tipoEntradaId = parseInt(tipo_entrada_id);
+    const items = normalizarItems(req.body.items);
+    const cantidadTotal = items.reduce((acc, i) => acc + i.cantidad, 0);
 
     if (!nombre_apellido || !String(nombre_apellido).trim()) {
         return res.status(400).send('Falta el nombre y apellido del comprador.');
     }
-    if (cant < 1 || cant > 5) {
-        return res.status(400).send('Cantidad de entradas inválida (máximo 5).');
+    if (cantidadTotal < 1) {
+        return res.status(400).send('Elegí al menos una entrada antes de continuar.');
+    }
+    if (cantidadTotal > MAX_ENTRADAS_POR_COMPRA) {
+        return res.status(400).send(`Podés comprar hasta ${MAX_ENTRADAS_POR_COMPRA} entradas por operación (sumando todos los tipos).`);
     }
 
     const evento = await eventosDb.obtenerEvento(eventoId);
@@ -64,20 +122,15 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
         return res.status(404).send('Evento no encontrado o no disponible para la venta.');
     }
 
-    // Cierre automático de ventas: por fecha límite o porque ya no queda cupo. Esto es una
-    // validación "amable" antes de pagar; la que de verdad evita la sobreventa es la
-    // transacción con FOR UPDATE en ticketsDb.registrarEntradas (ver /success más abajo).
-    if (eventosDb.ventaVencidaPorTiempo(evento)) {
+    // Cierre de ventas: por evento finalizado o por fecha límite. Esto es una validación
+    // "amable" antes de pagar; la que de verdad evita la sobreventa es la transacción con
+    // FOR UPDATE en ticketsDb.registrarEntradas, que corre después del pago.
+    if (eventosDb.eventoFinalizado(evento) || eventosDb.ventaVencidaPorTiempo(evento)) {
         return res.status(410).send('La venta de entradas para este evento ya cerró.');
     }
 
-    const tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(tipoEntradaId);
-    if (!tipoEntrada || tipoEntrada.evento_id !== eventoId || !tipoEntrada.activo) {
-        return res.status(404).send('Tipo de entrada no encontrado.');
-    }
-    if (tipoEntrada.cupo_disponible < cant) {
-        return res.status(409).send(`Ya no quedan suficientes entradas "${tipoEntrada.nombre}" disponibles (quedan ${tipoEntrada.cupo_disponible}).`);
-    }
+    const { lineas, error } = await resolverLineas(eventoId, items);
+    if (error) return res.status(409).send(error);
 
     // Re-validación del cupón ACÁ, del lado del servidor, justo antes de cobrar — el preview
     // de /api/eventos/:id/validar-cupon es solo para mostrarle algo al usuario; el descuento
@@ -85,7 +138,7 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
     let descuentoTotal = 0;
     let cuponCodigo = null;
     if (cupon_codigo && String(cupon_codigo).trim()) {
-        const subtotalSinDescuento = Number(tipoEntrada.precio) * cant;
+        const subtotalSinDescuento = lineas.reduce((acc, l) => acc + Number(l.tipoEntrada.precio) * l.cantidad, 0);
         const resultadoCupon = await cuponesDb.validarCupon(cupon_codigo, eventoId, subtotalSinDescuento);
         if (!resultadoCupon.valido) {
             return res.status(400).send(resultadoCupon.motivo);
@@ -95,8 +148,19 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
     }
 
     try {
-        const urlCheckout = await mp.crearPreferencia(evento, tipoEntrada, {
-            email, nombreApellido: nombre_apellido, cantidad: cant, descuentoTotal, cuponCodigo
+        // El carrito queda guardado en NUESTRA base contra un token. A Mercado Pago solo le
+        // viaja ese token, y es también lo único que vuelve en la URL de /success — así el
+        // comprador no puede editar cantidades ni precios manipulando la URL de vuelta.
+        const checkoutToken = await checkoutsDb.crearCheckout(eventoId, {
+            items: lineas.map((l) => ({ tipoEntradaId: l.tipoEntrada.id, cantidad: l.cantidad })),
+            email,
+            nombreApellido: nombre_apellido,
+            descuentoTotal,
+            cuponCodigo
+        });
+
+        const urlCheckout = await mp.crearPreferencia(evento, lineas, {
+            email, nombreApellido: nombre_apellido, descuentoTotal, cuponCodigo, checkoutToken
         });
         res.redirect(urlCheckout);
     } catch (error) {
@@ -106,31 +170,33 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
 });
 
 // Página de éxito: idempotente (no duplica entradas/mails si Mercado Pago o el navegador
-// cargan esta URL más de una vez con el mismo payment_id).
+// cargan esta URL más de una vez con el mismo payment_id). Todo lo que se necesita sale del
+// checkout guardado en la base — de la URL solo se lee el token y el payment_id.
 router.get('/success', async (req, res) => {
-    const { email, cant, evento_id, payment_id, nombre, tipo_entrada_id, descuento, cupon } = req.query;
-    const cantidadEntradas = parseInt(cant) || 1;
-    const eventoId = parseInt(evento_id);
-    const tipoEntradaId = parseInt(tipo_entrada_id);
-    const nombreApellido = nombre || '';
-    const descuentoTotal = Number(descuento) || 0;
-    const cuponCodigo = cupon || null;
+    const { checkout, payment_id } = req.query;
     let evento;
-    let tipoEntrada;
+    let lineas;
+    let datos;
 
     try {
-        evento = await eventosDb.obtenerEvento(eventoId);
+        const registro = await checkoutsDb.obtenerCheckout(checkout);
+        if (!registro) return res.status(404).send('No encontramos esta compra. Si ya recibiste tu mail con las entradas, está todo bien.');
+        datos = registro.datos;
+
+        evento = await eventosDb.obtenerEvento(registro.evento_id);
         if (!evento) return res.status(404).send('Evento no encontrado.');
 
-        tipoEntrada = await tiposEntradaDb.obtenerTipoEntrada(tipoEntradaId);
-        if (!tipoEntrada || tipoEntrada.evento_id !== eventoId) return res.status(404).send('Tipo de entrada no encontrado.');
+        const resueltas = await resolverLineasParaCobro(evento.id, datos.items);
+        if (!resueltas) return res.status(404).send('Alguno de los tipos de entrada de esta compra ya no existe.');
+        lineas = resueltas;
 
         if (!payment_id) {
             console.error('Llegó a /success sin payment_id, se rechaza para evitar duplicados.');
             return res.status(400).send('No se pudo confirmar el pago. Si ya recibiste tu mail con las entradas, no hace falta hacer nada más.');
         }
 
-        res.render('success', { email, cant, evento });
+        const cantidadTotal = lineas.reduce((acc, l) => acc + l.cantidad, 0);
+        res.render('success', { email: datos.email, cant: cantidadTotal, evento });
     } catch (error) {
         console.error('Error al procesar la compra:', error);
         return res.status(500).send('Error interno al registrar la compra.');
@@ -142,8 +208,9 @@ router.get('/success', async (req, res) => {
     // ya la procesó antes (por ejemplo porque el servidor se reinició justo acá), no duplica nada.
     try {
         await procesarPagoAprobado({
-            evento, tipoEntrada, paymentId: payment_id, email, nombreApellido, cantidad: cantidadEntradas,
-            descuentoTotal, cuponCodigo
+            evento, lineas, paymentId: payment_id,
+            email: datos.email, nombreApellido: datos.nombreApellido,
+            descuentoTotal: datos.descuentoTotal || 0, cuponCodigo: datos.cuponCodigo || null
         });
     } catch (error) {
         console.error('Error al generar el PDF o registrar las entradas post-pago:', error);

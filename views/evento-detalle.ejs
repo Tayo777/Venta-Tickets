@@ -127,6 +127,12 @@
             color: #facc15; font-weight: 600;
         }
 
+        .aviso-solo-lectura {
+            border: 1px solid rgba(161, 161, 170, 0.3); background: rgba(161, 161, 170, 0.08);
+            border-radius: 10px; padding: 12px 15px; margin: 15px 0;
+            color: var(--zinc-300); font-size: 0.85rem;
+        }
+
         /* Tarjetas de guardias de la app móvil. */
         .lista-guardias { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
         .guardia-card {
@@ -170,6 +176,14 @@
     <a class="volver" href="/mis-eventos">&larr; Volver a Mis Eventos</a>
     <h1><%= evento.nombre %></h1>
     <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
+
+    <% if (soloLectura) { %>
+        <div class="aviso-solo-lectura">
+            🏁 Este evento está <strong>finalizado</strong>: quedó en modo solo lectura. Podés
+            consultar estadísticas, ventas e historial, pero ya no se puede editar ni emitir
+            entradas nuevas.
+        </div>
+    <% } %>
 
     <% if (conectado) { %>
         <div class="aviso-ok">✅ ¡Tu Mercado Pago quedó conectado! Ya podés compartir el link de venta.</div>
@@ -250,23 +264,51 @@
     <% } %>
 
     <div class="acciones">
-        <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
-        <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
-              onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
-            <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
-        </form>
+        <% if (!soloLectura) { %>
+            <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
+            <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;"
+                  onsubmit="return confirm('¿Marcar el evento como finalizado? Va a quedar en modo solo lectura: vas a poder ver estadísticas e historial, pero no editarlo.');">
+                <input type="hidden" name="finalizar" value="1">
+                <button class="btn-editar" type="submit" style="width:100%;">Marcar como finalizado</button>
+            </form>
+        <% } else if (evento.finalizado) { %>
+            <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;">
+                <input type="hidden" name="finalizar" value="0">
+                <button class="btn-editar" type="submit" style="width:100%;">Reabrir evento</button>
+            </form>
+        <% } %>
+        <% if (!soloLectura || esAdmin) { %>
+            <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
+                  onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
+                <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
+            </form>
+        <% } %>
     </div>
 
+    <% if (!soloLectura) { %>
     <div class="panel-op">
         <h3>🎟️ Entradas de cortesía</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.</p>
-        <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
-            <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
-            <input type="email" name="email" placeholder="Email del invitado" required>
-            <input type="number" name="cantidad" placeholder="Cant." min="1" max="20" value="1" required style="max-width:80px;">
-            <button type="submit">Generar y enviar</button>
-        </form>
+        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+            Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.
+            Descuentan el cupo del tipo de entrada que elijas, igual que una venta.
+        </p>
+        <% if (tipos.length === 0) { %>
+            <p style="color:var(--zinc-400); font-size:0.85rem; margin-top:10px;">Primero creá al menos un tipo de entrada desde "Editar evento".</p>
+        <% } else { %>
+            <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
+                <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
+                <input type="email" name="email" placeholder="Email del invitado" required>
+                <select name="tipo_entrada_id" required style="flex:1; min-width:140px;">
+                    <% tipos.forEach(t => { %>
+                        <option value="<%= t.id %>"><%= t.nombre %> (quedan <%= t.cupo_disponible %>)</option>
+                    <% }) %>
+                </select>
+                <input type="number" name="cantidad" placeholder="Cant." min="1" max="20" value="1" required style="max-width:80px;">
+                <button type="submit">Generar y enviar</button>
+            </form>
+        <% } %>
     </div>
+    <% } %>
 
     <div class="panel-op">
         <h3>📩 Reenviar QR</h3>
@@ -288,6 +330,7 @@
         <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
     </div>
 
+    <% if (!soloLectura) { %>
     <div class="panel-op">
         <h3>🚧 Cierre de evento — Reparto por fila</h3>
         <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
@@ -340,6 +383,7 @@
             </div>
         <% } %>
     </div>
+    <% } %>
 
     <% if (ventas.length > 0) { %>
         <h3 style="margin-top: 30px;">Ventas realizadas</h3>

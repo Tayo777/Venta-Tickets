@@ -17,6 +17,19 @@
         .activo { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
         .sin-conectar { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
         .btn-aprobar { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border: none; padding: 7px 14px; border-radius: 999px; cursor: pointer; text-decoration: none; font-size: 12px; font-weight: 600; }
+        .finalizado { color: var(--text-muted); background: rgba(161, 161, 170, 0.12); border-color: rgba(161, 161, 170, 0.25); }
+
+        .acordeon { border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+        .acordeon > summary {
+            cursor: pointer; padding: 14px 18px; background: var(--bg-elevated);
+            font-weight: 600; font-size: 0.95rem; list-style: none; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .acordeon > summary::-webkit-details-marker { display: none; }
+        .acordeon > summary::after { content: '▾'; color: var(--text-muted); transition: transform 200ms ease; }
+        .acordeon[open] > summary::after { transform: rotate(180deg); }
+        .acordeon-cuerpo { padding: 8px 14px 16px; }
+        .acordeon-nota { color: var(--text-faint); font-size: 0.8rem; margin: 6px 0 0; }
     </style>
 </head>
 <body>
@@ -43,20 +56,54 @@
         </div>
     <% } %>
 
-    <h3 style="margin-top: 30px;">Todos los eventos</h3>
-    <div class="table-scroll">
-    <table>
-        <tr><th>Nombre</th><th>Dueño</th><th>Mercado Pago</th><th></th></tr>
-        <% eventos.forEach(evento => { %>
-            <tr>
-                <td><%= evento.nombre %></td>
-                <td><%= evento.dueño_email || '-' %></td>
-                <td><span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Conectado' : 'Sin conectar' %></span></td>
-                <td><a href="/eventos/<%= evento.id %>">Ver panel</a></td>
-            </tr>
-        <% }) %>
-    </table>
-    </div>
+    <h3 style="margin-top: 30px;">Eventos</h3>
+
+    <details class="acordeon" open>
+        <summary><span>🟢 Activos (<%= activos.length %>)</span></summary>
+        <div class="acordeon-cuerpo">
+            <% if (activos.length === 0) { %>
+                <p class="acordeon-nota">No hay eventos activos.</p>
+            <% } else { %>
+                <div class="table-scroll">
+                <table>
+                    <tr><th>Nombre</th><th>Dueño</th><th>Mercado Pago</th><th></th></tr>
+                    <% activos.forEach(evento => { %>
+                        <tr>
+                            <td><%= evento.nombre %></td>
+                            <td><%= evento.dueño_email || '-' %></td>
+                            <td><span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Conectado' : 'Sin conectar' %></span></td>
+                            <td><a href="/eventos/<%= evento.id %>">Ver panel</a></td>
+                        </tr>
+                    <% }) %>
+                </table>
+                </div>
+            <% } %>
+        </div>
+    </details>
+
+    <details class="acordeon">
+        <summary><span>🏁 Finalizados (<%= finalizados.length %>)</span></summary>
+        <div class="acordeon-cuerpo">
+            <p class="acordeon-nota">Solo lectura: se pueden consultar, pero no editar. Sos el único que los puede eliminar de la base.</p>
+            <% if (finalizados.length === 0) { %>
+                <p class="acordeon-nota">No hay eventos finalizados.</p>
+            <% } else { %>
+                <div class="table-scroll">
+                <table>
+                    <tr><th>Nombre</th><th>Dueño</th><th>Fecha</th><th></th></tr>
+                    <% finalizados.forEach(evento => { %>
+                        <tr>
+                            <td><%= evento.nombre %> <span class="badge finalizado">Finalizado</span></td>
+                            <td><%= evento.dueño_email || '-' %></td>
+                            <td><%= formatearFecha(evento.fecha) %></td>
+                            <td><a href="/eventos/<%= evento.id %>">Ver panel</a></td>
+                        </tr>
+                    <% }) %>
+                </table>
+                </div>
+            <% } %>
+        </div>
+    </details>
     </div>
 </body>
 </html>

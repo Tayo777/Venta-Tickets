@@ -1,0 +1,12 @@
+<a class="evento-row" href="/eventos/<%= evento.id %>">
+    <div>
+        <h3><%= evento.nombre %>
+            <% if (finalizado) { %>
+                <span class="badge finalizado">Finalizado · solo lectura</span>
+            <% } else { %>
+                <span class="badge <%= evento.conectado_mp ? 'activo' : 'sin-conectar' %>"><%= evento.conectado_mp ? 'Vendiendo' : 'Sin conectar MP' %></span>
+            <% } %>
+        </h3>
+        <p><%= formatearFecha(evento.fecha) %><% if (evento.lugar_nombre) { %> · <%= evento.lugar_nombre %><% } %></p>
+    </div>
+</a>
