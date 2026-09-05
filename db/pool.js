@@ -153,6 +153,17 @@ async function inicializarDB() {
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )`);
 
+    // A qué tipos de entrada aplica cada cupón. Si un cupón NO tiene ninguna fila acá, aplica
+    // a TODOS los tipos del evento (es el default y el caso más común). Se modela aparte y no
+    // como una columna en `cupones` porque un mismo cupón puede habilitar varios tipos.
+    await pool.query(`CREATE TABLE IF NOT EXISTS cupones_tipos (
+        cupon_id INT NOT NULL,
+        tipo_entrada_id INT NOT NULL,
+        PRIMARY KEY (cupon_id, tipo_entrada_id),
+        FOREIGN KEY (cupon_id) REFERENCES cupones(id),
+        FOREIGN KEY (tipo_entrada_id) REFERENCES tipos_entrada(id)
+    )`);
+
     // Cuentas de guardia para la app móvil (login por email/password propio, distinto del
     // "modo guardia" del navegador que usa cookie + link compartido). Cada guardia queda
     // atado a UN evento y a UNA fila/puerta puntual.

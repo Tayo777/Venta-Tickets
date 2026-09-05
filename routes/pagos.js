@@ -13,18 +13,32 @@ const { limitadorCheckout } = require('../middleware/rateLimiters');
 // Tope de entradas por compra, sumando TODOS los tipos del carrito.
 const MAX_ENTRADAS_POR_COMPRA = 5;
 
-// El carrito puede llegar de dos formas: del form HTML como objeto ({ "3": "2", "5": "0" },
-// por los inputs name="items[<tipoId>]") o del fetch de validar-cupón como array de objetos.
-// Se normalizan las dos a [{ tipoEntradaId, cantidad }], descartando las cantidades en 0.
+// Normaliza el carrito a [{ tipoEntradaId, cantidad }], descartando las cantidades en 0.
+//
+// Llega en tres formas distintas y hay que soportar las tres:
+//
+//   a) Del fetch de validar-cupón: array de objetos [{ tipoEntradaId, cantidad }].
+//   b) Del form HTML (inputs name="items[<tipoId>]"): OJO, el parser de Express (qs) convierte
+//      las claves NUMÉRICAS en un ARRAY posicional, no en un objeto. `items[3]=2` termina
+//      siendo un array donde el índice 3 vale '2'.
+//   c) Del mismo form, pero cuando algún id supera el arrayLimit de qs (20): ahí sí devuelve
+//      un objeto { "25": "2" }.
+//
+// (b) y (c) se resuelven igual con Object.entries(), que sobre un array devuelve
+// [índice, valor] salteando los huecos — y el índice ES el id del tipo de entrada.
+// Distinguir (a) es lo único que necesita un chequeo aparte: es el único caso donde los
+// elementos son objetos en vez de valores sueltos.
 function normalizarItems(items) {
-    if (!items) return [];
-    const pares = Array.isArray(items)
+    if (!items || typeof items !== 'object') return [];
+
+    const esArrayDeObjetos = Array.isArray(items) && items.some((i) => i && typeof i === 'object');
+    const pares = esArrayDeObjetos
         ? items.map((i) => [i.tipoEntradaId, i.cantidad])
         : Object.entries(items);
 
     return pares
         .map(([tipoId, cant]) => ({ tipoEntradaId: parseInt(tipoId), cantidad: parseInt(cant) || 0 }))
-        .filter((i) => i.tipoEntradaId && i.cantidad > 0);
+        .filter((i) => i.tipoEntradaId > 0 && i.cantidad > 0);
 }
 
 // Relee cada tipo de entrada DESDE LA BASE (nunca se confía en el precio que mandó el
@@ -78,10 +92,11 @@ router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
         const { lineas, error } = await resolverLineas(eventoId, items);
         if (error) return res.status(409).json({ valido: false, motivo: error });
 
-        // El descuento del cupón aplica sobre el subtotal de ENTRADAS del carrito completo
-        // (todos los tipos sumados), no sobre la tarifa online.
+        // El cupón se valida contra el carrito completo: adentro, db/cupones.js calcula el
+        // descuento SOLO sobre los tipos de entrada habilitados para ese cupón (y nunca sobre
+        // la tarifa de servicio).
         const subtotal = lineas.reduce((acc, l) => acc + Number(l.tipoEntrada.precio) * l.cantidad, 0);
-        const resultado = await cuponesDb.validarCupon(codigo, eventoId, subtotal);
+        const resultado = await cuponesDb.validarCupon(codigo, eventoId, lineas);
         if (!resultado.valido) return res.json(resultado);
 
         const { total } = mp.calcularTotales(evento, lineas, resultado.descuento);
@@ -93,7 +108,10 @@ router.post('/api/eventos/:id/validar-cupon', async (req, res) => {
             subtotal,
             descuento: resultado.descuento,
             nuevoSubtotal: resultado.nuevoSubtotal,
-            nuevoTotal: total
+            nuevoTotal: total,
+            // Para avisarle al comprador cuando el cupón cubre solo parte del carrito.
+            aplicaATodos: resultado.aplicaATodos,
+            tiposAplicados: [...new Set(resultado.tiposAplicados)]
         });
     } catch (error) {
         console.error('Error al validar cupón:', error);
@@ -138,8 +156,7 @@ router.post('/crear-pago', limitadorCheckout, async (req, res) => {
     let descuentoTotal = 0;
     let cuponCodigo = null;
     if (cupon_codigo && String(cupon_codigo).trim()) {
-        const subtotalSinDescuento = lineas.reduce((acc, l) => acc + Number(l.tipoEntrada.precio) * l.cantidad, 0);
-        const resultadoCupon = await cuponesDb.validarCupon(cupon_codigo, eventoId, subtotalSinDescuento);
+        const resultadoCupon = await cuponesDb.validarCupon(cupon_codigo, eventoId, lineas);
         if (!resultadoCupon.valido) {
             return res.status(400).send(resultadoCupon.motivo);
         }

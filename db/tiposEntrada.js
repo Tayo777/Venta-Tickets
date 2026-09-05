@@ -29,6 +29,10 @@ async function eliminarTipoEntrada(id, eventoId) {
     const [[fila]] = await pool.query('SELECT COUNT(*) AS emitidas FROM tickets WHERE tipo_entrada_id = ?', [id]);
     if (fila.emitidas > 0) return { borrado: false, motivo: 'Este tipo ya tiene entradas emitidas: desactivalo en vez de borrarlo.' };
 
+    // Si algún cupón estaba limitado a este tipo, primero hay que soltar esa relación (la
+    // foreign key de cupones_tipos bloquearía el DELETE). Un cupón que se queda sin ningún
+    // tipo asociado vuelve a aplicar a todos, que es el default.
+    await pool.query('DELETE FROM cupones_tipos WHERE tipo_entrada_id = ?', [id]);
     await pool.query('DELETE FROM tipos_entrada WHERE id = ? AND evento_id = ?', [id, eventoId]);
     return { borrado: true };
 }

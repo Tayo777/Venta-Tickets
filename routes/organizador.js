@@ -190,8 +190,19 @@ router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, eventoEditabl
     if (!valorNum || valorNum <= 0) return renderConError('El valor del cupón tiene que ser mayor a 0.');
     if (tipo === 'porcentaje' && valorNum > 100) return renderConError('Un descuento porcentual no puede ser mayor a 100%.');
 
+    // Los checkboxes llegan como array si se tildó más de uno, y como string suelto si se
+    // tildó uno solo — [].concat() normaliza los dos casos. Sin ninguno tildado, el cupón
+    // queda sin restricción y aplica a todos los tipos.
+    const tiposDelEvento = await tiposEntradaDb.obtenerTiposPorEvento(req.evento.id);
+    const idsValidos = tiposDelEvento.map((t) => t.id);
+    const tiposIds = [].concat(req.body.tipos_ids || [])
+        .map((v) => parseInt(v))
+        .filter((id) => idsValidos.includes(id)); // descarta ids de otros eventos
+
     try {
-        await cuponesDb.crearCupon({ eventoId: req.evento.id, codigo, tipo, valor: valorNum, usosMaximos: usosMaximosNum });
+        await cuponesDb.crearCupon({
+            eventoId: req.evento.id, codigo, tipo, valor: valorNum, usosMaximos: usosMaximosNum, tiposIds
+        });
         res.redirect(`/eventos/${req.evento.id}/editar`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return renderConError(`Ya existe un cupón con el código "${String(codigo).trim().toUpperCase()}".`);

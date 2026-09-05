@@ -100,6 +100,11 @@ async function eliminarEvento(id) {
         await conexion.beginTransaction();
         await conexion.query('DELETE FROM tickets WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM compras WHERE evento_id = ?', [id]);
+        // cupones_tipos apunta a cupones Y a tipos_entrada, así que se borra antes que los dos.
+        await conexion.query(
+            'DELETE ct FROM cupones_tipos ct JOIN cupones c ON c.id = ct.cupon_id WHERE c.evento_id = ?',
+            [id]
+        );
         await conexion.query('DELETE FROM tipos_entrada WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM cupones WHERE evento_id = ?', [id]);
         await conexion.query('DELETE FROM guardias WHERE evento_id = ?', [id]);

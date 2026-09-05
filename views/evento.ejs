@@ -16,6 +16,14 @@
         button { width: 100%; font-size: 1rem; padding: 13px; }
         .volver { display: inline-block; margin-bottom: 15px; color: var(--text-muted); text-decoration: none; }
 
+        /* Descripción del evento */
+        .descripcion { padding: 18px; margin-top: 18px; border-left: 3px solid var(--accent); }
+        .descripcion h3 { margin: 0 0 8px; font-size: 1rem; }
+        .descripcion p {
+            margin: 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;
+            white-space: pre-line; /* respeta los saltos de línea que escribió el organizador */
+        }
+
         /* Ubicación */
         .ubicacion { padding: 16px; margin-top: 18px; }
         .ubicacion h3 { margin: 0 0 8px; font-size: 1rem; }
@@ -72,6 +80,15 @@
     <h1><%= evento.nombre %></h1>
     <p style="color:var(--text-muted);"><%= formatearFecha(evento.fecha) %></p>
     <img class="flyer" src="<%= evento.flyer_url %>" alt="Flyer del evento">
+
+    <% if (evento.descripcion) { %>
+        <div class="descripcion card">
+            <h3>Sobre el evento</h3>
+            <!-- Se escapa con <%%= %> (no <%%- %>) para que nadie pueda inyectar HTML desde la
+                 descripción; los saltos de línea se respetan por CSS con white-space: pre-line. -->
+            <p><%= evento.descripcion %></p>
+        </div>
+    <% } %>
 
     <% if (evento.lugar_nombre || evento.direccion || evento.ciudad) { %>
         <div class="ubicacion card">
@@ -277,7 +294,12 @@
                     const etiquetaDescuento = data.tipo === 'porcentaje'
                         ? `-${data.valor}%`
                         : `-$${data.descuento.toFixed(2)}`;
-                    mensaje.textContent = `✅ ¡Cupón aplicado con éxito! ${etiquetaDescuento}`;
+                    // Si el cupón está limitado a ciertos tipos, se aclara sobre cuáles pegó
+                    // para que no parezca que el descuento "no se aplicó bien".
+                    const alcance = data.aplicaATodos
+                        ? ''
+                        : ` (solo sobre: ${(data.tiposAplicados || []).join(', ')})`;
+                    mensaje.textContent = `✅ ¡Cupón aplicado con éxito! ${etiquetaDescuento}${alcance}`;
                     mensaje.classList.add('ok');
                     marcarInputCupon('aplicado');
                 }

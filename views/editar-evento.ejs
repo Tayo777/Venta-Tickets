@@ -47,6 +47,16 @@
         .tipo-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
         .tipo-pie .detalle { color: var(--text-muted); font-size: 0.8rem; }
         .cupon-acciones button.guardar { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border: none; font-weight: 600; }
+
+        .checks-tipos { display: flex; flex-wrap: wrap; gap: 8px; }
+        .check-tipo {
+            display: inline-flex; align-items: center; gap: 7px; margin: 0;
+            background: var(--bg-elevated-2); border: 1px solid var(--border);
+            border-radius: var(--radius-full); padding: 7px 14px;
+            font-size: 0.82rem; font-weight: 500; color: var(--text); cursor: pointer;
+        }
+        .check-tipo:hover { border-color: var(--accent); }
+        .check-tipo input { width: auto; margin: 0; }
     </style>
 </head>
 <body>
@@ -221,6 +231,22 @@
                     <input type="number" name="usos_maximos" min="1" placeholder="Sin límite">
                 </div>
             </div>
+
+            <% if (tipos.length > 0) { %>
+                <div class="form-group">
+                    <label>¿A qué tipos de entrada aplica?</label>
+                    <p class="ayuda" style="margin:0 0 8px;">Si no tildás ninguno, el cupón aplica a <strong>todos</strong> los tipos.</p>
+                    <div class="checks-tipos">
+                        <% tipos.forEach(t => { %>
+                            <label class="check-tipo">
+                                <input type="checkbox" name="tipos_ids" value="<%= t.id %>">
+                                <span><%= t.nombre %></span>
+                            </label>
+                        <% }) %>
+                    </div>
+                </div>
+            <% } %>
+
             <button class="btn btn-primary" type="submit" style="width:100%;">+ Crear cupón</button>
         </form>
 
@@ -235,6 +261,7 @@
                             <div class="detalle">
                                 <%= c.tipo === 'porcentaje' ? `${Number(c.valor)}% de descuento` : `$${Number(c.valor)} de descuento` %>
                                 · Usado <%= c.usos_actuales %><%= c.usos_maximos ? ` / ${c.usos_maximos}` : ' (sin límite)' %>
+                                · Aplica a: <%= c.tipos_nombres && c.tipos_nombres.length > 0 ? c.tipos_nombres.join(', ') : 'todos los tipos' %>
                                 · <%= c.activo ? 'Activo' : 'Desactivado' %>
                             </div>
                         </div>
