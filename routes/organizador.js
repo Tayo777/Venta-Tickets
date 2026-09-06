@@ -33,49 +33,56 @@ router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
     res.render('crear-evento', { error: null, usuarioLogueado: true });
 });
 
+// Los tipos de entrada llegan como arrays paralelos (tipo_nombre[], tipo_precio[], etc. —
+// ver views/crear-evento.ejs): un bloque dinámico por tipo, tantos como el organizador haya
+// agregado con el botón "+". [].concat() normaliza el caso de un solo bloque, que HTML manda
+// como string suelto en vez de array de un elemento.
+function leerTiposDinamicos(body) {
+    const nombres = [].concat(body.tipo_nombre || []);
+    const descripciones = [].concat(body.tipo_descripcion || []);
+    const precios = [].concat(body.tipo_precio || []);
+    const cupos = [].concat(body.tipo_cupo || []);
+
+    return nombres.map((nombre, i) => ({
+        nombre: (nombre || '').trim(),
+        descripcion: descripciones[i] || '',
+        precio: Number(precios[i]),
+        cupoTotal: parseInt(cupos[i])
+    }));
+}
+
 router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
     const { nombre, descripcion, fecha, fecha_cierre_ventas,
-            lugar_nombre, direccion, ciudad, maps_url,
-            tipo1_nombre, tipo1_descripcion, valor_entrada, cupo_general,
-            vip_activo, tipo2_nombre, tipo2_descripcion, valor_vip, cupo_vip } = req.body;
-    const valorEntradaNum = Number(valor_entrada);
-    const cupoGeneralNum = parseInt(cupo_general);
+            lugar_nombre, direccion, ciudad, maps_url } = req.body;
 
-    const campos = { nombre, descripcion, fecha, tipo1_nombre };
+    const campos = { nombre, descripcion, fecha };
     const faltantes = Object.entries(campos).filter(([, v]) => !v || !String(v).trim()).map(([k]) => k);
-    if (faltantes.length > 0 || !valorEntradaNum || valorEntradaNum <= 0 || !cupoGeneralNum || cupoGeneralNum <= 0 || !req.file) {
-        return res.render('crear-evento', { error: 'Completá todos los campos obligatorios: datos del evento, imagen del flyer, y nombre/precio/cupo del primer tipo de entrada.', usuarioLogueado: true });
-    }
 
-    const quiereVip = vip_activo === 'on';
-    const valorVipNum = Number(valor_vip);
-    const cupoVipNum = parseInt(cupo_vip);
-    if (quiereVip && (!tipo2_nombre || !String(tipo2_nombre).trim() || !valorVipNum || valorVipNum <= 0 || !cupoVipNum || cupoVipNum <= 0)) {
-        return res.render('crear-evento', { error: 'Si agregás un segundo tipo de entrada, completá su nombre, precio y cupo.', usuarioLogueado: true });
+    const tipos = leerTiposDinamicos(req.body);
+    const tipoInvalido = tipos.some((t) => !t.nombre || !t.precio || t.precio <= 0 || !t.cupoTotal || t.cupoTotal <= 0);
+
+    if (faltantes.length > 0 || tipos.length === 0 || tipoInvalido || !req.file) {
+        return res.render('crear-evento', { error: 'Completá todos los campos obligatorios: datos del evento, imagen del flyer, y nombre/precio/cupo de cada tipo de entrada.', usuarioLogueado: true });
     }
 
     try {
         const { url: flyerUrl, deleteUrl: flyerDeleteUrl } = await subirImagen(req.file.buffer);
-        const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(valorEntradaNum);
+        // El precio de referencia para calcular la tarifa de servicio es el del PRIMER tipo
+        // de entrada — mismo criterio que "Editar evento" (evento.valor_entrada es solo un
+        // valor de referencia, cada tipo cobra lo suyo; ver services/mercadopago.js).
+        const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(tipos[0].precio);
 
         const { id } = await eventosDb.crearEvento({
             usuarioId: req.session.usuarioId,
             nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl,
-            valorEntrada: valorEntradaNum, tarifaOnline,
+            valorEntrada: tipos[0].precio, tarifaOnline,
             organizerEmail: null, comisionMpPct, comisionPropiaPct,
             fechaCierreVentas: fecha_cierre_ventas || null,
             lugarNombre: lugar_nombre, direccion, ciudad, mapsUrl: maps_url
         });
 
-        await tiposEntradaDb.crearTipoEntrada({
-            eventoId: id, nombre: tipo1_nombre.trim(), descripcion: tipo1_descripcion,
-            precio: valorEntradaNum, cupoTotal: cupoGeneralNum
-        });
-        if (quiereVip) {
-            await tiposEntradaDb.crearTipoEntrada({
-                eventoId: id, nombre: tipo2_nombre.trim(), descripcion: tipo2_descripcion,
-                precio: valorVipNum, cupoTotal: cupoVipNum
-            });
+        for (const tipo of tipos) {
+            await tiposEntradaDb.crearTipoEntrada({ eventoId: id, ...tipo });
         }
 
         res.redirect(`/eventos/${id}`);
@@ -307,7 +314,7 @@ router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, eventoE
 
     try {
         const total = await ticketsDb.asignarFilasAleatorio(req.evento.id, cantidadFilas);
-        res.redirect(`/eventos/${req.evento.id}?filas_ok=${cantidadFilas}`);
+        res.redirect(`/eventos/${req.evento.id}?filas_ok=${cantidadFilas}#guardias`);
         console.log(`Repartidas ${total} entradas en ${cantidadFilas} filas para el evento ${req.evento.id}.`);
     } catch (error) {
         console.error('Error al repartir filas:', error);
@@ -322,7 +329,7 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditab
     const filaNum = parseInt(fila_asignada);
 
     const rerenderConError = async (mensaje) => {
-        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje }));
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje, tabInicial: 'guardias' }));
     };
 
     if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
@@ -331,7 +338,7 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditab
 
     try {
         await guardiasDb.crearGuardia({ eventoId: req.evento.id, email, password, filaAsignada: filaNum });
-        res.redirect(`/eventos/${req.evento.id}`);
+        res.redirect(`/eventos/${req.evento.id}#guardias`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe un guardia con el email "${email}".`);
         console.error('Error al crear guardia:', error);
@@ -346,7 +353,7 @@ router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOA
     const filaNum = parseInt(fila_asignada);
 
     const rerenderConError = async (mensaje) => {
-        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje }));
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje, tabInicial: 'guardias' }));
     };
 
     if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
@@ -360,7 +367,7 @@ router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOA
         await guardiasDb.editarGuardia(req.params.guardiaId, req.evento.id, {
             email, filaAsignada: filaNum, password
         });
-        res.redirect(`/eventos/${req.evento.id}`);
+        res.redirect(`/eventos/${req.evento.id}#guardias`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe otro guardia con el email "${email}".`);
         console.error('Error al editar guardia:', error);
@@ -370,12 +377,12 @@ router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOA
 
 router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.eliminarGuardia(req.params.guardiaId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}`);
+    res.redirect(`/eventos/${req.evento.id}#guardias`);
 });
 
 router.post('/eventos/:id/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.toggleActivo(req.params.guardiaId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}`);
+    res.redirect(`/eventos/${req.evento.id}#guardias`);
 });
 
 // Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago.
@@ -446,18 +453,6 @@ router.post('/eventos/:id/reenviar-qr', requiereLogin, esDueñoOAdmin, async (re
     } catch (error) {
         console.error('Error al reenviar el QR:', error);
         res.status(500).send('No se pudo reenviar el mail con las entradas.');
-    }
-});
-
-// Flujo de ingreso por hora (para el gráfico de barras del panel). JSON liviano: solo
-// {hora, cantidad} por cada hora que tuvo al menos un ingreso.
-router.get('/api/eventos/:id/ingresos-hora', requiereLogin, esDueñoOAdmin, async (req, res) => {
-    try {
-        const datos = await ticketsDb.obtenerIngresosPorHora(req.evento.id);
-        res.json({ datos });
-    } catch (error) {
-        console.error('Error al calcular ingresos por hora:', error);
-        res.status(500).json({ error: 'No se pudo calcular el flujo de ingreso.' });
     }
 });
 

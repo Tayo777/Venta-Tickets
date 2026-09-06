@@ -150,21 +150,6 @@ async function obtenerTicketsDeEvento(eventoId) {
     return filas;
 }
 
-// Cuántas entradas ingresaron por hora del día, para graficar el flujo de gente en la puerta.
-// Se agrupa por HOUR(fecha_escaneada) — devuelve solo las horas que tuvieron al menos un
-// ingreso (no rellena las horas en cero, eso lo arma el frontend al dibujar la barra).
-async function obtenerIngresosPorHora(eventoId) {
-    const [filas] = await pool.query(
-        `SELECT HOUR(fecha_escaneada) AS hora, COUNT(*) AS cantidad
-         FROM tickets
-         WHERE evento_id = ? AND estado = 'Usada' AND fecha_escaneada IS NOT NULL
-         GROUP BY HOUR(fecha_escaneada)
-         ORDER BY hora`,
-        [eventoId]
-    );
-    return filas;
-}
-
 // Reparte las entradas de un evento entre N filas/guardias, al azar y en partes iguales
 // (diferencia de a lo sumo 1 entrada entre filas). El mezclado (Fisher-Yates) pasa ANTES de
 // asignar el número de fila de forma cíclica, así el reparto queda al azar y mezcla tipos de
@@ -209,5 +194,5 @@ async function obtenerTicketsCompletosDeEvento(eventoId) {
 module.exports = {
     registrarEntradas, registrarEntradasCortesia, obtenerEntradasDeCompra,
     obtenerUltimasEntradas, obtenerTicketConEvento, obtenerTicketsDeEvento, marcarComoUsada,
-    obtenerIngresosPorHora, asignarFilasAleatorio, obtenerTicketsCompletosDeEvento, SinCupoError
+    asignarFilasAleatorio, obtenerTicketsCompletosDeEvento, SinCupoError
 };

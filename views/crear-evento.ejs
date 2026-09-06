@@ -17,6 +17,27 @@
         .subtitulo-seccion { font-size: 1.05rem; margin: 32px 0 4px; padding-top: 20px; border-top: 1px solid var(--border); }
         .ayuda { font-size: 0.8rem; color: var(--text-faint); margin: 0 0 16px; }
         .opcional { font-weight: 400; color: var(--text-faint); font-size: 0.78rem; }
+
+        /* Tipos de entrada dinámicos: uno o varios bloques iguales, agregables con "+" y
+           quitables con "×" (salvo que sea el único que queda — siempre tiene que haber
+           al menos un tipo de entrada para poder crear el evento). */
+        .tipo-bloque {
+            background: var(--bg-elevated-2); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 16px; margin-bottom: 12px; position: relative;
+        }
+        .tipo-bloque-titulo { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin: 0 0 12px; }
+        .tipo-bloque .fila-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-quitar-tipo {
+            position: absolute; top: 12px; right: 12px; background: none; border: none;
+            color: var(--text-faint); font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 4px;
+        }
+        .btn-quitar-tipo:hover { color: var(--danger); }
+        .btn-agregar-tipo {
+            display: inline-flex; align-items: center; gap: 6px; background: var(--bg-elevated-2);
+            border: 1px dashed var(--border); border-radius: var(--radius-full); color: var(--text);
+            padding: 9px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-bottom: 20px;
+        }
+        .btn-agregar-tipo:hover { border-color: var(--accent); color: var(--accent-2); }
     </style>
 </head>
 <body>
@@ -71,47 +92,15 @@
         </div>
 
         <h2 class="subtitulo-seccion">🎟️ Tipos de entrada</h2>
-        <p class="ayuda">Después vas a poder agregar más tipos, editarlos o desactivarlos desde el panel del evento.</p>
+        <p class="ayuda">Agregá los que necesites (General, VIP, Early Bird, etc.). Después vas a poder sumar más, editarlos o desactivarlos desde el panel del evento.</p>
 
-        <div class="form-group">
-            <label for="tipo1_nombre">Nombre del tipo de entrada</label>
-            <input type="text" id="tipo1_nombre" name="tipo1_nombre" value="General" placeholder="Ej: General, VIP Early Bird" required>
-        </div>
-        <div class="form-group">
-            <label for="tipo1_descripcion">Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
-            <textarea id="tipo1_descripcion" name="tipo1_descripcion" placeholder="Qué incluye esta entrada: acceso general, barra libre, etc."></textarea>
-        </div>
-        <div class="form-group">
-            <label for="valor_entrada">Precio ($) — lo que VOS querés recibir</label>
-            <input type="number" step="1" min="1" id="valor_entrada" name="valor_entrada" required>
-        </div>
-        <div class="form-group">
-            <label for="cupo_general">Cupo disponible</label>
-            <input type="number" step="1" min="1" id="cupo_general" name="cupo_general" required>
-        </div>
-
-        <div class="form-group">
-            <label><input type="checkbox" id="vip_activo" name="vip_activo" onchange="document.getElementById('campos_vip').style.display = this.checked ? 'block' : 'none'" style="width:auto;"> Agregar un segundo tipo de entrada</label>
-        </div>
-
-        <div id="campos_vip" style="display:none;">
-            <div class="form-group">
-                <label for="tipo2_nombre">Nombre del segundo tipo</label>
-                <input type="text" id="tipo2_nombre" name="tipo2_nombre" value="VIP" placeholder="Ej: VIP">
-            </div>
-            <div class="form-group">
-                <label for="tipo2_descripcion">Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
-                <textarea id="tipo2_descripcion" name="tipo2_descripcion" placeholder="Qué incluye: acceso al sector VIP, meet &amp; greet, etc."></textarea>
-            </div>
-            <div class="form-group">
-                <label for="valor_vip">Precio ($)</label>
-                <input type="number" step="1" min="1" id="valor_vip" name="valor_vip">
-            </div>
-            <div class="form-group">
-                <label for="cupo_vip">Cupo disponible</label>
-                <input type="number" step="1" min="1" id="cupo_vip" name="cupo_vip">
-            </div>
-        </div>
+        <!-- Bloques dinámicos: cada uno manda sus campos con name="tipo_xxx[]" (mismo nombre,
+             terminado en []) — así el navegador los manda como un array de esos valores en el
+             orden en que aparecen en el DOM, sin importar cuántos bloques haya ni el orden en
+             que se agregaron/quitaron. El backend los lee en routes/organizador.js con
+             [].concat(req.body.tipo_xxx) y arma un tipo de entrada por cada posición. -->
+        <div id="tipos-entrada-container"></div>
+        <button type="button" class="btn-agregar-tipo" id="btn-agregar-tipo">+ Agregar tipo de entrada</button>
 
         <div class="form-group">
             <label for="fecha_cierre_ventas">Cierre automático de ventas (opcional)</label>
@@ -127,6 +116,68 @@
     <script>
         engancharCompresionFlyer('flyer');
         engancharSpinnerSubida('form-crear-evento', 'btn-crear-evento');
+    </script>
+    <script>
+        // Tipos de entrada dinámicos: arranca con UN bloque precargado ("General", como antes)
+        // y el botón "+" agrega tantos más como haga falta. Cada bloque tiene su "×" para
+        // sacarlo, salvo que sea el único que queda (siempre hace falta al menos un tipo).
+        (function () {
+            const contenedor = document.getElementById('tipos-entrada-container');
+            const btnAgregar = document.getElementById('btn-agregar-tipo');
+            let contador = 0;
+
+            function crearBloque({ nombre = '', descripcion = '', precio = '', cupo = '' } = {}) {
+                contador++;
+                const numero = contador;
+                const bloque = document.createElement('div');
+                bloque.className = 'tipo-bloque';
+                bloque.innerHTML = `
+                    <span class="tipo-bloque-titulo">Tipo de entrada #${numero}</span>
+                    <button type="button" class="btn-quitar-tipo" aria-label="Quitar este tipo de entrada">✕</button>
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" name="tipo_nombre[]" placeholder="Ej: General, VIP, Early Bird" value="${nombre}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
+                        <textarea name="tipo_descripcion[]" placeholder="Qué incluye esta entrada: acceso general, barra libre, etc.">${descripcion}</textarea>
+                    </div>
+                    <div class="fila-2">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Precio ($)</label>
+                            <input type="number" step="1" min="1" name="tipo_precio[]" value="${precio}" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Cupo disponible</label>
+                            <input type="number" step="1" min="1" name="tipo_cupo[]" value="${cupo}" required>
+                        </div>
+                    </div>
+                `;
+                contenedor.appendChild(bloque);
+                actualizarBotonesQuitar();
+            }
+
+            // El "×" solo se ve si hay más de un bloque — no tiene sentido dejar sin ningún
+            // tipo de entrada, el evento necesita al menos uno para poder venderse.
+            function actualizarBotonesQuitar() {
+                const bloques = contenedor.querySelectorAll('.tipo-bloque');
+                bloques.forEach((b) => {
+                    const boton = b.querySelector('.btn-quitar-tipo');
+                    boton.style.display = bloques.length > 1 ? '' : 'none';
+                });
+            }
+
+            contenedor.addEventListener('click', (e) => {
+                const boton = e.target.closest('.btn-quitar-tipo');
+                if (!boton) return;
+                boton.closest('.tipo-bloque').remove();
+                actualizarBotonesQuitar();
+            });
+
+            btnAgregar.addEventListener('click', () => crearBloque());
+
+            crearBloque({ nombre: 'General' }); // primer bloque precargado, igual que antes
+        })();
     </script>
 </body>
 </html>

@@ -22,11 +22,7 @@
         h1 { margin-bottom: 0; }
         .subtitulo { color: var(--text-muted); margin-top: 4px; }
 
-        /* Encabezado: título a la izquierda, botón de actualizar bien visible a la derecha. */
-        .encabezado-evento {
-            display: flex; justify-content: space-between; align-items: flex-start;
-            gap: 14px; flex-wrap: wrap;
-        }
+        .encabezado-evento { margin-bottom: 4px; }
         .btn-actualizar {
             display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
             background: var(--zinc-900); color: var(--text); border: 1px solid var(--zinc-800);
@@ -40,6 +36,21 @@
         @keyframes girar-actualizar { to { transform: rotate(360deg); } }
         @media (max-width: 480px) { .btn-actualizar { width: 100%; justify-content: center; } }
         .aviso-ok { background: var(--success-bg); color: var(--success); padding: 12px 15px; border-radius: 10px; margin: 15px 0; border: 1px solid rgba(52, 211, 153, 0.25); }
+
+        /* ---------- Pestañas ---------- */
+        .tabs-nav {
+            display: flex; gap: 6px; margin: 22px 0 20px; border-bottom: 1px solid var(--zinc-800);
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
+        .tab-btn {
+            flex-shrink: 0; background: none; border: none; cursor: pointer;
+            color: var(--zinc-400); font-size: 0.9rem; font-weight: 600;
+            padding: 10px 16px; border-bottom: 2px solid transparent;
+            transition: color 150ms ease, border-color 150ms ease;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.activo { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+        .tab-panel[hidden] { display: none; }
 
         /* Tarjeta de Mercado Pago destacada: borde violeta brillante sutil (doble capa de
            box-shadow, no un simple "border") para que resalte como EL método recomendado. */
@@ -69,6 +80,13 @@
         }
         .btn-mp:hover { box-shadow: 0 0 24px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
         .btn-mp:active { transform: scale(0.97); }
+
+        /* Aviso simple, tono neutro, para cuando una pestaña necesita MP conectado. */
+        .aviso-info {
+            border: 1px solid rgba(34, 211, 238, 0.3); background: rgba(34, 211, 238, 0.08);
+            border-radius: 10px; padding: 14px 16px; margin: 10px 0; color: var(--zinc-300); font-size: 0.88rem;
+        }
+        .aviso-info a { color: var(--accent-2); font-weight: 600; }
 
         /* Métricas: grid de tarjetas oscuras, borde sutil casi imperceptible salvo al mirar de cerca. */
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
@@ -114,18 +132,32 @@
         .link-box.peligro a { color: #fca5a5; }
         .link-box .aviso { color: #fca5a5; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
 
-        .acciones { display: flex; gap: 10px; margin-top: 25px; }
+        .acciones { display: flex; gap: 10px; margin-top: 20px; }
         .acciones button, .acciones a { flex: 1; padding: 10px; border-radius: 999px; text-align: center; text-decoration: none; cursor: pointer; border: 1px solid var(--zinc-800); font-size: 0.9rem; }
         .btn-editar { background: var(--zinc-900); color: var(--text); }
         .btn-editar:hover { border-color: var(--accent); color: var(--accent-2); }
         .btn-eliminar { background: var(--danger-bg); color: var(--danger); border-color: rgba(248, 113, 113, 0.3); }
         .btn-eliminar:hover { background: rgba(248, 113, 113, 0.16); }
 
-        /* Tabla de ventas: fondo transparente, fila resaltada al pasar el mouse. */
+        /* Tabla de ventas: fondo transparente, fila resaltada al pasar el mouse. El contenedor
+           es más alto que antes (min-height, no un tope bajo) para que 10 filas entren sin
+           cortarse — la paginación (ver JS) se encarga de que nunca haya más de 10 a la vez. */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; background: transparent; }
-        th { text-align: left; padding: 8px; color: var(--zinc-400); font-weight: 600; border-bottom: 1px solid var(--zinc-800); }
+        th { text-align: left; padding: 8px; color: var(--zinc-400); font-weight: 600; border-bottom: 1px solid var(--zinc-800); position: sticky; top: 0; background: var(--bg, #09090b); }
         td { text-align: left; padding: 8px; color: var(--zinc-300); border-bottom: 1px solid var(--zinc-800); }
         tbody tr:hover, table tr:hover td { background: var(--zinc-900); }
+        .tabla-ventas-scroll { max-height: 620px; overflow-y: auto; }
+
+        .paginacion-ventas {
+            display: flex; align-items: center; justify-content: center; gap: 14px;
+            margin-top: 14px; font-size: 0.85rem; color: var(--zinc-400);
+        }
+        .paginacion-ventas button {
+            background: var(--zinc-900); border: 1px solid var(--zinc-800); color: var(--text);
+            border-radius: 999px; padding: 7px 16px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+        }
+        .paginacion-ventas button:disabled { opacity: 0.4; cursor: default; }
+        .paginacion-ventas button:not(:disabled):hover { border-color: var(--accent); color: var(--accent-2); }
 
         .nota { text-align: center; color: var(--text-faint); font-size: 0.8rem; margin-top: 20px; }
 
@@ -142,17 +174,6 @@
             background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; cursor: pointer; font-weight: 600;
         }
         .panel-op button:active { transform: scale(0.97); }
-
-        /* Gráfico de flujo de ingreso: solo divs con ancho calculado en JS (sin librerías). */
-        .grafico-horas { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-        .fila-hora { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; }
-        .fila-hora .etiqueta-hora { width: 42px; flex-shrink: 0; color: var(--zinc-400); text-align: right; }
-        .fila-hora .barra-pista { flex: 1; background: var(--zinc-800); border-radius: 999px; height: 16px; overflow: hidden; }
-        .fila-hora .barra-relleno {
-            height: 100%; min-width: 4px; border-radius: 999px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-        }
-        .fila-hora .valor-hora { width: 26px; flex-shrink: 0; color: var(--text); font-weight: 600; }
 
         /* Tarjeta del gráfico de Chart.js: mismo fondo zinc-900 de las demás, pero con una
            sombra suave propia (las otras tarjetas del panel solo llevan borde). */
@@ -233,16 +254,8 @@
     <div class="contenedor">
     <a class="volver" href="/mis-eventos">&larr; Volver a Mis Eventos</a>
     <div class="encabezado-evento">
-        <div>
-            <h1><%= evento.nombre %></h1>
-            <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
-        </div>
-        <!-- Antes el panel se refrescaba solo cada 30s (meta refresh) y los gráficos cada
-             20-30s (setInterval), consumiendo el server sin que nadie estuviera mirando.
-             Ahora todo se actualiza SOLO cuando el organizador lo pide con este botón. -->
-        <button type="button" id="btn-actualizar-panel" class="btn-actualizar" onclick="actualizarPanel(this)">
-            🔄 Actualizar
-        </button>
+        <h1><%= evento.nombre %></h1>
+        <p class="subtitulo"><%= formatearFecha(evento.fecha) %></p>
     </div>
 
     <% if (soloLectura) { %>
@@ -269,317 +282,314 @@
         <div class="alerta-error" style="margin-bottom:15px;"><%= errorGuardia %></div>
     <% } %>
 
-    <% if (!evento.conectado_mp) { %>
-        <div class="conectar-box">
-            <span class="badge-recomendado">Recomendado</span>
-            <h2>Conectá tu Mercado Pago</h2>
-            <p>Falta un solo paso para poder vender: conectá tu cuenta para que el dinero de cada venta te llegue directo a vos.</p>
-            <ul class="beneficios-mp">
-                <li>Pagos al instante</li>
-                <li>Pagos seguros, sin intermediarios</li>
-                <li>El dinero llega directo a tu cuenta</li>
-                <li>Sin cargo extra por usar la plataforma</li>
-            </ul>
-            <a class="btn-mp" href="<%= urlConexionMP %>">Conectar con Mercado Pago</a>
-        </div>
-    <% } else { %>
-        <div class="grid">
-            <div class="card"><div class="numero"><%= resumen.total_vendidas || 0 %></div><div class="etiqueta">Vendidas</div></div>
-            <div class="card"><div class="numero"><%= resumen.total_ingresadas || 0 %></div><div class="etiqueta">Ingresaron</div></div>
-            <div class="card"><div class="numero"><%= resumen.total_compradores || 0 %></div><div class="etiqueta">Compradores</div></div>
-            <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
-        </div>
+    <!-- Pestañas: reemplazan el scroll infinito de antes. El tab activo se guarda en el hash
+         de la URL (#estadisticas, #guardias) para que sobreviva a un F5 o al botón Actualizar
+         (que hace location.reload() — la URL con su hash no cambia). -->
+    <div class="tabs-nav" role="tablist">
+        <button type="button" class="tab-btn activo" data-tab="principal" role="tab">Principal</button>
+        <button type="button" class="tab-btn" data-tab="estadisticas" role="tab">Estadísticas</button>
+        <button type="button" class="tab-btn" data-tab="guardias" role="tab">Guardias y Accesos</button>
+    </div>
 
-        <!-- Bloque aparte a propósito: las cortesías ocupan cupo y entran por la puerta, pero
-             NO son plata. Vive fuera del grid de arriba y con otro estilo, para que no se
-             confunda con las entradas vendidas ni sume a la recaudación. La nota va SIEMPRE
-             debajo, en su propia línea de ancho completo — no comparte fila con las cards,
-             así el texto nunca queda apretado contra ellas ni se corta en pantallas medianas. -->
-        <div class="bloque-cortesias">
-            <div class="grid grid-cortesias">
-                <div class="card card-cortesia">
-                    <div class="numero"><%= resumen.total_cortesias || 0 %></div>
-                    <div class="etiqueta">Cortesías entregadas</div>
-                </div>
-                <div class="card card-cortesia">
-                    <div class="numero"><%= (resumen.total_entradas || 0) %></div>
-                    <div class="etiqueta">Entradas emitidas (vendidas + cortesías)</div>
-                </div>
+    <!-- ===================== PESTAÑA 1: PRINCIPAL ===================== -->
+    <section class="tab-panel" id="tab-principal" role="tabpanel">
+        <% if (!evento.conectado_mp) { %>
+            <div class="conectar-box">
+                <span class="badge-recomendado">Recomendado</span>
+                <h2>Conectá tu Mercado Pago</h2>
+                <p>Falta un solo paso para poder vender: conectá tu cuenta para que el dinero de cada venta te llegue directo a vos.</p>
+                <ul class="beneficios-mp">
+                    <li>Pagos al instante</li>
+                    <li>Pagos seguros, sin intermediarios</li>
+                    <li>El dinero llega directo a tu cuenta</li>
+                    <li>Sin cargo extra por usar la plataforma</li>
+                </ul>
+                <a class="btn-mp" href="<%= urlConexionMP %>">Conectar con Mercado Pago</a>
             </div>
-            <p class="nota-cortesias">
-                Las cortesías <strong>no suman</strong> a la recaudación ni a las ganancias:
-                descuentan cupo del tipo de entrada elegido, pero se emiten sin cobro.
-            </p>
-        </div>
-
-        <!-- Desglose por tipo de entrada: cuántas se vendieron de cada categoría y cuánto
-             recaudó cada una, usando el mismo precio histórico que la recaudación total. -->
-        <% if (desglosePorTipo && desglosePorTipo.length > 0) { %>
-        <div class="panel-op">
-            <h3>🎟️ Desglose por tipo de entrada</h3>
-            <div class="tabla-desglose">
-                <% desglosePorTipo.forEach((t) => { %>
-                    <div class="fila-desglose">
-                        <span class="fila-desglose-nombre"><%= t.tipoNombre %></span>
-                        <span class="fila-desglose-cant">
-                            <%= t.vendidas %> vendida<%= t.vendidas === 1 ? '' : 's' %><%
-                            if (t.cortesias > 0) { %> + <%= t.cortesias %> cortesía<%= t.cortesias === 1 ? '' : 's' %><% } %>
-                        </span>
-                        <span class="fila-desglose-subtotal">$<%= t.subtotal.toLocaleString('es-AR') %></span>
-                    </div>
-                <% }) %>
+        <% } else { %>
+            <div class="link-box">
+                <strong>Link para vender tus entradas:</strong>
+                <a href="<%= urlPublica %>" target="_blank"><%= urlPublica %></a>
             </div>
-        </div>
         <% } %>
 
-        <div class="panel-op" id="flujo-ingreso-box">
-            <h3>📈 Flujo de ingreso por hora</h3>
-            <div id="flujo-ingreso-grafico" class="grafico-horas">
-                <p style="color:var(--zinc-400); font-size:0.85rem; margin:0;">Cargando...</p>
-            </div>
+        <div class="acciones">
+            <% if (!soloLectura) { %>
+                <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
+                <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;"
+                      onsubmit="return confirm('¿Marcar el evento como finalizado? Va a quedar en modo solo lectura: vas a poder ver estadísticas e historial, pero no editarlo.');">
+                    <input type="hidden" name="finalizar" value="1">
+                    <button class="btn-editar" type="submit" style="width:100%;">Marcar como finalizado</button>
+                </form>
+            <% } else if (evento.finalizado) { %>
+                <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;">
+                    <input type="hidden" name="finalizar" value="0">
+                    <button class="btn-editar" type="submit" style="width:100%;">Reabrir evento</button>
+                </form>
+            <% } %>
+            <% if (!soloLectura || esAdmin) { %>
+                <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
+                      onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
+                    <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
+                </form>
+            <% } %>
         </div>
 
-        <div class="panel-op grafico-card">
-            <h3>📊 Ventas en el tiempo</h3>
-            <div class="grafico-lienzo">
-                <canvas id="graficoVentas"></canvas>
-            </div>
-        </div>
-
-        <div class="link-box">
-            <strong>Link para vender tus entradas:</strong>
-            <a href="<%= urlPublica %>" target="_blank"><%= urlPublica %></a>
-        </div>
-
-        <div class="link-box peligro">
-            <strong>🔒 Link privado para el guardia de seguridad:</strong>
-            <a href="<%= urlGuardia %>" target="_blank"><%= urlGuardia %></a>
-            <span class="aviso">No lo compartas con nadie que no sea personal de seguridad de ESTE evento. Cualquiera que lo abra puede validar entradas.</span>
-        </div>
-
-        <div class="app-guardias-card">
-            <div class="app-guardias-header">
-                <span class="app-guardias-icono">📱</span>
-                <div>
-                    <strong>App para Guardias</strong>
-                    <p>La instalan una sola vez en el celular de cada guardia y después inician sesión con el email/contraseña que les creaste arriba.</p>
-                </div>
-            </div>
-            <div class="app-guardias-acciones">
-                <a class="btn btn-primary" href="<%= URL_APK_GUARDIAS %>" target="_blank" rel="noopener noreferrer">⬇ Descargar APK</a>
-                <button type="button" class="btn btn-ghost" id="btnCopiarLinkApk">Copiar link</button>
-            </div>
-            <span id="avisoCopiado" class="app-guardias-copiado" hidden>✅ Link copiado — pegalo en WhatsApp.</span>
-        </div>
-    <% } %>
-
-    <div class="acciones">
         <% if (!soloLectura) { %>
-            <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
-            <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;"
-                  onsubmit="return confirm('¿Marcar el evento como finalizado? Va a quedar en modo solo lectura: vas a poder ver estadísticas e historial, pero no editarlo.');">
-                <input type="hidden" name="finalizar" value="1">
-                <button class="btn-editar" type="submit" style="width:100%;">Marcar como finalizado</button>
-            </form>
-        <% } else if (evento.finalizado) { %>
-            <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;">
-                <input type="hidden" name="finalizar" value="0">
-                <button class="btn-editar" type="submit" style="width:100%;">Reabrir evento</button>
-            </form>
-        <% } %>
-        <% if (!soloLectura || esAdmin) { %>
-            <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
-                  onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
-                <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
-            </form>
-        <% } %>
-    </div>
-
-    <% if (!soloLectura) { %>
-    <div class="panel-op">
-        <h3>🎟️ Entradas de cortesía</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
-            Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.
-            Descuentan el cupo del tipo de entrada que elijas, igual que una venta.
-        </p>
-        <% if (tipos.length === 0) { %>
-            <p style="color:var(--zinc-400); font-size:0.85rem; margin-top:10px;">Primero creá al menos un tipo de entrada desde "Editar evento".</p>
-        <% } else { %>
-            <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
-                <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
-                <input type="email" name="email" placeholder="Email del invitado" required>
-                <select name="tipo_entrada_id" required style="flex:1; min-width:140px;">
-                    <% tipos.forEach(t => { %>
-                        <option value="<%= t.id %>"><%= t.nombre %> (quedan <%= t.cupo_disponible %>)</option>
-                    <% }) %>
-                </select>
-                <input type="number" name="cantidad" placeholder="Cant." min="1" max="20" value="1" required style="max-width:80px;">
-                <button type="submit">Generar y enviar</button>
-            </form>
-        <% } %>
-    </div>
-    <% } %>
-
-    <div class="panel-op">
-        <h3>📩 Reenviar QR</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
-        <form action="/eventos/<%= evento.id %>/reenviar-qr" method="POST" class="fila">
-            <input type="email" name="email" placeholder="Email del comprador" required>
-            <button type="submit">Reenviar</button>
-        </form>
-        <div class="aviso-spam">
-            ⚠️ Si el asistente dice que "no le llegó" el mail con la entrada, primero pedile que revise
-            la carpeta de <strong>SPAM / Correo no deseado</strong> antes de reenviar — la mayoría de los
-            casos están ahí.
+        <div class="panel-op">
+            <h3>🎟️ Entradas de cortesía</h3>
+            <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+                Genera QRs válidos sin cobrar (invitados, prensa, staff) y los manda por mail al toque.
+                Descuentan el cupo del tipo de entrada que elijas, igual que una venta.
+            </p>
+            <% if (tipos.length === 0) { %>
+                <p style="color:var(--zinc-400); font-size:0.85rem; margin-top:10px;">Primero creá al menos un tipo de entrada desde "Editar evento".</p>
+            <% } else { %>
+                <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
+                    <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
+                    <input type="email" name="email" placeholder="Email del invitado" required>
+                    <select name="tipo_entrada_id" required style="flex:1; min-width:140px;">
+                        <% tipos.forEach(t => { %>
+                            <option value="<%= t.id %>"><%= t.nombre %> (quedan <%= t.cupo_disponible %>)</option>
+                        <% }) %>
+                    </select>
+                    <input type="number" name="cantidad" placeholder="Cant." min="1" max="20" value="1" required style="max-width:80px;">
+                    <button type="submit">Generar y enviar</button>
+                </form>
+            <% } %>
         </div>
-    </div>
+        <% } %>
 
-    <div class="panel-op">
-        <h3>📋 Exportación de contingencia</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
-        <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
-    </div>
-
-    <% if (!soloLectura) { %>
-    <div class="panel-op">
-        <h3>🚧 Cierre de evento — Reparto por fila</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
-            Define cuántas filas/guardias va a tener la puerta y reparte TODAS las entradas
-            vendidas entre ellas, al azar y en partes iguales (mezclando tipos de entrada).
-            Usalo el día del evento, una vez que ya sabés cuántas puertas vas a tener.
-        </p>
-        <form action="/eventos/<%= evento.id %>/asignar-filas" method="POST" class="fila"
-              onsubmit="return confirm('¿Repartir todas las entradas vendidas entre las filas indicadas? Si ya habías repartido antes, esto lo vuelve a mezclar de cero.');">
-            <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="1" required>
-            <button type="submit">Repartir entradas</button>
-        </form>
-    </div>
-
-    <div class="panel-op">
-        <h3>👮 Guardias (app móvil)</h3>
-        <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
-            Creá una cuenta por guardia (email + contraseña) para que inicien sesión desde la
-            app móvil de seguridad — cada uno ve solo el número de fila que le asignes acá.
-        </p>
-        <form action="/eventos/<%= evento.id %>/guardias" method="POST" class="fila">
-            <input type="email" name="email" placeholder="Email del guardia" required>
-            <div class="campo-password">
-                <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
-                <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
+        <div class="panel-op">
+            <h3>📩 Reenviar QR</h3>
+            <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
+            <form action="/eventos/<%= evento.id %>/reenviar-qr" method="POST" class="fila">
+                <input type="email" name="email" placeholder="Email del comprador" required>
+                <button type="submit">Reenviar</button>
+            </form>
+            <div class="aviso-spam">
+                ⚠️ Si el asistente dice que "no le llegó" el mail con la entrada, primero pedile que revise
+                la carpeta de <strong>SPAM / Correo no deseado</strong> antes de reenviar — la mayoría de los
+                casos están ahí.
             </div>
-            <input type="number" name="fila_asignada" placeholder="Fila" min="1" max="20" required style="max-width:80px;">
-            <button type="submit">+ Crear guardia</button>
-        </form>
+        </div>
+    </section>
 
-        <% if (guardias.length === 0) { %>
-            <p style="color:var(--text-faint); font-size:0.85rem; margin-top:10px;">Todavía no creaste ningún guardia para este evento.</p>
+    <!-- ===================== PESTAÑA 2: ESTADÍSTICAS ===================== -->
+    <section class="tab-panel" id="tab-estadisticas" role="tabpanel" hidden>
+        <!-- Antes el panel se refrescaba solo cada 30s (meta refresh) y los gráficos cada
+             20-30s (setInterval), consumiendo el server sin que nadie estuviera mirando.
+             Ahora todo se actualiza SOLO cuando el organizador lo pide con este botón. -->
+        <button type="button" id="btn-actualizar-panel" class="btn-actualizar" onclick="actualizarPanel(this)">
+            🔄 Actualizar
+        </button>
+
+        <% if (!evento.conectado_mp) { %>
+            <div class="aviso-info">
+                📊 Todavía no hay estadísticas: conectá tu Mercado Pago desde la pestaña
+                <strong>Principal</strong> para empezar a vender y ver los números acá.
+            </div>
         <% } else { %>
-            <div class="lista-guardias">
-                <% guardias.forEach(g => { %>
-                    <div class="guardia-card <%= g.activo ? '' : 'inactivo' %>">
-                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/editar" method="POST" class="guardia-editar">
-                            <div class="fila">
-                                <input type="email" name="email" value="<%= g.email %>" required>
-                                <div class="campo-password">
-                                    <input type="password" name="password" placeholder="Dejar vacío = no cambiar" minlength="8">
-                                    <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
-                                </div>
-                                <input type="number" name="fila_asignada" value="<%= g.fila_asignada %>" min="1" max="20" required style="max-width:80px;">
-                                <button type="submit">Guardar</button>
-                            </div>
-                        </form>
-                        <div class="guardia-pie">
-                            <span class="badge-fila">Fila <%= g.fila_asignada %></span>
-                            <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? 'Activo' : 'Desactivado' %></span>
-                            <div class="guardia-acciones">
-                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
-                                    <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
-                                </form>
-                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
-                                      onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
-                                    <button type="submit" class="eliminar">Borrar</button>
-                                </form>
-                            </div>
-                        </div>
+            <div class="grid">
+                <div class="card"><div class="numero"><%= resumen.total_vendidas || 0 %></div><div class="etiqueta">Vendidas</div></div>
+                <div class="card"><div class="numero"><%= resumen.total_ingresadas || 0 %></div><div class="etiqueta">Ingresaron</div></div>
+                <div class="card"><div class="numero"><%= resumen.total_compradores || 0 %></div><div class="etiqueta">Compradores</div></div>
+                <div class="card"><div class="numero">$<%= recaudacion.toLocaleString('es-AR') %></div><div class="etiqueta">Recaudación</div></div>
+            </div>
+
+            <!-- Bloque aparte a propósito: las cortesías ocupan cupo y entran por la puerta, pero
+                 NO son plata. Vive fuera del grid de arriba y con otro estilo, para que no se
+                 confunda con las entradas vendidas ni sume a la recaudación. La nota va SIEMPRE
+                 debajo, en su propia línea de ancho completo — no comparte fila con las cards,
+                 así el texto nunca queda apretado contra ellas ni se corta en pantallas medianas. -->
+            <div class="bloque-cortesias">
+                <div class="grid grid-cortesias">
+                    <div class="card card-cortesia">
+                        <div class="numero"><%= resumen.total_cortesias || 0 %></div>
+                        <div class="etiqueta">Cortesías entregadas</div>
                     </div>
-                <% }) %>
+                    <div class="card card-cortesia">
+                        <div class="numero"><%= (resumen.total_entradas || 0) %></div>
+                        <div class="etiqueta">Entradas emitidas (vendidas + cortesías)</div>
+                    </div>
+                </div>
+                <p class="nota-cortesias">
+                    Las cortesías <strong>no suman</strong> a la recaudación ni a las ganancias:
+                    descuentan cupo del tipo de entrada elegido, pero se emiten sin cobro.
+                </p>
+            </div>
+
+            <!-- Desglose por tipo de entrada: cuántas se vendieron de cada categoría y cuánto
+                 recaudó cada una, usando el mismo precio histórico que la recaudación total. -->
+            <% if (desglosePorTipo && desglosePorTipo.length > 0) { %>
+            <div class="panel-op">
+                <h3>🎟️ Desglose por tipo de entrada</h3>
+                <div class="tabla-desglose">
+                    <% desglosePorTipo.forEach((t) => { %>
+                        <div class="fila-desglose">
+                            <span class="fila-desglose-nombre"><%= t.tipoNombre %></span>
+                            <span class="fila-desglose-cant">
+                                <%= t.vendidas %> vendida<%= t.vendidas === 1 ? '' : 's' %><%
+                                if (t.cortesias > 0) { %> + <%= t.cortesias %> cortesía<%= t.cortesias === 1 ? '' : 's' %><% } %>
+                            </span>
+                            <span class="fila-desglose-subtotal">$<%= t.subtotal.toLocaleString('es-AR') %></span>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+            <% } %>
+
+            <div class="panel-op grafico-card">
+                <h3>📊 Ventas en el tiempo</h3>
+                <div class="grafico-lienzo">
+                    <canvas id="graficoVentas"></canvas>
+                </div>
+            </div>
+
+            <div class="panel-op">
+                <h3>📋 Exportación de contingencia</h3>
+                <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
+                <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
+            </div>
+
+            <% if (ventas.length > 0) { %>
+                <h3 style="margin-top: 30px;">Ventas realizadas</h3>
+                <div class="table-scroll tabla-ventas-scroll">
+                <table id="tabla-ventas">
+                    <thead>
+                        <tr>
+                            <th>ID cliente</th>
+                            <th>Nombre y apellido</th>
+                            <th>Email</th>
+                            <th>Tipo</th>
+                            <th>ID entrada</th>
+                            <th>Estado</th>
+                            <th>Fecha compra</th>
+                            <th>Fecha escaneada</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-ventas-cuerpo">
+                        <% ventas.forEach(v => { %>
+                            <tr>
+                                <td><%= v.id_cliente || '-' %></td>
+                                <td><%= v.nom_y_apellido || '-' %></td>
+                                <td><%= v.email || '-' %></td>
+                                <td><%= v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : '-') %></td>
+                                <td><%= v.id_entrada %></td>
+                                <td><%= v.estado_entrada %></td>
+                                <td><%= formatearFechaHora(v.fecha_y_hora_compra) %></td>
+                                <td><%= formatearFechaHora(v.fecha_y_hora_escaneada) %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+                </div>
+                <div class="paginacion-ventas" id="paginacion-ventas">
+                    <button type="button" id="btn-pagina-anterior">&larr; Anterior</button>
+                    <span id="texto-pagina-ventas">Página 1</span>
+                    <button type="button" id="btn-pagina-siguiente">Siguiente &rarr;</button>
+                </div>
+            <% } %>
+        <% } %>
+    </section>
+
+    <!-- ===================== PESTAÑA 3: GUARDIAS Y ACCESOS ===================== -->
+    <section class="tab-panel" id="tab-guardias" role="tabpanel" hidden>
+        <% if (soloLectura) { %>
+            <div class="aviso-solo-lectura">
+                🏁 Este evento está finalizado: la gestión de guardias y accesos quedó deshabilitada.
+            </div>
+        <% } else { %>
+            <div class="link-box peligro">
+                <strong>🔒 Link privado para el guardia de seguridad:</strong>
+                <a href="<%= urlGuardia %>" target="_blank"><%= urlGuardia %></a>
+                <span class="aviso">No lo compartas con nadie que no sea personal de seguridad de ESTE evento. Cualquiera que lo abra puede validar entradas.</span>
+            </div>
+
+            <div class="app-guardias-card">
+                <div class="app-guardias-header">
+                    <span class="app-guardias-icono">📱</span>
+                    <div>
+                        <strong>App para Guardias</strong>
+                        <p>La instalan una sola vez en el celular de cada guardia y después inician sesión con el email/contraseña que les creaste abajo.</p>
+                    </div>
+                </div>
+                <div class="app-guardias-acciones">
+                    <a class="btn btn-primary" href="<%= URL_APK_GUARDIAS %>" target="_blank" rel="noopener noreferrer">⬇ Descargar APK</a>
+                    <button type="button" class="btn btn-ghost" id="btnCopiarLinkApk">Copiar link</button>
+                </div>
+                <span id="avisoCopiado" class="app-guardias-copiado" hidden>✅ Link copiado — pegalo en WhatsApp.</span>
+            </div>
+
+            <div class="panel-op">
+                <h3>🚧 Cierre de evento — Reparto por fila</h3>
+                <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+                    Define cuántas filas/guardias va a tener la puerta y reparte TODAS las entradas
+                    vendidas entre ellas, al azar y en partes iguales (mezclando tipos de entrada).
+                    Usalo el día del evento, una vez que ya sabés cuántas puertas vas a tener.
+                </p>
+                <form action="/eventos/<%= evento.id %>/asignar-filas" method="POST" class="fila"
+                      onsubmit="return confirm('¿Repartir todas las entradas vendidas entre las filas indicadas? Si ya habías repartido antes, esto lo vuelve a mezclar de cero.');">
+                    <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="1" required>
+                    <button type="submit">Repartir entradas</button>
+                </form>
+            </div>
+
+            <div class="panel-op">
+                <h3>👮 Guardias (app móvil)</h3>
+                <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">
+                    Creá una cuenta por guardia (email + contraseña) para que inicien sesión desde la
+                    app móvil de seguridad — cada uno ve solo el número de fila que le asignes acá.
+                </p>
+                <form action="/eventos/<%= evento.id %>/guardias" method="POST" class="fila">
+                    <input type="email" name="email" placeholder="Email del guardia" required>
+                    <div class="campo-password">
+                        <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
+                        <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
+                    </div>
+                    <input type="number" name="fila_asignada" placeholder="Fila" min="1" max="20" required style="max-width:80px;">
+                    <button type="submit">+ Crear guardia</button>
+                </form>
+
+                <% if (guardias.length === 0) { %>
+                    <p style="color:var(--text-faint); font-size:0.85rem; margin-top:10px;">Todavía no creaste ningún guardia para este evento.</p>
+                <% } else { %>
+                    <div class="lista-guardias">
+                        <% guardias.forEach(g => { %>
+                            <div class="guardia-card <%= g.activo ? '' : 'inactivo' %>">
+                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/editar" method="POST" class="guardia-editar">
+                                    <div class="fila">
+                                        <input type="email" name="email" value="<%= g.email %>" required>
+                                        <div class="campo-password">
+                                            <input type="password" name="password" placeholder="Dejar vacío = no cambiar" minlength="8">
+                                            <button type="button" class="ojo" aria-label="Mostrar u ocultar la contraseña">👁</button>
+                                        </div>
+                                        <input type="number" name="fila_asignada" value="<%= g.fila_asignada %>" min="1" max="20" required style="max-width:80px;">
+                                        <button type="submit">Guardar</button>
+                                    </div>
+                                </form>
+                                <div class="guardia-pie">
+                                    <span class="badge-fila">Fila <%= g.fila_asignada %></span>
+                                    <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? 'Activo' : 'Desactivado' %></span>
+                                    <div class="guardia-acciones">
+                                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
+                                            <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
+                                        </form>
+                                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
+                                              onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
+                                            <button type="submit" class="eliminar">Borrar</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
             </div>
         <% } %>
+    </section>
+
     </div>
-    <% } %>
-
-    <% if (ventas.length > 0) { %>
-        <h3 style="margin-top: 30px;">Ventas realizadas</h3>
-        <div class="table-scroll">
-        <table>
-            <tr>
-                <th>ID cliente</th>
-                <th>Nombre y apellido</th>
-                <th>Email</th>
-                <th>Tipo</th>
-                <th>ID entrada</th>
-                <th>Estado</th>
-                <th>Fecha compra</th>
-                <th>Fecha escaneada</th>
-            </tr>
-            <% ventas.forEach(v => { %>
-                <tr>
-                    <td><%= v.id_cliente || '-' %></td>
-                    <td><%= v.nom_y_apellido || '-' %></td>
-                    <td><%= v.email || '-' %></td>
-                    <td><%= v.tipo_entrada || (v.origen === 'cortesia' ? 'Cortesía' : '-') %></td>
-                    <td><%= v.id_entrada %></td>
-                    <td><%= v.estado_entrada %></td>
-                    <td><%= formatearFechaHora(v.fecha_y_hora_compra) %></td>
-                    <td><%= formatearFechaHora(v.fecha_y_hora_escaneada) %></td>
-                </tr>
-            <% }) %>
-        </table>
-        </div>
-    <% } %>
-
-    <p class="nota">Esta página se actualiza sola cada 30 segundos.</p>
-    </div>
-
-    <script>
-        // Dibuja el flujo de ingreso por hora con divs simples (sin librerías de gráficos):
-        // una fila por hora, con una "pista" gris y un relleno cuyo ancho en % es
-        // cantidad/máximo — la hora con más ingresos siempre llena el 100% de la barra.
-        (function () {
-            const contenedor = document.getElementById('flujo-ingreso-grafico');
-            if (!contenedor) return; // evento sin Mercado Pago conectado todavía: no hay métricas
-
-            async function cargar() {
-                try {
-                    const resp = await fetch('/api/eventos/<%= evento.id %>/ingresos-hora');
-                    const { datos } = await resp.json();
-
-                    if (!datos || datos.length === 0) {
-                        contenedor.innerHTML = '<p style="color:var(--zinc-400); font-size:0.85rem; margin:0;">Todavía no hay ingresos escaneados.</p>';
-                        return;
-                    }
-
-                    const maximo = Math.max(...datos.map((d) => d.cantidad));
-                    contenedor.innerHTML = datos.map((d) => {
-                        const porcentaje = Math.round((d.cantidad / maximo) * 100);
-                        const horaTexto = String(d.hora).padStart(2, '0') + ':00';
-                        return `
-                            <div class="fila-hora">
-                                <span class="etiqueta-hora">${horaTexto}</span>
-                                <div class="barra-pista"><div class="barra-relleno" style="width:${porcentaje}%;"></div></div>
-                                <span class="valor-hora">${d.cantidad}</span>
-                            </div>
-                        `;
-                    }).join('');
-                } catch (error) {
-                    contenedor.innerHTML = '<p style="color:var(--danger); font-size:0.85rem; margin:0;">No se pudo cargar el gráfico.</p>';
-                    console.error('Error al cargar ingresos por hora:', error);
-                }
-            }
-
-            cargar();
-        })();
-    </script>
 
     <script>
         // Gráfico de líneas de ventas en el tiempo, con Chart.js. Paleta pensada para calzar
@@ -718,12 +728,87 @@
         // Reemplaza el polling automático (meta refresh + setInterval de los gráficos, que
         // pegaban al server cada 20-30s aunque nadie estuviera mirando la pantalla). Recarga
         // TODA la página a pedido: así números, tabla de ventas, guardias y ambos gráficos
-        // quedan al día en un solo click, sin mantener nada corriendo en segundo plano.
+        // quedan al día en un solo click, sin mantener nada corriendo en segundo plano. El
+        // hash de la pestaña activa viaja en la URL, así que sobrevive al reload.
         function actualizarPanel(boton) {
             boton.disabled = true;
             boton.classList.add('girando');
             location.reload();
         }
+    </script>
+
+    <script>
+        // Pestañas: un único tab visible a la vez. El activo queda en el hash de la URL
+        // (#estadisticas, #guardias) para que un reload (F5 o el botón Actualizar) vuelva a
+        // la misma pestaña en vez de resetear siempre a "Principal", y para que las acciones
+        // del servidor (crear guardia, repartir filas, etc.) puedan redirigir directo a la
+        // pestaña correspondiente agregando el hash en la URL de redirect.
+        (function () {
+            const botones = document.querySelectorAll('.tab-btn');
+            const paneles = {
+                principal: document.getElementById('tab-principal'),
+                estadisticas: document.getElementById('tab-estadisticas'),
+                guardias: document.getElementById('tab-guardias')
+            };
+
+            function activar(nombre) {
+                if (!paneles[nombre]) nombre = 'principal';
+                botones.forEach((b) => b.classList.toggle('activo', b.dataset.tab === nombre));
+                Object.entries(paneles).forEach(([clave, panel]) => { panel.hidden = clave !== nombre; });
+            }
+
+            botones.forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    const nombre = boton.dataset.tab;
+                    history.replaceState(null, '', `#${nombre}`);
+                    activar(nombre);
+                });
+            });
+
+            // Si la URL trae hash (#guardias, #estadisticas) manda eso — pasa en un reload o
+            // en un redirect del server tras una acción de esa pestaña. Si no hay hash pero el
+            // server pidió abrir una pestaña puntual (ej: reapareció con un error de guardias
+            // después de un re-render, sin redirect de por medio), se usa tabInicial.
+            const tabInicial = <%- JSON.stringify(typeof tabInicial !== 'undefined' ? tabInicial : null) %>;
+            activar((location.hash ? location.hash.slice(1) : (tabInicial || 'principal')));
+        })();
+    </script>
+
+    <script>
+        // Paginación de la tabla de ventas: máximo 10 filas visibles a la vez (las demás
+        // quedan en el DOM pero ocultas con `hidden`, no se vuelven a pedir al server).
+        (function () {
+            const cuerpo = document.getElementById('tabla-ventas-cuerpo');
+            if (!cuerpo) return; // sin ventas, no hay tabla que paginar
+
+            const FILAS_POR_PAGINA = 10;
+            const filas = Array.from(cuerpo.querySelectorAll('tr'));
+            const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA));
+            let paginaActual = 1;
+
+            const textoPagina = document.getElementById('texto-pagina-ventas');
+            const btnAnterior = document.getElementById('btn-pagina-anterior');
+            const btnSiguiente = document.getElementById('btn-pagina-siguiente');
+            const paginacion = document.getElementById('paginacion-ventas');
+
+            // Con una sola página no tiene sentido mostrar los controles de avanzar/retroceder.
+            if (totalPaginas <= 1) { paginacion.style.display = 'none'; }
+
+            function mostrarPagina(pagina) {
+                paginaActual = pagina;
+                const desde = (pagina - 1) * FILAS_POR_PAGINA;
+                const hasta = desde + FILAS_POR_PAGINA;
+                filas.forEach((fila, i) => { fila.hidden = i < desde || i >= hasta; });
+                textoPagina.textContent = `Página ${pagina} de ${totalPaginas}`;
+                btnAnterior.disabled = pagina <= 1;
+                btnSiguiente.disabled = pagina >= totalPaginas;
+            }
+
+            btnAnterior.addEventListener('click', () => { if (paginaActual > 1) mostrarPagina(paginaActual - 1); });
+            btnSiguiente.addEventListener('click', () => { if (paginaActual < totalPaginas) mostrarPagina(paginaActual + 1); });
+
+            mostrarPagina(1);
+        })();
     </script>
 </body>
 </html>
