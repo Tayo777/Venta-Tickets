@@ -55,7 +55,8 @@
             <div class="grilla-eventos">
                 <% eventos.forEach(evento => { %>
                     <a class="evento-card card" href="/evento/<%= evento.id %>">
-                        <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>">
+                        <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>"
+                             loading="lazy" onerror="this.onerror=null; this.src='/flyer.png';">
                         <div class="evento-info">
                             <h2><%= evento.nombre %></h2>
                             <p><%= formatearFecha(evento.fecha) %></p>

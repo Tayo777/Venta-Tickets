@@ -39,7 +39,7 @@ async function obtenerEventoPorGuardiaToken(token) {
 }
 
 // Crea un evento nuevo, siempre atado a un usuario (usuarioId) que es su dueño.
-async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, valorEntrada, tarifaOnline,
+async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl, valorEntrada, tarifaOnline,
                               organizerEmail, comisionMpPct, comisionPropiaPct, fechaCierreVentas,
                               lugarNombre, direccion, ciudad, mapsUrl }) {
     const token = crypto.randomBytes(16).toString('hex');
@@ -49,24 +49,24 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, va
     const qrSecret = crypto.randomBytes(32).toString('hex');
     const [resultado] = await pool.query(
         `INSERT INTO eventos
-            (usuario_id, nombre, descripcion, fecha, flyer_url, valor_entrada, tarifa_online, token_informe,
+            (usuario_id, nombre, descripcion, fecha, flyer_url, flyer_delete_url, valor_entrada, tarifa_online, token_informe,
              guardia_token, qr_secret, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas,
              lugar_nombre, direccion, ciudad, maps_url, activo, conectado_mp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
-        [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', valorEntrada, tarifaOnline,
-         token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct, comisionPropiaPct, fechaCierreVentas || null,
-         lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+        [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', flyerDeleteUrl || null,
+         valorEntrada, tarifaOnline, token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct,
+         comisionPropiaPct, fechaCierreVentas || null, lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null]
     );
     return { id: resultado.insertId, token };
 }
 
-async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas,
+async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl, valorEntrada, fechaCierreVentas,
                                    lugarNombre, direccion, ciudad, mapsUrl }) {
     await pool.query(
-        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, valor_entrada = ?,
+        `UPDATE eventos SET nombre = ?, descripcion = ?, fecha = ?, flyer_url = ?, flyer_delete_url = ?, valor_entrada = ?,
             fecha_cierre_ventas = ?, lugar_nombre = ?, direccion = ?, ciudad = ?, maps_url = ?
          WHERE id = ?`,
-        [nombre, descripcion, fecha, flyerUrl, valorEntrada, fechaCierreVentas || null,
+        [nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl || null, valorEntrada, fechaCierreVentas || null,
          lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null, id]
     );
 }

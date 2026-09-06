@@ -68,6 +68,7 @@
     <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
 
     <form action="/eventos/<%= evento.id %>/editar" method="POST" enctype="multipart/form-data"
+          id="form-editar-evento"
           onsubmit="return confirm('¿Confirmás guardar estos cambios?');">
         <div class="form-group">
             <label>Nombre del evento</label>
@@ -90,9 +91,14 @@
         </div>
         <div class="form-group">
             <label>Flyer actual</label>
-            <img src="<%= evento.flyer_url %>" alt="Flyer actual">
-            <label>Reemplazar imagen (opcional)</label>
-            <input type="file" name="flyer" accept="image/*">
+            <!-- onerror: si la URL guardada quedó rota (borrada del hosting externo, evento
+                 viejo con un dato inválido, etc.) se muestra el placeholder local en vez de
+                 dejar el ícono de "imagen rota" + el alt suelto. -->
+            <img src="<%= evento.flyer_url %>" alt="Flyer actual" id="preview-flyer-actual"
+                 onerror="this.onerror=null; this.src='/flyer.png';">
+            <label for="flyer">Reemplazar imagen (opcional)</label>
+            <input type="file" id="flyer" name="flyer" accept="image/*">
+            <p class="ayuda" style="margin-top:6px;">Se comprime automáticamente antes de subirse. La imagen vieja se borra sola al guardar.</p>
         </div>
         <div class="form-group">
             <label>Precio de referencia del evento ($)</label>
@@ -126,8 +132,27 @@
             <input type="url" name="maps_url" value="<%= evento.maps_url || '' %>" placeholder="https://maps.google.com/...">
         </div>
 
-        <button class="btn btn-primary" type="submit" style="width:100%;">Guardar cambios</button>
+        <button class="btn btn-primary" type="submit" id="btn-guardar-evento" style="width:100%;">Guardar cambios</button>
     </form>
+    <script src="/flyer-comprimir.js"></script>
+    <script>
+        engancharCompresionFlyer('flyer');
+        engancharSpinnerSubida('form-editar-evento', 'btn-guardar-evento');
+
+        // Vista previa inmediata de la imagen elegida, para que el organizador vea qué va a
+        // reemplazar al flyer actual antes de guardar (sin esto, no había forma de saber si
+        // eligió el archivo correcto hasta después de guardar los cambios).
+        (function () {
+            const input = document.getElementById('flyer');
+            const preview = document.getElementById('preview-flyer-actual');
+            if (!input || !preview) return;
+            input.addEventListener('change', () => {
+                const archivo = input.files[0];
+                if (!archivo) return;
+                preview.src = URL.createObjectURL(archivo);
+            });
+        })();
+    </script>
 
     <div class="seccion-cupones">
         <h2>🎟️ Tipos de entrada</h2>

@@ -8,7 +8,7 @@ const cuponesDb = require('../db/cupones');
 const comprasDb = require('../db/compras');
 const guardiasDb = require('../db/guardias');
 const mp = require('../services/mercadopago');
-const { subirImagen } = require('../services/imgbb');
+const { subirImagen, eliminarImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
 const { generarPdfBuffer } = require('../services/pdfEntradas');
 const { requiereLogin, requiereAprobado, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
@@ -55,12 +55,12 @@ router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('fly
     }
 
     try {
-        const flyerUrl = await subirImagen(req.file.buffer);
+        const { url: flyerUrl, deleteUrl: flyerDeleteUrl } = await subirImagen(req.file.buffer);
         const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(valorEntradaNum);
 
         const { id } = await eventosDb.crearEvento({
             usuarioId: req.session.usuarioId,
-            nombre, descripcion, fecha, flyerUrl,
+            nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl,
             valorEntrada: valorEntradaNum, tarifaOnline,
             organizerEmail: null, comisionMpPct, comisionPropiaPct,
             fechaCierreVentas: fecha_cierre_ventas || null,
@@ -102,9 +102,24 @@ router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable
     const { nombre, descripcion, fecha, valor_entrada, fecha_cierre_ventas,
             lugar_nombre, direccion, ciudad, maps_url } = req.body;
     try {
-        const flyerUrl = req.file ? await subirImagen(req.file.buffer) : req.evento.flyer_url;
+        // Si no subió un archivo nuevo, se mantiene el flyer (URL + delete_url) tal cual estaba.
+        let flyerUrl = req.evento.flyer_url;
+        let flyerDeleteUrl = req.evento.flyer_delete_url;
+
+        if (req.file) {
+            const flyerViejoDeleteUrl = req.evento.flyer_delete_url;
+            const subida = await subirImagen(req.file.buffer);
+            flyerUrl = subida.url;
+            flyerDeleteUrl = subida.deleteUrl;
+
+            // Se borra el flyer VIEJO recién después de confirmar que el nuevo subió bien, y
+            // sin esperar la respuesta (mejor esfuerzo — ver services/imgbb.js): si el borrado
+            // tarda o falla, el organizador no tiene por qué notarlo ni esperar por eso.
+            eliminarImagen(flyerViejoDeleteUrl);
+        }
+
         await eventosDb.editarEvento(req.evento.id, {
-            nombre, descripcion, fecha, flyerUrl, valorEntrada: Number(valor_entrada),
+            nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl, valorEntrada: Number(valor_entrada),
             fechaCierreVentas: fecha_cierre_ventas || null,
             lugarNombre: lugar_nombre, direccion, ciudad, mapsUrl: maps_url
         });

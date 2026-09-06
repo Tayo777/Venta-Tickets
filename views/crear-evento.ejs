@@ -28,7 +28,7 @@
 
     <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
 
-    <form action="/crear-evento" method="POST" enctype="multipart/form-data">
+    <form action="/crear-evento" method="POST" enctype="multipart/form-data" id="form-crear-evento">
         <div class="form-group">
             <label for="nombre">Nombre del evento</label>
             <input type="text" id="nombre" name="nombre" required placeholder="Ej: Fiesta de fin de año">
@@ -49,6 +49,7 @@
         <div class="form-group">
             <label for="flyer">Imagen del flyer</label>
             <input type="file" id="flyer" name="flyer" accept="image/*" required>
+            <p class="ayuda" style="margin-top:6px;">Se comprime automáticamente antes de subirse — no hace falta que la achiques vos.</p>
         </div>
 
         <h2 class="subtitulo-seccion">📍 Ubicación</h2>
@@ -117,10 +118,15 @@
             <input type="datetime-local" id="fecha_cierre_ventas" name="fecha_cierre_ventas">
         </div>
 
-        <button class="btn btn-primary" type="submit" style="width:100%;">Crear mi evento</button>
+        <button class="btn btn-primary" type="submit" id="btn-crear-evento" style="width:100%;">Crear mi evento</button>
     </form>
 
     <p class="nota">Después de crear el evento te vamos a pedir que conectes tu Mercado Pago (un solo click) para poder empezar a vender.</p>
     </div>
+    <script src="/flyer-comprimir.js"></script>
+    <script>
+        engancharCompresionFlyer('flyer');
+        engancharSpinnerSubida('form-crear-evento', 'btn-crear-evento');
+    </script>
 </body>
 </html>

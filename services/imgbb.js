@@ -35,9 +35,13 @@ async function comprimirImagen(buffer) {
     return comprimida;
 }
 
-// Sube una imagen (Buffer) a ImgBB y devuelve la URL pública. Esto evita guardar archivos en
-// el disco de Railway, que se borra en cada redeploy — el organizador solo ve "subir imagen",
-// toda esta parte queda invisible para él.
+// Sube una imagen (Buffer) a ImgBB y devuelve la URL pública + la URL de borrado. Esto evita
+// guardar archivos en el disco de Railway, que se borra en cada redeploy — el organizador solo
+// ve "subir imagen", toda esta parte queda invisible para él.
+//
+// Devuelve { url, deleteUrl }. deleteUrl es la página que ImgBB genera para borrar ESA imagen
+// puntual (ver eliminarImagen más abajo) — se guarda en la DB junto al flyer para poder borrar
+// el archivo viejo cuando el organizador sube uno nuevo, en vez de acumular basura para siempre.
 async function subirImagen(buffer) {
     const imagenComprimida = await comprimirImagen(buffer);
 
@@ -51,7 +55,23 @@ async function subirImagen(buffer) {
     if (!response.ok || !data.success) {
         throw new Error(`ImgBB respondió con error: ${JSON.stringify(data)}`);
     }
-    return data.data.url;
+    return { url: data.data.url, deleteUrl: data.data.delete_url || null };
 }
 
-module.exports = { subirImagen };
+// Intenta borrar una imagen vieja de ImgBB visitando su delete_url. Es MEJOR ESFUERZO, no una
+// garantía: ImgBB no ofrece una API REST de borrado para uploads anónimos, delete_url es una
+// página pensada para un click humano, así que puede no borrar nada según cómo la sirvan en
+// ese momento. Por eso nunca se espera (await) desde el flujo principal ni se le muestra el
+// resultado al organizador — si falla, el peor caso es una imagen vieja huérfana en ImgBB
+// (gratis y fuera de nuestro disco), nunca una entrada rota o una edición que no se guarda.
+async function eliminarImagen(deleteUrl) {
+    if (!deleteUrl) return;
+    try {
+        const resp = await fetch(deleteUrl, { method: 'GET' });
+        if (!resp.ok) console.warn(`No se pudo borrar el flyer viejo de ImgBB (status ${resp.status}): ${deleteUrl}`);
+    } catch (error) {
+        console.warn('No se pudo borrar el flyer viejo de ImgBB:', error.message);
+    }
+}
+
+module.exports = { subirImagen, eliminarImagen };

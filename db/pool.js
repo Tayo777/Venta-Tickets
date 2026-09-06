@@ -293,6 +293,14 @@ async function inicializarDB() {
         console.log(`qr_secret asignado a ${eventosSinSecret.length} evento/s existente/s${QR_SECRET_LEGACY ? ' (usando el QR_SECRET viejo)' : ' (generado nuevo — sus QRs ya emitidos dejan de validar)'}.`);
     }
 
+    // flyer_delete_url: la URL de borrado que ImgBB devuelve junto con cada imagen subida.
+    // Sin guardar esto no hay forma de borrar el flyer viejo cuando el organizador sube uno
+    // nuevo (ver services/imgbb.js -> eliminarImagen) y las imágenes reemplazadas quedan
+    // acumulándose en ImgBB para siempre. Los eventos creados antes de esta columna
+    // simplemente no tienen delete_url guardada — no pasa nada, esa imagen puntual no se va
+    // a poder borrar por API, pero tampoco rompe nada (eliminarImagen ignora un valor null).
+    await agregarColumnaSiNoExiste('eventos', 'flyer_delete_url', 'VARCHAR(500) NULL');
+
     // precio_pagado: el precio HISTÓRICO real que pagó cada ticket, congelado al momento de
     // la venta (ver db/tickets.js -> registrarEntradas). Sin esto, la recaudación se calculaba
     // multiplicando por el precio ACTUAL del tipo de entrada — si el organizador sube el
