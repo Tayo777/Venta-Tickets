@@ -81,7 +81,7 @@ router.get('/login-guardia/:eventoId', async (req, res) => {
     res.redirect(`/guardia/${evento.id}`);
 });
 
-// Versión "linda" del link de guardia: /guardias/tuentrada-nombreevento-<token>, en vez de
+// Versión "linda" del link de guardia: /guardias/tuentradaya-nombreevento-<token>, en vez de
 // /login-guardia/:eventoId?token=... El token sigue siendo el mismo secreto de siempre
 // (evento.guardia_token, 32 caracteres hex) — acá va pegado al final del slug en vez de en
 // un query param, así que se lo extrae tomando los últimos 32 caracteres del segmento; el

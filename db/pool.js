@@ -333,7 +333,7 @@ async function inicializarDB() {
         console.log(`precio_pagado completado (backfill) en ${ticketsSinPrecio.length} entrada/s existente/s.`);
     }
 
-    // slug: URL amigable pública del evento, formato "tuentrada-nombre-del-evento" (ver
+    // slug: URL amigable pública del evento, formato "tuentradaya-nombre-del-evento" (ver
     // services/slug.js). UNIQUE para poder buscar por slug sin ambigüedad.
     await agregarColumnaSiNoExiste('eventos', 'slug', 'VARCHAR(280) NULL');
     // UNIQUE (no un índice normal): generarSlugUnico() ya resuelve colisiones en la app antes

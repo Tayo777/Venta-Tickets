@@ -304,11 +304,11 @@ async function datosPanel(evento, extras = {}) {
         // igual lo bloquea con eventoEditable, esto es solo para no ofrecer botones muertos).
         soloLectura: eventosDb.eventoFinalizado(evento),
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
-        // URL pública con el slug ("tuentrada-nombre-del-evento"); si por algún motivo un
+        // URL pública con el slug ("tuentradaya-nombre-del-evento"); si por algún motivo un
         // evento viejo todavía no tiene slug (no debería pasar, hay backfill en db/pool.js),
         // se cae al id numérico para no mostrar una URL rota en el panel.
         urlPublica: `${BASE_URL}/evento/${evento.slug || evento.id}`,
-        // Formato pedido: /guardias/tuentrada-nombreevento-<token>. El slug es solo cosmético
+        // Formato pedido: /guardias/tuentradaya-nombreevento-<token>. El slug es solo cosmético
         // acá — la seguridad la sigue dando el guardia_token de siempre, que es lo único que
         // el servidor valida (ver routes/validacion.js).
         urlGuardia: `${BASE_URL}/guardias/${evento.slug || 'evento'}-${evento.guardia_token}`,

@@ -27,12 +27,12 @@ function eventoEsPublico(evento, emailVerificadoCreador) {
     return Boolean(evento.is_admin_accredited) && Boolean(emailVerificadoCreador);
 }
 
-// Arma un slug único con el formato pedido: "tuentrada-nombre-del-evento". Si ya existe uno
+// Arma un slug único con el formato pedido: "tuentradaya-nombre-del-evento". Si ya existe uno
 // igual (dos eventos con el mismo nombre, por ejemplo) le agrega "-2", "-3", etc. hasta
 // encontrar uno libre — la columna eventos.slug es UNIQUE, así que esto evita el ER_DUP_ENTRY
 // en vez de dejar que la INSERT falle.
 async function generarSlugUnico(nombre) {
-    const base = `tuentrada-${generarSlugBase(nombre) || 'evento'}`;
+    const base = `tuentradaya-${generarSlugBase(nombre) || 'evento'}`;
     let candidato = base;
     let sufijo = 2;
     while (true) {
@@ -89,7 +89,7 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, fl
     // Secreto de firma HMAC PROPIO de este evento (ver services/firmaTickets.js) — cada
     // evento tiene el suyo, generado acá, nunca compartido entre eventos ni con un .env global.
     const qrSecret = crypto.randomBytes(32).toString('hex');
-    // Slug público ("tuentrada-nombre-del-evento") — se resuelve ANTES del INSERT (necesita el
+    // Slug público ("tuentradaya-nombre-del-evento") — se resuelve ANTES del INSERT (necesita el
     // nombre, que ya tenemos, y no depende del id todavía inexistente).
     const slug = await generarSlugUnico(nombre);
     // Nace PRIVADO a propósito (is_admin_accredited = 0 por default de columna): recién se

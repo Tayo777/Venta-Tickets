@@ -56,7 +56,7 @@ function factorRecargo(evento) {
 // Mercado Pago cobra su comisión sobre el TOTAL (que incluye el recargo), no sobre el precio:
 //
 //     neto que queda después de MP        = total · (1 − pctMp)
-//     ese neto se tiene que repartir en   = precio (organizador) + 4%·precio (TuEntrada)
+//     ese neto se tiene que repartir en   = precio (organizador) + 4%·precio (TuEntradaYa)
 //
 //     total · (1 − pctMp) = precio · (1 + 0.04)
 //     total = precio · (1 + 0.04) / (1 − pctMp)
@@ -65,7 +65,7 @@ function factorRecargo(evento) {
 // Ejemplo con precio $1000 y pctMp 6.39%:
 //     total   = 1000 · 1.04 / 0.9361 = $1110.99
 //     MP cobra  6.39% de 1110.99     = $70.99  → neto $1040.00
-//     TuEntrada se lleva 4% de 1000  = $40.00  → al organizador le quedan $1000.00 exactos
+//     TuEntradaYa se lleva 4% de 1000  = $40.00  → al organizador le quedan $1000.00 exactos
 function tarifaPorEntrada(evento, precioEntrada) {
     const precio = Number(precioEntrada);
     if (!(precio > 0)) return 0;

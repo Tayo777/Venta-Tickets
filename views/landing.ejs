@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuEntrada — Vendé entradas para tu evento</title>
+    <title>TuEntradaYa — Vendé entradas para tu evento</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         .hero {
@@ -94,6 +94,25 @@
         .btn-contacto:hover { background: var(--bg-elevated-2); border-color: var(--accent); color: var(--text); }
 
         footer { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 0.85rem; border-top: 1px solid var(--border); }
+    
+        /* Catálogo de eventos en la portada — mismas tarjetas que /eventos (views/index.ejs). */
+        .seccion-eventos { max-width: 1100px; margin: 0 auto; padding: 20px 24px 10px; }
+        .seccion-eventos h2 { text-align: center; margin-bottom: 24px; }
+        .grilla-eventos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
+        .evento-card {
+            display: block; text-decoration: none; color: inherit; overflow: hidden;
+            transition: transform 220ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out;
+        }
+        .evento-card:hover, .evento-card:focus-visible {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -8px rgba(139, 92, 246, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.4);
+            border-color: var(--accent);
+        }
+        .evento-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+        .evento-info { padding: 16px 18px 20px; }
+        .evento-info h3 { margin: 0 0 6px 0; font-size: 1.05rem; color: var(--text); }
+        .evento-info p { margin: 0; color: var(--text-muted); font-size: 0.88rem; }
+        .ver-todos-wrap { text-align: center; margin-top: 26px; }
     </style>
 </head>
 <body>
@@ -118,6 +137,31 @@
         </svg>
         Operamos con <strong>Mercado Pago</strong> — el dinero llega directo a tu cuenta.
     </div>
+
+    <!-- Catálogo de eventos públicos: lo que la mayoría de la gente viene a buscar a la
+         portada. Solo aparecen los que ya son públicos (acreditados + dueño verificado), que
+         es lo que devuelve eventosDb.obtenerEventosActivos(). Si no hay ninguno, la sección
+         entera se omite en vez de mostrar un hueco vacío. -->
+    <% if (typeof eventos !== 'undefined' && eventos.length > 0) { %>
+        <section class="seccion-eventos">
+            <h2>Próximos eventos</h2>
+            <div class="grilla-eventos">
+                <% eventos.slice(0, 6).forEach(evento => { %>
+                    <a class="evento-card card" href="/evento/<%= evento.slug || evento.id %>">
+                        <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>"
+                             loading="lazy" onerror="this.onerror=null; this.src='/flyer.png';">
+                        <div class="evento-info">
+                            <h3><%= evento.nombre %></h3>
+                            <p><%= formatearFecha(evento.fecha) %></p>
+                        </div>
+                    </a>
+                <% }) %>
+            </div>
+            <% if (eventos.length > 6) { %>
+                <div class="ver-todos-wrap"><a class="btn cta-secundario" href="/eventos">Ver todos los eventos →</a></div>
+            <% } %>
+        </section>
+    <% } %>
 
     <div class="features">
         <div class="card">

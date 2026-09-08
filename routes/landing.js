@@ -5,11 +5,26 @@ const usuariosDb = require('../db/usuarios');
 const tiposEntrada = require('../db/tiposEntrada');
 const mp = require('../services/mercadopago');
 
-router.get('/', (req, res) => {
-    // "/" es el logo/marca en el navbar de TODA la página — para alguien ya logueado tiene que
-    // llevar a SU dashboard (Mis eventos), no a la landing de marketing que ya no le sirve.
-    if (req.session.usuarioId) return res.redirect('/mis-eventos');
-    res.render('landing', { usuarioLogueado: false });
+// Página principal del sitio. Carga SIEMPRE la landing, esté el visitante logueado o no —
+// antes redirigía a /mis-eventos cuando había sesión, y eso hacía que la raíz del sitio
+// pareciera rota para cualquiera con la sesión abierta (incluido el logo del navbar, que
+// apunta acá).
+//
+// Además del hero, muestra el catálogo de eventos públicos: es lo que la gente viene a ver.
+router.get('/', async (req, res) => {
+    let lista = [];
+    try {
+        lista = (await eventos.obtenerEventosActivos()).filter((e) => !eventos.eventoFinalizado(e));
+    } catch (error) {
+        // La home NUNCA tiene que caerse por un problema al traer los eventos: si la consulta
+        // falla, se muestra igual con el catálogo vacío en vez de un 500 en la raíz del sitio.
+        console.error('Error al cargar los eventos de la portada:', error);
+    }
+
+    res.render('landing', {
+        usuarioLogueado: Boolean(req.session.usuarioId),
+        eventos: lista
+    });
 });
 
 router.get('/eventos', async (req, res) => {
@@ -25,7 +40,7 @@ router.get('/eventos', async (req, res) => {
     }
 });
 
-// Busca el evento por su slug público ("tuentrada-nombre-del-evento"). Si lo que llega es
+// Busca el evento por su slug público ("tuentradaya-nombre-del-evento"). Si lo que llega es
 // puramente numérico, también prueba por id — así los links viejos (compartidos antes de que
 // existiera el slug) siguen funcionando en vez de romperse de golpe.
 async function buscarEventoPorSlugOId(param) {
