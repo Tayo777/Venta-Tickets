@@ -1,4 +1,4 @@
-<a class="evento-row" href="/eventos/<%= evento.id %>">
+<a class="evento-row" href="/eventos/<%= evento.slug || evento.id %>">
     <img class="evento-row-thumb" src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>"
          loading="lazy" onerror="this.onerror=null; this.src='/flyer.png';">
     <div class="evento-row-info">

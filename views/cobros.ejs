@@ -36,7 +36,7 @@
             <p class="vacio">Todavía no tenés eventos. <a href="/crear-evento">Creá el primero</a>.</p>
         <% } else { %>
             <% eventos.forEach(evento => { %>
-                <a class="evento-cobro" href="/eventos/<%= evento.id %>" style="text-decoration:none; color:inherit;">
+                <a class="evento-cobro" href="/eventos/<%= evento.slug || evento.id %>" style="text-decoration:none; color:inherit;">
                     <div>
                         <h3><%= evento.nombre %></h3>
                         <p><%= evento.conectado_mp ? 'Los cobros llegan directo a la cuenta de MP conectada.' : 'Todavía falta conectar una cuenta de Mercado Pago.' %></p>

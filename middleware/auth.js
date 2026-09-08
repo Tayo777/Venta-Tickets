@@ -19,8 +19,13 @@ function requiereAdmin(req, res, next) {
 
 // Deja pasar solo al dueño del evento o al admin. Deja el evento cargado en req.evento
 // para que la ruta no tenga que volver a buscarlo.
+//
+// El panel se direcciona por SLUG (/eventos/tuentradaya-mi-fiesta), así que se busca primero
+// por ahí. Si el parámetro es puramente numérico se prueba además por id: los links viejos
+// del panel (/eventos/12) siguen andando, y un evento sin slug —no debería haber, hay backfill
+// en db/pool.js— sigue siendo administrable.
 async function esDueñoOAdmin(req, res, next) {
-    const evento = await eventosDb.obtenerEvento(req.params.id);
+    const evento = await eventosDb.obtenerEventoPorSlugOId(req.params.slug ?? req.params.id);
     if (!evento) return res.status(404).send('Evento no encontrado.');
 
     const esDueño = evento.usuario_id === req.session.usuarioId;

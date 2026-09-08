@@ -19,6 +19,12 @@ const { ZONA_HORARIA } = require('../config/tiempo');
 // Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
+// URL del panel de un evento. El panel se direcciona por SLUG (/eventos/tuentradaya-mi-fiesta)
+// en vez de por id numérico. El fallback al id existe solo por defensa: un evento sin slug no
+// debería existir (hay backfill en db/pool.js), pero si apareciera uno, es preferible un link
+// feo que funciona a uno roto — y esDueñoOAdmin resuelve las dos formas.
+const urlPanel = (evento) => `/eventos/${evento.slug || evento.id}`;
+
 // "/mis-eventos" es el nombre histórico de la ruta (ya repartido en la barra de navegación,
 // bookmarks, etc.); "/dashboard" es el alias semántico que pide el nuevo enrutamiento — las
 // dos apuntan al mismo handler, así ningún link viejo se rompe.
@@ -88,7 +94,7 @@ router.post(['/crear-evento', '/eventos/crear'], requiereLogin, upload.single('f
         // valor de referencia, cada tipo cobra lo suyo; ver services/mercadopago.js).
         const { comisionMpPct, comisionPropiaPct, tarifaOnline } = mp.calcularTarifa(tipos[0].precio);
 
-        const { id } = await eventosDb.crearEvento({
+        const { id, slug } = await eventosDb.crearEvento({
             usuarioId: req.session.usuarioId,
             nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl,
             valorEntrada: tipos[0].precio, tarifaOnline,
@@ -101,7 +107,7 @@ router.post(['/crear-evento', '/eventos/crear'], requiereLogin, upload.single('f
             await tiposEntradaDb.crearTipoEntrada({ eventoId: id, ...tipo });
         }
 
-        res.redirect(`/eventos/${id}`);
+        res.redirect(urlPanel({ id, slug }));
     } catch (error) {
         console.error('Error al crear el evento:', error);
         res.render('crear-evento', { error: 'Hubo un error al crear el evento (revisá la imagen e intentá de nuevo).', usuarioLogueado: true });
@@ -117,11 +123,11 @@ async function datosEdicion(evento, extras = {}) {
     return { evento, cupones, tipos, error: null, errorCupon: null, errorTipo: null, usuarioLogueado: true, ...extras };
 }
 
-router.get('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.get('/eventos/:slug/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     res.render('editar-evento', await datosEdicion(req.evento));
 });
 
-router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable, upload.single('flyer'), async (req, res) => {
+router.post('/eventos/:slug/editar', requiereLogin, esDueñoOAdmin, eventoEditable, upload.single('flyer'), async (req, res) => {
     const { nombre, descripcion, fecha, valor_entrada, fecha_cierre_ventas,
             lugar_nombre, direccion, ciudad, maps_url } = req.body;
     try {
@@ -146,7 +152,7 @@ router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable
             fechaCierreVentas: fecha_cierre_ventas || null,
             lugarNombre: lugar_nombre, direccion, ciudad, mapsUrl: maps_url
         });
-        res.redirect(`/eventos/${req.evento.id}`);
+        res.redirect(urlPanel(req.evento));
     } catch (error) {
         console.error('Error al editar el evento:', error);
         res.render('editar-evento', await datosEdicion(req.evento, { error: 'No se pudo guardar el cambio.' }));
@@ -155,7 +161,7 @@ router.post('/eventos/:id/editar', requiereLogin, esDueñoOAdmin, eventoEditable
 
 // --- Gestión de tipos de entrada (misma pantalla de edición) ---
 
-router.post('/eventos/:id/tipos', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/tipos', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { nombre, descripcion, precio, cupo_total } = req.body;
     const precioNum = Number(precio);
     const cupoNum = parseInt(cupo_total);
@@ -168,14 +174,14 @@ router.post('/eventos/:id/tipos', requiereLogin, esDueñoOAdmin, eventoEditable,
         await tiposEntradaDb.crearTipoEntrada({
             eventoId: req.evento.id, nombre: nombre.trim(), descripcion, precio: precioNum, cupoTotal: cupoNum
         });
-        res.redirect(`/eventos/${req.evento.id}/editar`);
+        res.redirect(`${urlPanel(req.evento)}/editar`);
     } catch (error) {
         console.error('Error al crear el tipo de entrada:', error);
         res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: 'No se pudo crear el tipo de entrada.' }));
     }
 });
 
-router.post('/eventos/:id/tipos/:tipoId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/tipos/:tipoId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { nombre, descripcion, precio, cupo_total } = req.body;
     const precioNum = Number(precio);
     const cupoNum = parseInt(cupo_total);
@@ -197,25 +203,25 @@ router.post('/eventos/:id/tipos/:tipoId/editar', requiereLogin, esDueñoOAdmin, 
     await tiposEntradaDb.editarTipoEntrada(req.params.tipoId, req.evento.id, {
         nombre: nombre.trim(), descripcion, precio: precioNum, cupoTotal: cupoNum
     });
-    res.redirect(`/eventos/${req.evento.id}/editar`);
+    res.redirect(`${urlPanel(req.evento)}/editar`);
 });
 
-router.post('/eventos/:id/tipos/:tipoId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/tipos/:tipoId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await tiposEntradaDb.toggleActivo(req.params.tipoId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}/editar`);
+    res.redirect(`${urlPanel(req.evento)}/editar`);
 });
 
-router.post('/eventos/:id/tipos/:tipoId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/tipos/:tipoId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { borrado, motivo } = await tiposEntradaDb.eliminarTipoEntrada(req.params.tipoId, req.evento.id);
     if (!borrado) {
         return res.render('editar-evento', await datosEdicion(req.evento, { errorTipo: motivo }));
     }
-    res.redirect(`/eventos/${req.evento.id}/editar`);
+    res.redirect(`${urlPanel(req.evento)}/editar`);
 });
 
 // --- Gestión de cupones del evento (misma pantalla de edición) ---
 
-router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/cupones', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { codigo, tipo, valor, usos_maximos } = req.body;
     const valorNum = Number(valor);
     const usosMaximosNum = usos_maximos ? parseInt(usos_maximos) : null;
@@ -242,7 +248,7 @@ router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, eventoEditabl
         await cuponesDb.crearCupon({
             eventoId: req.evento.id, codigo, tipo, valor: valorNum, usosMaximos: usosMaximosNum, tiposIds
         });
-        res.redirect(`/eventos/${req.evento.id}/editar`);
+        res.redirect(`${urlPanel(req.evento)}/editar`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return renderConError(`Ya existe un cupón con el código "${String(codigo).trim().toUpperCase()}".`);
         console.error('Error al crear el cupón:', error);
@@ -250,17 +256,17 @@ router.post('/eventos/:id/cupones', requiereLogin, esDueñoOAdmin, eventoEditabl
     }
 });
 
-router.post('/eventos/:id/cupones/:cuponId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/cupones/:cuponId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await cuponesDb.toggleActivo(req.params.cuponId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}/editar`);
+    res.redirect(`${urlPanel(req.evento)}/editar`);
 });
 
-router.post('/eventos/:id/cupones/:cuponId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/cupones/:cuponId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await cuponesDb.eliminarCupon(req.params.cuponId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}/editar`);
+    res.redirect(`${urlPanel(req.evento)}/editar`);
 });
 
-router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, puedeEliminarEvento, async (req, res) => {
+router.post('/eventos/:slug/eliminar', requiereLogin, esDueñoOAdmin, puedeEliminarEvento, async (req, res) => {
     try {
         await eventosDb.eliminarEvento(req.evento.id);
         res.redirect('/mis-eventos');
@@ -318,7 +324,7 @@ async function datosPanel(evento, extras = {}) {
     };
 }
 
-router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.get('/eventos/:slug', requiereLogin, esDueñoOAdmin, async (req, res) => {
     res.render('evento-detalle', await datosPanel(req.evento, {
         esAdmin: req.session.rol === 'admin',
         conectado: req.query.conectado === '1',
@@ -331,22 +337,22 @@ router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
 // Alias semántico: el panel del evento ya tiene una pestaña "Estadísticas" (ver
 // views/evento-detalle.ejs), esta ruta manda directo ahí vía el hash que esa pestaña usa
 // para saber cuál mostrar al cargar.
-router.get('/eventos/:id/estadisticas', requiereLogin, esDueñoOAdmin, (req, res) => {
-    res.redirect(`/eventos/${req.evento.id}#estadisticas`);
+router.get('/eventos/:slug/estadisticas', requiereLogin, esDueñoOAdmin, (req, res) => {
+    res.redirect(`${urlPanel(req.evento)}#estadisticas`);
 });
 
 // Marca/desmarca el evento como finalizado a mano. Un evento con fecha pasada ya cuenta como
 // finalizado solo (ver eventosDb.eventoFinalizado); esto sirve para cerrarlo antes de tiempo,
 // o para reabrir uno que se marcó por error (mientras su fecha no haya pasado).
-router.post('/eventos/:id/finalizar', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:slug/finalizar', requiereLogin, esDueñoOAdmin, async (req, res) => {
     await eventosDb.marcarFinalizado(req.evento.id, req.body.finalizar === '1');
-    res.redirect(`/eventos/${req.evento.id}`);
+    res.redirect(urlPanel(req.evento));
 });
 
 // Reparte todas las entradas vendidas entre N filas/guardias, al azar y en partes iguales
 // (ver ticketsDb.asignarFilasAleatorio). Pensado para correrlo el día del evento, una vez
 // que ya se sabe cuántos guardias/puertas va a haber.
-router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/asignar-filas', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const cantidadFilas = parseInt(req.body.cantidad_filas);
     if (!cantidadFilas || cantidadFilas < 1 || cantidadFilas > 20) {
         return res.status(400).send('Ingresá una cantidad de filas válida (entre 1 y 20).');
@@ -354,7 +360,7 @@ router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, eventoE
 
     try {
         const total = await ticketsDb.asignarFilasAleatorio(req.evento.id, cantidadFilas);
-        res.redirect(`/eventos/${req.evento.id}?filas_ok=${cantidadFilas}#guardias`);
+        res.redirect(`${urlPanel(req.evento)}?filas_ok=${cantidadFilas}#guardias`);
         console.log(`Repartidas ${total} entradas en ${cantidadFilas} filas para el evento ${req.evento.id}.`);
     } catch (error) {
         console.error('Error al repartir filas:', error);
@@ -364,7 +370,7 @@ router.post('/eventos/:id/asignar-filas', requiereLogin, esDueñoOAdmin, eventoE
 
 // --- Gestión de guardias (cuentas para la app móvil) ---
 
-router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/guardias', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { email, password, fila_asignada } = req.body;
     const filaNum = parseInt(fila_asignada);
 
@@ -378,7 +384,7 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditab
 
     try {
         await guardiasDb.crearGuardia({ eventoId: req.evento.id, email, password, filaAsignada: filaNum });
-        res.redirect(`/eventos/${req.evento.id}#guardias`);
+        res.redirect(`${urlPanel(req.evento)}#guardias`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe un guardia con el email "${email}".`);
         console.error('Error al crear guardia:', error);
@@ -388,7 +394,7 @@ router.post('/eventos/:id/guardias', requiereLogin, esDueñoOAdmin, eventoEditab
 
 // Editar un guardia. La contraseña es opcional: si el campo viene vacío, se conserva la que
 // ya tenía (ver guardiasDb.editarGuardia).
-router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/guardias/:guardiaId/editar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { email, password, fila_asignada } = req.body;
     const filaNum = parseInt(fila_asignada);
 
@@ -407,7 +413,7 @@ router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOA
         await guardiasDb.editarGuardia(req.params.guardiaId, req.evento.id, {
             email, filaAsignada: filaNum, password
         });
-        res.redirect(`/eventos/${req.evento.id}#guardias`);
+        res.redirect(`${urlPanel(req.evento)}#guardias`);
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return rerenderConError(`Ya existe otro guardia con el email "${email}".`);
         console.error('Error al editar guardia:', error);
@@ -415,20 +421,20 @@ router.post('/eventos/:id/guardias/:guardiaId/editar', requiereLogin, esDueñoOA
     }
 });
 
-router.post('/eventos/:id/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/guardias/:guardiaId/eliminar', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.eliminarGuardia(req.params.guardiaId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}#guardias`);
+    res.redirect(`${urlPanel(req.evento)}#guardias`);
 });
 
-router.post('/eventos/:id/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/guardias/:guardiaId/toggle', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     await guardiasDb.toggleActivo(req.params.guardiaId, req.evento.id);
-    res.redirect(`/eventos/${req.evento.id}#guardias`);
+    res.redirect(`${urlPanel(req.evento)}#guardias`);
 });
 
 // Entradas de cortesía: el organizador/admin las genera a mano, sin pasar por Mercado Pago.
 // Corresponden a un TIPO de entrada concreto y descuentan su cupo igual que una venta (si
 // regalás 10 VIP, quedan 10 VIP menos para vender).
-router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
+router.post('/eventos/:slug/cortesia', requiereLogin, esDueñoOAdmin, eventoEditable, async (req, res) => {
     const { email, nombre_apellido, cantidad, tipo_entrada_id } = req.body;
     const cant = parseInt(cantidad);
     const tipoEntradaId = parseInt(tipo_entrada_id);
@@ -458,7 +464,7 @@ router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, eventoEditab
             attachmentName: 'Entradas_Cortesia.pdf'
         });
 
-        res.redirect(`/eventos/${evento.id}?cortesia=1`);
+        res.redirect(`${urlPanel(evento)}?cortesia=1`);
     } catch (error) {
         console.error('Error al generar entradas de cortesía:', error);
         res.status(500).send('No se pudieron generar las entradas de cortesía.');
@@ -467,7 +473,7 @@ router.post('/eventos/:id/cortesia', requiereLogin, esDueñoOAdmin, eventoEditab
 
 // Reenvío de QR: por si el mail original quedó en SPAM o se perdió. Regenera el PDF con
 // TODAS las entradas que ese email tiene para este evento y lo reenvía, sin crear tickets nuevos.
-router.post('/eventos/:id/reenviar-qr', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.post('/eventos/:slug/reenviar-qr', requiereLogin, esDueñoOAdmin, async (req, res) => {
     const { email } = req.body;
     if (!email || !String(email).trim()) {
         return res.status(400).send('Falta el email del comprador.');
@@ -489,7 +495,7 @@ router.post('/eventos/:id/reenviar-qr', requiereLogin, esDueñoOAdmin, async (re
             attachmentName: 'Entradas_Evento.pdf'
         });
 
-        res.redirect(`/eventos/${evento.id}?reenviado=1`);
+        res.redirect(`${urlPanel(evento)}?reenviado=1`);
     } catch (error) {
         console.error('Error al reenviar el QR:', error);
         res.status(500).send('No se pudo reenviar el mail con las entradas.');
@@ -510,7 +516,7 @@ router.get('/api/eventos/:id/grafico-ventas', requiereLogin, esDueñoOAdmin, asy
 
 // Exportación de contingencia: lista completa de asistentes en CSV (se abre directo en Excel),
 // para tener a mano en la puerta si por lo que sea el panel/la app no está disponible.
-router.get('/eventos/:id/exportar-csv', requiereLogin, esDueñoOAdmin, async (req, res) => {
+router.get('/eventos/:slug/exportar-csv', requiereLogin, esDueñoOAdmin, async (req, res) => {
     try {
         const ventas = await eventosDb.listadoVentas(req.evento.id);
 
@@ -576,7 +582,7 @@ router.get('/oauth/mercadopago/callback', async (req, res) => {
             accessToken: tokens.access_token, refreshToken: tokens.refresh_token, userId: tokens.user_id
         });
 
-        res.redirect(`/eventos/${evento.id}?conectado=1`);
+        res.redirect(`${urlPanel(evento)}?conectado=1`);
     } catch (error) {
         console.error('Error al conectar con Mercado Pago:', error);
         res.status(500).send('Hubo un error al conectar tu cuenta de Mercado Pago. Volvé a intentarlo desde tu panel.');

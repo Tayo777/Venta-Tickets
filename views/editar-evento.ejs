@@ -69,12 +69,12 @@
 <body>
     <%- include('partials/navbar') %>
     <div class="contenedor">
-    <a class="volver" href="/eventos/<%= evento.id %>">&larr; Volver al evento</a>
+    <a class="volver" href="/eventos/<%= evento.slug || evento.id %>">&larr; Volver al evento</a>
     <h1>Editar evento</h1>
 
     <% if (error) { %><div class="alerta-error" style="margin-bottom:15px;"><%= error %></div><% } %>
 
-    <form action="/eventos/<%= evento.id %>/editar" method="POST" enctype="multipart/form-data"
+    <form action="/eventos/<%= evento.slug || evento.id %>/editar" method="POST" enctype="multipart/form-data"
           id="form-editar-evento"
           onsubmit="return confirm('¿Confirmás guardar estos cambios?');">
         <div class="form-group">
@@ -170,7 +170,7 @@
 
         <% if (errorTipo) { %><div class="alerta-error" style="margin-bottom:15px;"><%= errorTipo %></div><% } %>
 
-        <form class="form-cupon card" action="/eventos/<%= evento.id %>/tipos" method="POST">
+        <form class="form-cupon card" action="/eventos/<%= evento.slug || evento.id %>/tipos" method="POST">
             <div class="fila">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Nombre</label>
@@ -200,7 +200,7 @@
         <div class="lista-cupones">
             <% tipos.forEach(t => { %>
                 <div class="cupon-card card <%= t.activo ? '' : 'inactivo' %>" style="display:block;">
-                    <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/editar" method="POST">
+                    <form action="/eventos/<%= evento.slug || evento.id %>/tipos/<%= t.id %>/editar" method="POST">
                         <div class="fila">
                             <div class="form-group" style="margin-bottom:0;">
                                 <label>Nombre</label>
@@ -231,10 +231,10 @@
                         </div>
                     </form>
                     <div class="cupon-acciones" style="margin-top:8px;">
-                        <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/toggle" method="POST">
+                        <form action="/eventos/<%= evento.slug || evento.id %>/tipos/<%= t.id %>/toggle" method="POST">
                             <button type="submit" class="<%= t.activo ? 'desactivar' : 'activar' %>"><%= t.activo ? 'Desactivar' : 'Activar' %></button>
                         </form>
-                        <form action="/eventos/<%= evento.id %>/tipos/<%= t.id %>/eliminar" method="POST"
+                        <form action="/eventos/<%= evento.slug || evento.id %>/tipos/<%= t.id %>/eliminar" method="POST"
                               onsubmit="return confirm('¿Borrar el tipo <%= t.nombre %>?');">
                             <button type="submit" class="eliminar">Borrar</button>
                         </form>
@@ -250,7 +250,7 @@
 
         <% if (errorCupon) { %><div class="alerta-error" style="margin-bottom:15px;"><%= errorCupon %></div><% } %>
 
-        <form class="form-cupon card" action="/eventos/<%= evento.id %>/cupones" method="POST">
+        <form class="form-cupon card" action="/eventos/<%= evento.slug || evento.id %>/cupones" method="POST">
             <div class="fila">
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Código</label>
@@ -307,10 +307,10 @@
                             </div>
                         </div>
                         <div class="cupon-acciones">
-                            <form action="/eventos/<%= evento.id %>/cupones/<%= c.id %>/toggle" method="POST">
+                            <form action="/eventos/<%= evento.slug || evento.id %>/cupones/<%= c.id %>/toggle" method="POST">
                                 <button type="submit" class="<%= c.activo ? 'desactivar' : 'activar' %>"><%= c.activo ? 'Desactivar' : 'Activar' %></button>
                             </form>
-                            <form action="/eventos/<%= evento.id %>/cupones/<%= c.id %>/eliminar" method="POST"
+                            <form action="/eventos/<%= evento.slug || evento.id %>/cupones/<%= c.id %>/eliminar" method="POST"
                                   onsubmit="return confirm('¿Borrar el cupón <%= c.codigo %>? No se puede deshacer.');">
                                 <button type="submit" class="eliminar">Borrar</button>
                             </form>

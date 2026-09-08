@@ -40,19 +40,9 @@ router.get('/eventos', async (req, res) => {
     }
 });
 
-// Busca el evento por su slug público ("tuentradaya-nombre-del-evento"). Si lo que llega es
-// puramente numérico, también prueba por id — así los links viejos (compartidos antes de que
-// existiera el slug) siguen funcionando en vez de romperse de golpe.
-async function buscarEventoPorSlugOId(param) {
-    const porSlug = await eventos.obtenerEventoPorSlug(param);
-    if (porSlug) return porSlug;
-    if (/^\d+$/.test(param)) return eventos.obtenerEvento(param);
-    return null;
-}
-
 router.get('/evento/:slug', async (req, res) => {
     try {
-        const evento = await buscarEventoPorSlugOId(req.params.slug);
+        const evento = await eventos.obtenerEventoPorSlugOId(req.params.slug);
         if (!evento || !evento.activo) return res.status(404).send('Evento no encontrado.');
 
         // Visibilidad: acreditado por un admin + el creador con el mail verificado (ver

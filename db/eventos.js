@@ -43,6 +43,17 @@ async function generarSlugUnico(nombre) {
     }
 }
 
+// Resuelve un evento a partir de lo que venga en la URL: primero por slug (que es como se
+// direcciona todo el panel desde ahora), y si el parámetro es puramente numérico, también por
+// id. El fallback numérico mantiene vivos los links viejos del panel (/eventos/12) y cubre a
+// cualquier evento que por lo que sea no tenga slug.
+async function obtenerEventoPorSlugOId(parametro) {
+    const porSlug = await obtenerEventoPorSlug(parametro);
+    if (porSlug) return porSlug;
+    if (/^\d+$/.test(String(parametro))) return obtenerEvento(parametro);
+    return null;
+}
+
 async function obtenerEventoPorSlug(slug) {
     const [filas] = await pool.query('SELECT * FROM eventos WHERE slug = ?', [slug]);
     return filas[0] || null;
@@ -283,7 +294,7 @@ async function listadoVentas(eventoId) {
 
 module.exports = {
     obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
-    obtenerEventoPorToken, obtenerEventoPorGuardiaToken, obtenerEventoPorSlug, crearEvento, editarEvento, eliminarEvento,
+    obtenerEventoPorToken, obtenerEventoPorGuardiaToken, obtenerEventoPorSlug, obtenerEventoPorSlugOId, crearEvento, editarEvento, eliminarEvento,
     conectarMercadoPago, toggleActivo, resumenVentas, desgloseVentasPorTipo, listadoVentas, ventaVencidaPorTiempo,
     eventoFinalizado, separarPorEstado, marcarFinalizado, generarSlugUnico, acreditarEvento, eventoEsPublico
 };

@@ -339,20 +339,20 @@
 
         <div class="acciones">
             <% if (!soloLectura) { %>
-                <a class="btn-editar" href="/eventos/<%= evento.id %>/editar">Editar evento</a>
-                <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;"
+                <a class="btn-editar" href="/eventos/<%= evento.slug || evento.id %>/editar">Editar evento</a>
+                <form action="/eventos/<%= evento.slug || evento.id %>/finalizar" method="POST" style="flex:1;"
                       onsubmit="return confirm('¿Marcar el evento como finalizado? Va a quedar en modo solo lectura: vas a poder ver estadísticas e historial, pero no editarlo.');">
                     <input type="hidden" name="finalizar" value="1">
                     <button class="btn-editar" type="submit" style="width:100%;">Marcar como finalizado</button>
                 </form>
             <% } else if (evento.finalizado) { %>
-                <form action="/eventos/<%= evento.id %>/finalizar" method="POST" style="flex:1;">
+                <form action="/eventos/<%= evento.slug || evento.id %>/finalizar" method="POST" style="flex:1;">
                     <input type="hidden" name="finalizar" value="0">
                     <button class="btn-editar" type="submit" style="width:100%;">Reabrir evento</button>
                 </form>
             <% } %>
             <% if (!soloLectura || esAdmin) { %>
-                <form action="/eventos/<%= evento.id %>/eliminar" method="POST" style="flex:1;"
+                <form action="/eventos/<%= evento.slug || evento.id %>/eliminar" method="POST" style="flex:1;"
                       onsubmit="return confirm('¿Estás SEGURO que querés eliminar este evento? Se van a borrar también todas sus entradas vendidas. Esta acción no se puede deshacer.');">
                     <button class="btn-eliminar" type="submit" style="width:100%;">Eliminar evento</button>
                 </form>
@@ -369,7 +369,7 @@
             <% if (tipos.length === 0) { %>
                 <p style="color:var(--zinc-400); font-size:0.85rem; margin-top:10px;">Primero creá al menos un tipo de entrada desde "Editar evento".</p>
             <% } else { %>
-                <form action="/eventos/<%= evento.id %>/cortesia" method="POST" class="fila">
+                <form action="/eventos/<%= evento.slug || evento.id %>/cortesia" method="POST" class="fila">
                     <input type="text" name="nombre_apellido" placeholder="Nombre y apellido" required>
                     <input type="email" name="email" placeholder="Email del invitado" required>
                     <select name="tipo_entrada_id" required style="flex:1; min-width:140px;">
@@ -387,7 +387,7 @@
         <div class="panel-op">
             <h3>📩 Reenviar QR</h3>
             <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Reenvía TODAS las entradas de ese email para este evento (no genera entradas nuevas).</p>
-            <form action="/eventos/<%= evento.id %>/reenviar-qr" method="POST" class="fila">
+            <form action="/eventos/<%= evento.slug || evento.id %>/reenviar-qr" method="POST" class="fila">
                 <input type="email" name="email" placeholder="Email del comprador" required>
                 <button type="submit">Reenviar</button>
             </form>
@@ -473,7 +473,7 @@
             <div class="panel-op">
                 <h3>📋 Exportación de contingencia</h3>
                 <p style="font-size:0.82rem; color:var(--zinc-400); margin:0;">Descargá la lista completa de asistentes (CSV, se abre directo en Excel) para tener offline en la puerta.</p>
-                <a class="btn-export" href="/eventos/<%= evento.id %>/exportar-csv">⬇ Descargar CSV</a>
+                <a class="btn-export" href="/eventos/<%= evento.slug || evento.id %>/exportar-csv">⬇ Descargar CSV</a>
             </div>
 
             <% if (ventas.length > 0) { %>
@@ -552,7 +552,7 @@
                     vendidas entre ellas, al azar y en partes iguales (mezclando tipos de entrada).
                     Usalo el día del evento, una vez que ya sabés cuántas puertas vas a tener.
                 </p>
-                <form action="/eventos/<%= evento.id %>/asignar-filas" method="POST" class="fila"
+                <form action="/eventos/<%= evento.slug || evento.id %>/asignar-filas" method="POST" class="fila"
                       onsubmit="return confirm('¿Repartir todas las entradas vendidas entre las filas indicadas? Si ya habías repartido antes, esto lo vuelve a mezclar de cero.');">
                     <input type="number" name="cantidad_filas" placeholder="Cant. de filas/guardias" min="1" max="20" value="1" required>
                     <button type="submit">Repartir entradas</button>
@@ -565,7 +565,7 @@
                     Creá una cuenta por guardia (email + contraseña) para que inicien sesión desde la
                     app móvil de seguridad — cada uno ve solo el número de fila que le asignes acá.
                 </p>
-                <form action="/eventos/<%= evento.id %>/guardias" method="POST" class="fila">
+                <form action="/eventos/<%= evento.slug || evento.id %>/guardias" method="POST" class="fila">
                     <input type="email" name="email" placeholder="Email del guardia" required>
                     <div class="campo-password">
                         <input type="password" name="password" placeholder="Contraseña (min. 8)" minlength="8" required>
@@ -581,7 +581,7 @@
                     <div class="lista-guardias">
                         <% guardias.forEach(g => { %>
                             <div class="guardia-card <%= g.activo ? '' : 'inactivo' %>">
-                                <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/editar" method="POST" class="guardia-editar">
+                                <form action="/eventos/<%= evento.slug || evento.id %>/guardias/<%= g.id %>/editar" method="POST" class="guardia-editar">
                                     <div class="fila">
                                         <input type="email" name="email" value="<%= g.email %>" required>
                                         <div class="campo-password">
@@ -596,10 +596,10 @@
                                     <span class="badge-fila">Fila <%= g.fila_asignada %></span>
                                     <span style="color:var(--zinc-400); font-size:0.78rem;"><%= g.activo ? 'Activo' : 'Desactivado' %></span>
                                     <div class="guardia-acciones">
-                                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
+                                        <form action="/eventos/<%= evento.slug || evento.id %>/guardias/<%= g.id %>/toggle" method="POST">
                                             <button type="submit"><%= g.activo ? 'Desactivar' : 'Activar' %></button>
                                         </form>
-                                        <form action="/eventos/<%= evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
+                                        <form action="/eventos/<%= evento.slug || evento.id %>/guardias/<%= g.id %>/eliminar" method="POST"
                                               onsubmit="return confirm('¿Borrar al guardia <%= g.email %>?');">
                                             <button type="submit" class="eliminar">Borrar</button>
                                         </form>
@@ -633,7 +633,7 @@
 
             async function cargar() {
                 try {
-                    const resp = await fetch('/api/eventos/<%= evento.id %>/grafico-ventas');
+                    const resp = await fetch('/api/eventos/<%= evento.slug || evento.id %>/grafico-ventas');
                     const { datos } = await resp.json();
 
                     const etiquetas = (datos || []).map((d) =>

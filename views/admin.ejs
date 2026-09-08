@@ -82,14 +82,14 @@
                                 </span>
                             </td>
                             <td style="white-space:nowrap;">
-                                <a href="/eventos/<%= evento.id %>">Ver panel</a>
+                                <a href="/eventos/<%= evento.slug || evento.id %>">Ver panel</a>
                                 <% if (evento.is_admin_accredited) { %>
-                                    <form class="inline" action="/admin/eventos/<%= evento.id %>/acreditar" method="POST">
+                                    <form class="inline" action="/admin/eventos/<%= evento.slug || evento.id %>/acreditar" method="POST">
                                         <input type="hidden" name="acreditar" value="0">
                                         <button type="submit" class="btn-desacreditar">Quitar acreditación</button>
                                     </form>
                                 <% } else { %>
-                                    <form class="inline" action="/admin/eventos/<%= evento.id %>/acreditar" method="POST">
+                                    <form class="inline" action="/admin/eventos/<%= evento.slug || evento.id %>/acreditar" method="POST">
                                         <input type="hidden" name="acreditar" value="1">
                                         <button type="submit" class="btn-aprobar">Acreditar</button>
                                     </form>
@@ -118,7 +118,7 @@
                             <td><%= evento.nombre %> <span class="badge finalizado">Finalizado</span></td>
                             <td><%= evento.dueño_email || '-' %></td>
                             <td><%= formatearFecha(evento.fecha) %></td>
-                            <td><a href="/eventos/<%= evento.id %>">Ver panel</a></td>
+                            <td><a href="/eventos/<%= evento.slug || evento.id %>">Ver panel</a></td>
                         </tr>
                     <% }) %>
                 </table>
