@@ -13,4 +13,11 @@ router.get('/admin', requiereLogin, requiereAdmin, async (req, res) => {
     res.render('admin', { activos, finalizados, pendientes });
 });
 
+// Acredita (o desacredita) un evento a mano — una de las dos condiciones para que se haga
+// público (la otra es que el creador tenga el mail verificado; ver eventosDb.eventoEsPublico).
+router.post('/admin/eventos/:id/acreditar', requiereLogin, requiereAdmin, async (req, res) => {
+    await eventosDb.acreditarEvento(req.params.id, req.body.acreditar === '1');
+    res.redirect('/admin');
+});
+
 module.exports = router;

@@ -2,6 +2,7 @@ const mysql = require('mysql2/promise');
 const crypto = require('crypto');
 const { MYSQL_URL, QR_SECRET_LEGACY } = require('../config/env');
 const { OFFSET_MYSQL } = require('../config/tiempo');
+const { generarSlugBase } = require('../services/slug');
 
 // Límites explícitos (no confiar en los defaults de la librería): Railway cobra/limita por
 // cantidad de conexiones simultáneas a MySQL, y sin un tope acá un pico de tráfico podría
@@ -61,6 +62,9 @@ poolCallback.on('enqueue', () => {
 });
 
 // Agrega una columna a una tabla solo si todavía no existe (idempotente, corre en cada arranque).
+// Devuelve true si la columna se acaba de crear (false si ya existía) — así un caller puede
+// disparar un backfill SOLO la primera vez que la columna aparece, sin repetirlo en cada
+// arranque del server.
 async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
     const [filas] = await pool.query(
         `SELECT COUNT(*) AS existe FROM information_schema.COLUMNS
@@ -70,7 +74,9 @@ async function agregarColumnaSiNoExiste(tabla, columna, definicion) {
     if (filas[0].existe === 0) {
         await pool.query(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion}`);
         console.log(`Columna agregada: ${tabla}.${columna}`);
+        return true;
     }
+    return false;
 }
 
 // Agrega un índice a una tabla solo si todavía no existe (idempotente, corre en cada arranque).
@@ -325,6 +331,43 @@ async function inicializarDB() {
     }
     if (ticketsSinPrecio.length > 0) {
         console.log(`precio_pagado completado (backfill) en ${ticketsSinPrecio.length} entrada/s existente/s.`);
+    }
+
+    // slug: URL amigable pública del evento, formato "tuentrada-nombre-del-evento" (ver
+    // services/slug.js). UNIQUE para poder buscar por slug sin ambigüedad.
+    await agregarColumnaSiNoExiste('eventos', 'slug', 'VARCHAR(280) NULL');
+    // UNIQUE (no un índice normal): generarSlugUnico() ya resuelve colisiones en la app antes
+    // del INSERT, pero esto es la garantía de última línea a nivel de base de datos.
+    const [indiceSlug] = await pool.query(
+        `SELECT COUNT(*) AS existe FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'eventos' AND INDEX_NAME = 'idx_eventos_slug_unico'`
+    );
+    if (indiceSlug[0].existe === 0) {
+        await pool.query('CREATE UNIQUE INDEX idx_eventos_slug_unico ON eventos (slug)');
+        console.log('Índice único agregado: eventos.slug');
+    }
+    const [eventosSinSlug] = await pool.query('SELECT id, nombre FROM eventos WHERE slug IS NULL');
+    for (const evento of eventosSinSlug) {
+        // Backfill de eventos creados antes de que existiera el slug: se arma uno a partir del
+        // nombre + el propio id (el id ya es único de por sí, así no hace falta la lógica de
+        // "agregar -2, -3..." que sí usa la generación en caliente de eventos nuevos).
+        const base = generarSlugBase(evento.nombre) || 'evento';
+        await pool.query('UPDATE eventos SET slug = ? WHERE id = ?', [`${base}-${evento.id}`, evento.id]);
+    }
+    if (eventosSinSlug.length > 0) {
+        console.log(`slug generado (backfill) para ${eventosSinSlug.length} evento/s existente/s.`);
+    }
+
+    // is_admin_accredited: un evento nuevo nace PRIVADO y necesita que un admin lo acredite a
+    // mano para hacerse público (ver routes/admin.js), además de que su creador tenga el mail
+    // verificado. Los eventos que YA EXISTÍAN antes de este cambio se acreditan solos al
+    // agregar la columna (grandfathering) — si no, un evento activo y con entradas ya vendidas
+    // desaparecería de golpe de la venta pública el día de este deploy, lo cual sería un
+    // cambio de comportamiento mucho más grave que "pedir acreditación a los eventos nuevos".
+    const columnaAcreditacionNueva = await agregarColumnaSiNoExiste('eventos', 'is_admin_accredited', 'TINYINT(1) NOT NULL DEFAULT 0');
+    if (columnaAcreditacionNueva) {
+        const [resultado] = await pool.query('UPDATE eventos SET is_admin_accredited = 1');
+        console.log(`is_admin_accredited: ${resultado.affectedRows} evento/s existente/s acreditados automáticamente (grandfathering). Los eventos NUEVOS de acá en más nacen sin acreditar.`);
     }
 
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones + guardias).');

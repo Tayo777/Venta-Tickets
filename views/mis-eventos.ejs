@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mis eventos</title>
+    <title>Mis eventos · TuEntrada</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         :root {
@@ -59,6 +59,13 @@
         .acordeon-cuerpo { padding: 14px; }
         .acordeon-contador { color: var(--zinc-400); font-weight: 400; font-size: 0.82rem; }
         .acordeon-nota { color: var(--text-faint); font-size: 0.8rem; margin: 0 0 12px; }
+
+        /* Recordatorio sutil (no un bloqueo) de verificar el mail. */
+        .aviso-mail-pendiente {
+            border: 1px solid rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.08);
+            border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+            color: #fbbf24; font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -68,6 +75,16 @@
         <h1>Mis eventos<% if (esAdmin) { %> <span style="color:var(--zinc-400); font-weight:400; font-size:0.9rem;">(todos, sos admin)</span><% } %></h1>
         <a class="btn btn-primary" href="/crear-evento">+ Crear evento</a>
     </div>
+
+    <!-- Aviso sutil, no un bloqueo: ya se puede navegar y crear eventos sin el mail
+         verificado, pero sin verificarlo ningún evento propio llega a ser público (ver el
+         banner grande en el panel de cada evento). -->
+    <% if (typeof emailVerificado !== 'undefined' && !emailVerificado) { %>
+        <div class="aviso-mail-pendiente">
+            ✉️ Todavía no confirmaste tu correo electrónico — hacelo para que tus eventos
+            puedan hacerse públicos. Revisá la casilla que te llegó al registrarte.
+        </div>
+    <% } %>
 
     <% if (activos.length === 0 && finalizados.length === 0) { %>
         <p class="vacio">Todavía no creaste ningún evento.</p>

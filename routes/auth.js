@@ -99,10 +99,10 @@ router.post('/login', limitadorAuth, async (req, res) => {
         const passwordOk = await usuariosDb.verificarPassword(usuario, password || '');
         if (!passwordOk) return credencialesInvalidas();
 
-        if (!usuario.email_verificado) {
-            return res.render('login', { error: 'Todavía no confirmaste tu mail. Revisá tu casilla.' });
-        }
-
+        // Ya NO se bloquea el login por mail sin verificar: el usuario puede entrar, navegar
+        // y crear eventos igual. Lo único que depende de verificar el mail es que sus eventos
+        // lleguen a ser públicos (ver eventosDb.eventoEsPublico y el banner en el panel de
+        // cada evento) — acá solo se le muestra un aviso sutil en el dashboard, no un bloqueo.
         req.session.usuarioId = usuario.id;
         req.session.nombre = usuario.nombre;
         req.session.rol = usuario.rol;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de <%= evento.nombre %></title>
+    <title>Panel de <%= evento.nombre %> · TuEntrada</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         :root {
@@ -199,6 +199,15 @@
             color: var(--zinc-300); font-size: 0.85rem;
         }
 
+        /* Banner de "evento no público" — grande y rojo a propósito: no es un detalle menor,
+           es la razón por la que nadie puede comprar entradas todavía. */
+        .banner-no-publico {
+            background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.5);
+            border-radius: 14px; padding: 18px 20px; margin: 18px 0;
+            color: #fecaca; font-size: 0.95rem; line-height: 1.5;
+        }
+        .banner-no-publico strong { display: block; color: #fca5a5; font-size: 1.05rem; margin-bottom: 4px; }
+
         /* Tarjetas de guardias de la app móvil. */
         .lista-guardias { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
         .guardia-card {
@@ -293,6 +302,21 @@
 
     <!-- ===================== PESTAÑA 1: PRINCIPAL ===================== -->
     <section class="tab-panel" id="tab-principal" role="tabpanel">
+        <!-- Banner grande y en rojo: el evento nace PRIVADO y necesita las dos condiciones de
+             eventosDb.eventoEsPublico() para hacerse público. Se muestra el motivo más
+             urgente primero (el mail propio bloquea incluso pedir la acreditación). -->
+        <% if (typeof motivoNoPublico !== 'undefined' && motivoNoPublico === 'email') { %>
+            <div class="banner-no-publico">
+                <strong>🚫 Tu evento no es público.</strong>
+                Falta verificar tu correo electrónico.
+            </div>
+        <% } else if (typeof motivoNoPublico !== 'undefined' && motivoNoPublico === 'acreditacion') { %>
+            <div class="banner-no-publico">
+                <strong>🕓 Tu evento está en revisión.</strong>
+                Será acreditado a la brevedad por un administrador de TuEntrada para hacerse público.
+            </div>
+        <% } %>
+
         <% if (!evento.conectado_mp) { %>
             <div class="conectar-box">
                 <span class="badge-recomendado">Recomendado</span>

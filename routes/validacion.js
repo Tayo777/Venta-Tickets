@@ -81,6 +81,26 @@ router.get('/login-guardia/:eventoId', async (req, res) => {
     res.redirect(`/guardia/${evento.id}`);
 });
 
+// Versión "linda" del link de guardia: /guardias/tuentrada-nombreevento-<token>, en vez de
+// /login-guardia/:eventoId?token=... El token sigue siendo el mismo secreto de siempre
+// (evento.guardia_token, 32 caracteres hex) — acá va pegado al final del slug en vez de en
+// un query param, así que se lo extrae tomando los últimos 32 caracteres del segmento; el
+// slug de adelante es solo cosmético (identifica el evento a simple vista), la seguridad la
+// da el token, verificado igual que siempre contra la DB. /login-guardia sigue andando para
+// no romper links ya repartidos antes de este cambio.
+router.get('/guardias/:slugConToken', async (req, res) => {
+    const token = req.params.slugConToken.slice(-32);
+    if (!/^[0-9a-f]{32}$/i.test(token)) {
+        return res.send(generarPantallaControl('❌ ERROR', 'Link inválido.', '#c0392b'));
+    }
+
+    const evento = await eventosDb.obtenerEventoPorGuardiaToken(token);
+    if (!evento) return res.send(generarPantallaControl('❌ ERROR', 'Link inválido.', '#c0392b'));
+
+    res.cookie(`guardia_${evento.id}`, '1', { maxAge: 86400000 });
+    res.redirect(`/guardia/${evento.id}`);
+});
+
 function esGuardia(req, eventoId) {
     return req.cookies[`guardia_${eventoId}`] === '1';
 }

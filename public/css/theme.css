@@ -74,15 +74,27 @@ a { color: var(--accent-2); }
     z-index: 50;
 }
 
+/* El logo + "TuEntrada" van juntos dentro de un botón con borde, mismo lenguaje visual que
+   .profile-trigger (borde sutil, pill, glow suave al pasar el mouse) — así queda claro que
+   todo el conjunto es clickeable y lleva al inicio, no solo el ícono. */
 .navbar-brand {
     display: flex;
     align-items: center;
     gap: 8px;
     font-weight: 800;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     color: var(--text);
     text-decoration: none;
     letter-spacing: -0.02em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 6px 16px 6px 10px;
+    min-height: 40px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+.navbar-brand:hover { background: var(--bg-elevated-2); border-color: var(--accent); }
+@media (max-width: 480px) {
+    .navbar-brand { padding: 6px 12px 6px 8px; gap: 6px; font-size: 0.98rem; }
 }
 
 /* Logo del navbar: alto fijo, ancho libre (mantiene proporción). min-width reserva lugar

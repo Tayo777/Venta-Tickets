@@ -7,18 +7,22 @@ const ticketsDb = require('../db/tickets');
 const cuponesDb = require('../db/cupones');
 const comprasDb = require('../db/compras');
 const guardiasDb = require('../db/guardias');
+const usuariosDb = require('../db/usuarios');
 const mp = require('../services/mercadopago');
 const { subirImagen, eliminarImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
 const { generarPdfBuffer } = require('../services/pdfEntradas');
-const { requiereLogin, requiereAprobado, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
+const { requiereLogin, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
 const { ZONA_HORARIA } = require('../config/tiempo');
 
 // Guarda el archivo en memoria (no en disco) — se sube a un hosting de imágenes al toque.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
-router.get('/mis-eventos', requiereLogin, async (req, res) => {
+// "/mis-eventos" es el nombre histórico de la ruta (ya repartido en la barra de navegación,
+// bookmarks, etc.); "/dashboard" es el alias semántico que pide el nuevo enrutamiento — las
+// dos apuntan al mismo handler, así ningún link viejo se rompe.
+router.get(['/mis-eventos', '/dashboard'], requiereLogin, async (req, res) => {
     const eventos = req.session.rol === 'admin'
         ? await eventosDb.obtenerTodos()
         : await eventosDb.obtenerEventosDeUsuario(req.session.usuarioId);
@@ -26,10 +30,22 @@ router.get('/mis-eventos', requiereLogin, async (req, res) => {
     // El panel los muestra en dos acordeones separados: los activos se administran normal,
     // los finalizados quedan en solo lectura (ver middleware/auth.js -> eventoEditable).
     const { activos, finalizados } = eventosDb.separarPorEstado(eventos);
-    res.render('mis-eventos', { activos, finalizados, esAdmin: req.session.rol === 'admin' });
+    // El usuario logueado puede tener el mail sin verificar y aun así estar acá (ya no se
+    // bloquea la navegación por eso) — se le muestra un aviso sutil, no un bloqueo, para que
+    // sepa que le falta ese paso.
+    const usuario = await usuariosDb.obtenerPorId(req.session.usuarioId);
+    res.render('mis-eventos', {
+        activos, finalizados, esAdmin: req.session.rol === 'admin',
+        emailVerificado: Boolean(usuario && usuario.email_verificado)
+    });
 });
 
-router.get('/crear-evento', requiereLogin, requiereAprobado, (req, res) => {
+// Crear un evento ya NO requiere estar "aprobado" ni tener el mail verificado — cualquier
+// usuario logueado puede crear el suyo. Lo que antes bloqueaba la creación ahora solo
+// determina si el evento sale público o no (ver eventosDb.eventoEsPublico y el banner en
+// datosPanel más abajo). "/crear-evento" es el nombre histórico; "/eventos/crear" el alias
+// semántico nuevo — mismo handler para los dos.
+router.get(['/crear-evento', '/eventos/crear'], requiereLogin, (req, res) => {
     res.render('crear-evento', { error: null, usuarioLogueado: true });
 });
 
@@ -51,7 +67,7 @@ function leerTiposDinamicos(body) {
     }));
 }
 
-router.post('/crear-evento', requiereLogin, requiereAprobado, upload.single('flyer'), async (req, res) => {
+router.post(['/crear-evento', '/eventos/crear'], requiereLogin, upload.single('flyer'), async (req, res) => {
     const { nombre, descripcion, fecha, fecha_cierre_ventas,
             lugar_nombre, direccion, ciudad, maps_url } = req.body;
 
@@ -257,12 +273,13 @@ router.post('/eventos/:id/eliminar', requiereLogin, esDueñoOAdmin, puedeElimina
 // Panel privado del evento: solo el dueño o el admin pueden entrar. Acá está el link de
 // guardia (encriptado, uno por evento) y el listado de ventas — nada de esto es público.
 async function datosPanel(evento, extras = {}) {
-    const [resumen, ventas, guardias, tipos, desglosePorTipo] = await Promise.all([
+    const [resumen, ventas, guardias, tipos, desglosePorTipo, creador] = await Promise.all([
         eventosDb.resumenVentas(evento.id),
         eventosDb.listadoVentas(evento.id),
         guardiasDb.obtenerGuardiasDeEvento(evento.id),
         tiposEntradaDb.obtenerTiposPorEvento(evento.id),
-        eventosDb.desgloseVentasPorTipo(evento.id)
+        eventosDb.desgloseVentasPorTipo(evento.id),
+        usuariosDb.obtenerPorId(evento.usuario_id)
     ]);
     // La recaudacion la calcula resumenVentas() sumando precio_pagado (el precio HISTÓRICO
     // real de cada ticket, congelado al venderse — ver db/tickets.js), no el precio actual
@@ -270,15 +287,31 @@ async function datosPanel(evento, extras = {}) {
     // evento, las ventas viejas siguen contando lo que efectivamente se cobró.
     const recaudacion = resumen.recaudacion;
 
+    // Motivo por el que el evento todavía NO es público (null si ya lo es). Se evalúa en este
+    // orden porque es el orden en que un organizador nuevo los va resolviendo: primero su
+    // propio mail, después la acreditación del admin (que ni tiene sentido pedir si el mail
+    // sigue sin verificar).
+    const emailCreadorVerificado = Boolean(creador && creador.email_verificado);
+    let motivoNoPublico = null;
+    if (!emailCreadorVerificado) motivoNoPublico = 'email';
+    else if (!evento.is_admin_accredited) motivoNoPublico = 'acreditacion';
+
     return {
         evento, resumen, ventas, guardias, tipos, recaudacion, desglosePorTipo,
+        motivoNoPublico,
         esAdmin: extras.esAdmin === true,
         // Si está finalizado, la vista oculta/deshabilita todo lo que modifica (el servidor
         // igual lo bloquea con eventoEditable, esto es solo para no ofrecer botones muertos).
         soloLectura: eventosDb.eventoFinalizado(evento),
         urlConexionMP: mp.urlConexionOAuth(evento.token_informe),
-        urlPublica: `${BASE_URL}/evento/${evento.id}`,
-        urlGuardia: `${BASE_URL}/login-guardia/${evento.id}?token=${evento.guardia_token}`,
+        // URL pública con el slug ("tuentrada-nombre-del-evento"); si por algún motivo un
+        // evento viejo todavía no tiene slug (no debería pasar, hay backfill en db/pool.js),
+        // se cae al id numérico para no mostrar una URL rota en el panel.
+        urlPublica: `${BASE_URL}/evento/${evento.slug || evento.id}`,
+        // Formato pedido: /guardias/tuentrada-nombreevento-<token>. El slug es solo cosmético
+        // acá — la seguridad la sigue dando el guardia_token de siempre, que es lo único que
+        // el servidor valida (ver routes/validacion.js).
+        urlGuardia: `${BASE_URL}/guardias/${evento.slug || 'evento'}-${evento.guardia_token}`,
         conectado: false, cortesia: false, reenviado: false, filasAsignadas: null,
         errorGuardia: null,
         ...extras
@@ -293,6 +326,13 @@ router.get('/eventos/:id', requiereLogin, esDueñoOAdmin, async (req, res) => {
         reenviado: req.query.reenviado === '1',
         filasAsignadas: req.query.filas_ok || null
     }));
+});
+
+// Alias semántico: el panel del evento ya tiene una pestaña "Estadísticas" (ver
+// views/evento-detalle.ejs), esta ruta manda directo ahí vía el hash que esa pestaña usa
+// para saber cuál mostrar al cargar.
+router.get('/eventos/:id/estadisticas', requiereLogin, esDueñoOAdmin, (req, res) => {
+    res.redirect(`/eventos/${req.evento.id}#estadisticas`);
 });
 
 // Marca/desmarca el evento como finalizado a mano. Un evento con fecha pasada ya cuenta como

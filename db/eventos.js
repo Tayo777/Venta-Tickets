@@ -1,9 +1,51 @@
 const crypto = require('crypto');
 const { pool } = require('./pool');
+const { generarSlugBase } = require('../services/slug');
 
+// Eventos que se listan en la venta pública (/eventos). Tienen que cumplir TODO:
+//   - activo = 1 (ya conectó Mercado Pago).
+//   - is_admin_accredited = 1: un admin lo acreditó a mano (ver routes/admin.js).
+//   - el creador tiene el mail verificado.
+// Sin las últimas dos, el evento existe y su dueño lo puede administrar (ver obtenerEvento),
+// pero queda PRIVADO: no aparece acá ni es accesible por su link público (ver routes/landing.js).
 async function obtenerEventosActivos() {
-    const [filas] = await pool.query('SELECT * FROM eventos WHERE activo = 1 ORDER BY id DESC');
+    const [filas] = await pool.query(
+        `SELECT e.* FROM eventos e
+         JOIN usuarios u ON u.id = e.usuario_id
+         WHERE e.activo = 1 AND e.is_admin_accredited = 1 AND u.email_verificado = 1
+         ORDER BY e.id DESC`
+    );
     return filas;
+}
+
+// true si el evento cumple las dos condiciones de visibilidad pública (acreditado por un
+// admin + creador con mail verificado) — se usa para decidir si mostrarlo en /evento/:slug y
+// para armar el banner de "por qué todavía no es público" en el panel del organizador.
+// `emailVerificadoCreador` viaja aparte porque no siempre está en la fila de `eventos` (hay
+// que traerlo con un JOIN a usuarios).
+function eventoEsPublico(evento, emailVerificadoCreador) {
+    return Boolean(evento.is_admin_accredited) && Boolean(emailVerificadoCreador);
+}
+
+// Arma un slug único con el formato pedido: "tuentrada-nombre-del-evento". Si ya existe uno
+// igual (dos eventos con el mismo nombre, por ejemplo) le agrega "-2", "-3", etc. hasta
+// encontrar uno libre — la columna eventos.slug es UNIQUE, así que esto evita el ER_DUP_ENTRY
+// en vez de dejar que la INSERT falle.
+async function generarSlugUnico(nombre) {
+    const base = `tuentrada-${generarSlugBase(nombre) || 'evento'}`;
+    let candidato = base;
+    let sufijo = 2;
+    while (true) {
+        const [filas] = await pool.query('SELECT id FROM eventos WHERE slug = ?', [candidato]);
+        if (filas.length === 0) return candidato;
+        candidato = `${base}-${sufijo}`;
+        sufijo++;
+    }
+}
+
+async function obtenerEventoPorSlug(slug) {
+    const [filas] = await pool.query('SELECT * FROM eventos WHERE slug = ?', [slug]);
+    return filas[0] || null;
 }
 
 // Eventos con Mercado Pago conectado (tienen access_token propio), para el job de
@@ -47,17 +89,29 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, fl
     // Secreto de firma HMAC PROPIO de este evento (ver services/firmaTickets.js) — cada
     // evento tiene el suyo, generado acá, nunca compartido entre eventos ni con un .env global.
     const qrSecret = crypto.randomBytes(32).toString('hex');
+    // Slug público ("tuentrada-nombre-del-evento") — se resuelve ANTES del INSERT (necesita el
+    // nombre, que ya tenemos, y no depende del id todavía inexistente).
+    const slug = await generarSlugUnico(nombre);
+    // Nace PRIVADO a propósito (is_admin_accredited = 0 por default de columna): recién se
+    // hace público cuando un admin lo acredita Y el creador verificó su mail — ver
+    // eventoEsPublico() y el banner en routes/organizador.js -> datosPanel().
     const [resultado] = await pool.query(
         `INSERT INTO eventos
-            (usuario_id, nombre, descripcion, fecha, flyer_url, flyer_delete_url, valor_entrada, tarifa_online, token_informe,
+            (usuario_id, nombre, descripcion, fecha, flyer_url, flyer_delete_url, slug, valor_entrada, tarifa_online, token_informe,
              guardia_token, qr_secret, organizer_email, comision_mp_pct, comision_propia_pct, fecha_cierre_ventas,
              lugar_nombre, direccion, ciudad, maps_url, activo, conectado_mp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
-        [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', flyerDeleteUrl || null,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+        [usuarioId, nombre, descripcion || null, fecha || null, flyerUrl || '/flyer.png', flyerDeleteUrl || null, slug,
          valorEntrada, tarifaOnline, token, guardiaToken, qrSecret, organizerEmail || null, comisionMpPct,
          comisionPropiaPct, fechaCierreVentas || null, lugarNombre || null, direccion || null, ciudad || null, mapsUrl || null]
     );
-    return { id: resultado.insertId, token };
+    return { id: resultado.insertId, token, slug };
+}
+
+// El admin acredita (o desacredita) un evento a mano desde /admin — es una de las dos
+// condiciones para que se haga público (ver eventoEsPublico).
+async function acreditarEvento(id, acreditado) {
+    await pool.query('UPDATE eventos SET is_admin_accredited = ? WHERE id = ?', [acreditado ? 1 : 0, id]);
 }
 
 async function editarEvento(id, { nombre, descripcion, fecha, flyerUrl, flyerDeleteUrl, valorEntrada, fechaCierreVentas,
@@ -229,7 +283,7 @@ async function listadoVentas(eventoId) {
 
 module.exports = {
     obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
-    obtenerEventoPorToken, obtenerEventoPorGuardiaToken, crearEvento, editarEvento, eliminarEvento,
+    obtenerEventoPorToken, obtenerEventoPorGuardiaToken, obtenerEventoPorSlug, crearEvento, editarEvento, eliminarEvento,
     conectarMercadoPago, toggleActivo, resumenVentas, desgloseVentasPorTipo, listadoVentas, ventaVencidaPorTiempo,
-    eventoFinalizado, separarPorEstado, marcarFinalizado
+    eventoFinalizado, separarPorEstado, marcarFinalizado, generarSlugUnico, acreditarEvento, eventoEsPublico
 };

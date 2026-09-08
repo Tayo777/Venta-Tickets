@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= evento.nombre %></title>
+    <title><%= evento.nombre %> · TuEntrada</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         .contenedor { max-width: 600px; margin: 0 auto; padding: 30px 20px; }
@@ -77,6 +77,14 @@
     <%- include('partials/navbar') %>
     <div class="contenedor">
     <a class="volver" href="/eventos">&larr; Ver todos los eventos</a>
+
+    <% if (typeof vistaPreviaPrivada !== 'undefined' && vistaPreviaPrivada) { %>
+        <div class="alerta-error" style="margin-bottom:15px;">
+            👁️ <strong>Vista previa privada</strong> — este evento todavía no es público, solo vos
+            (como dueño o admin) podés ver esta página. Andá al panel del evento para ver qué falta.
+        </div>
+    <% } %>
+
     <!-- El flyer va arriba de todo, como cabecera del evento: es lo primero que ve el
          comprador al entrar, antes incluso del nombre. onerror cubre el caso de una URL de
          flyer rota (hosting externo caído/borrado) para no mostrar el ícono de imagen rota. -->
