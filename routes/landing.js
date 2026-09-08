@@ -70,7 +70,11 @@ router.get('/evento/:slug', async (req, res) => {
 
         res.render('evento', {
             evento, tipos: tiposConCupo, usuarioLogueado: Boolean(req.session.usuarioId),
-            vistaPreviaPrivada: !esPublico
+            vistaPreviaPrivada: !esPublico,
+            // El navegador necesita el factor del gross-up para recalcular el total cuando se
+            // aplica un cupón (el recargo se calcula sobre el precio YA descontado). Viaja
+            // desde acá para que la fórmula viva en un solo lugar (services/mercadopago.js).
+            factorRecargo: mp.factorRecargo(evento)
         });
     } catch (error) {
         console.error('Error al cargar evento:', error);

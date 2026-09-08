@@ -57,6 +57,13 @@
         }
         .check-tipo:hover { border-color: var(--accent); }
         .check-tipo input { width: auto; margin: 0; }
+
+        /* Cargo por servicio: texto informativo, NO un campo — el organizador no lo edita. */
+        .calculo-servicio {
+            margin: 12px 0; padding-top: 10px; border-top: 1px dashed var(--border);
+            font-size: 0.8rem; color: var(--text-muted);
+        }
+        .calculo-servicio strong { color: var(--accent-2); }
     </style>
 </head>
 <body>
@@ -170,14 +177,19 @@
                     <input type="text" name="nombre" placeholder="Ej: VIP Early Bird" required>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                    <label>Precio ($)</label>
-                    <input type="number" name="precio" min="0" step="1" required>
+                    <label>Precio base ($)</label>
+                    <input type="number" name="precio" min="0" step="1" required class="precio-base">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Cupo</label>
                     <input type="number" name="cupo_total" min="1" step="1" required>
                 </div>
             </div>
+            <!-- Solo lectura: no tiene name, no se envía y no se puede editar. -->
+            <p class="calculo-servicio">
+                Recibes exactamente: <strong>$<span class="monto-recibe">0.00</span></strong>.
+                El comprador absorbe los costos de servicio y pasarela de pagos.
+            </p>
             <div class="form-group">
                 <label>Descripción <span class="opcional">(opcional, pero muy recomendable)</span></label>
                 <input type="text" name="descripcion" placeholder="Qué incluye: barra libre, acceso al pit, etc.">
@@ -195,14 +207,18 @@
                                 <input type="text" name="nombre" value="<%= t.nombre %>" required>
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
-                                <label>Precio ($)</label>
-                                <input type="number" name="precio" value="<%= Number(t.precio) %>" min="0" step="1" required>
+                                <label>Precio base ($)</label>
+                                <input type="number" name="precio" value="<%= Number(t.precio) %>" min="0" step="1" required class="precio-base">
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
                                 <label>Cupo</label>
                                 <input type="number" name="cupo_total" value="<%= t.cupo_total %>" min="1" step="1" required>
                             </div>
                         </div>
+                        <p class="calculo-servicio">
+                            Recibes exactamente: <strong>$<span class="monto-recibe">0.00</span></strong>.
+                            El comprador absorbe los costos de servicio y pasarela de pagos.
+                        </p>
                         <div class="form-group">
                             <label>Descripción <span class="opcional">(opcional)</span></label>
                             <input type="text" name="descripcion" value="<%= t.descripcion || '' %>" placeholder="Qué incluye esta entrada">
@@ -305,5 +321,32 @@
         <% } %>
     </div>
     </div>
+
+    <script>
+        // Refleja, mientras el organizador escribe el precio base, lo que va a recibir él: el
+        // precio base EXACTO. No hay ninguna cuenta que hacer acá — los costos (nuestro
+        // servicio + la comisión de la pasarela) los absorbe el comprador, y el recargo lo
+        // calcula el servidor (services/mercadopago.js -> tarifaPorEntrada) al mostrar la
+        // pantalla de compra.
+        (function () {
+            function recalcular(form) {
+                const inputPrecio = form.querySelector('.precio-base');
+                const salida = form.querySelector('.monto-recibe');
+                if (!inputPrecio || !salida) return;
+
+                salida.textContent = (Number(inputPrecio.value) || 0).toFixed(2);
+            }
+
+            // Delegado en el document: hay un formulario por tipo de entrada (más el de alta),
+            // así funciona para todos sin enganchar un listener a cada uno.
+            document.addEventListener('input', (e) => {
+                if (!e.target.classList.contains('precio-base')) return;
+                recalcular(e.target.closest('form'));
+            });
+
+            // Primer pintado: los tipos ya existentes vienen con su precio precargado.
+            document.querySelectorAll('.precio-base').forEach((input) => recalcular(input.closest('form')));
+        })();
+    </script>
 </body>
 </html>

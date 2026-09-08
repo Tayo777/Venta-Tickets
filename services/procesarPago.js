@@ -83,11 +83,11 @@ async function procesarPagoAprobado({ evento, lineas, paymentId, email, nombreAp
         // Consultamos la comisión REAL que cobró Mercado Pago en esta transacción puntual
         // (recién ahora se puede saber; antes del pago solo teníamos una estimación).
         try {
+            // Se guarda solo como dato para los informes: NO retroalimenta el precio. El
+            // porcentaje del gross-up es fijo (config/env.js -> MP_COMISION_PCT) justamente
+            // para que el precio publicado no se mueva solo entre una venta y la siguiente.
             const { comisionMpReal, montoNeto } = await mp.obtenerFeeReal(evento.mp_access_token, paymentId);
             await comprasDb.guardarComisionReal(paymentId, { comisionMpReal, montoNeto });
-            if (comisionMpReal !== null) {
-                await comprasDb.ajustarTarifaConDatosReales(evento.id);
-            }
         } catch (feeError) {
             console.error('No se pudo consultar la comisión real de Mercado Pago:', feeError.message);
         }

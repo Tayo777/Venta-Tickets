@@ -21,37 +21,16 @@ async function guardarComisionReal(paymentId, { comisionMpReal, montoNeto }) {
     );
 }
 
-// Afina comision_mp_pct con el PROMEDIO de comisiones reales ya observadas en las ventas de
-// este evento (en vez de quedarse con la estimación genérica). Se llama después de cada venta,
-// así que a partir de la 2da entrada vendida los precios ya reflejan datos reales de ESE
-// evento, y se va afinando solo.
+// NOTA: acá vivía ajustarTarifaConDatosReales(), que promediaba la comisión real observada y
+// la escribía en eventos.comision_mp_pct. Se eliminó a propósito: ese porcentaje alimenta el
+// gross-up del precio, así que recalcularlo después de cada venta hacía que el precio que ve
+// el comprador se moviera solo (un evento publicado a $1111 pasaba a $1089 sin que nadie lo
+// tocara). Ahora el porcentaje es una constante fija (config/env.js -> MP_COMISION_PCT), que
+// además se congela por evento al crearlo.
 //
-// Ojo: este porcentaje es AHORA el que fija la tarifa de cada entrada (ver
-// mp.tarifaPorEntrada), no un dato meramente informativo como antes. eventos.tarifa_online
-// pasó a ser solo un valor de referencia sobre el precio base del evento, que se guarda para
-// mostrarlo — el checkout no lo usa más.
-async function ajustarTarifaConDatosReales(eventoId) {
-    const [[evento]] = await pool.query('SELECT valor_entrada, comision_propia_pct FROM eventos WHERE id = ?', [eventoId]);
-    if (!evento) return;
-
-    // El porcentaje real de Mercado Pago se mide contra el MONTO EFECTIVAMENTE COBRADO de cada
-    // compra (monto_total), no contra "cantidad x precio de referencia": desde que una compra
-    // puede mezclar varios tipos de entrada a distinto precio (y llevar cupón), esa cuenta
-    // vieja ya no representaba lo que se cobró y desviaba la estimación.
-    const [[{ pctPromedio, muestras }]] = await pool.query(
-        `SELECT AVG(comision_mp_real / monto_total) * 100 AS pctPromedio, COUNT(*) AS muestras
-         FROM compras WHERE evento_id = ? AND comision_mp_real IS NOT NULL AND monto_total > 0`,
-        [eventoId]
-    );
-
-    if (!muestras || pctPromedio === null) return; // todavía no hay datos reales, se sigue usando la estimación
-
-    const comisionMpPct = Number(pctPromedio);
-    const tarifaOnline = Math.round(Number(evento.valor_entrada) * (comisionMpPct + Number(evento.comision_propia_pct)) / 100);
-
-    await pool.query('UPDATE eventos SET comision_mp_pct = ?, tarifa_online = ? WHERE id = ?', [comisionMpPct, tarifaOnline, eventoId]);
-    console.log(`Tarifa del evento ${eventoId} ajustada con datos reales: ${comisionMpPct.toFixed(2)}% MP (${muestras} venta/s con datos)`);
-}
+// El dato real no se pierde: guardarComisionReal() sigue guardando por compra la comisión
+// exacta que cobró Mercado Pago (compras.comision_mp_real) y el neto recibido, que es la
+// fuente correcta para los informes.
 
 // Ventas agrupadas por día, para el gráfico de líneas del panel del organizador. Se agrupa
 // sobre `compras` (una fila por PAGO) y no sobre `tickets` (una fila por entrada individual)
@@ -69,5 +48,5 @@ async function obtenerVentasPorFecha(eventoId) {
 }
 
 module.exports = {
-    yaProcesada, registrarCompra, guardarComisionReal, ajustarTarifaConDatosReales, obtenerVentasPorFecha
+    yaProcesada, registrarCompra, guardarComisionReal, obtenerVentasPorFecha
 };

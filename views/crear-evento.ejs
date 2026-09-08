@@ -38,6 +38,13 @@
             padding: 9px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-bottom: 20px;
         }
         .btn-agregar-tipo:hover { border-color: var(--accent); color: var(--accent-2); }
+
+        /* Cargo por servicio: texto informativo, NO un campo — el organizador no lo edita. */
+        .calculo-servicio {
+            margin: 12px 0 0; padding-top: 12px; border-top: 1px dashed var(--border);
+            font-size: 0.82rem; color: var(--text-muted);
+        }
+        .calculo-servicio strong { color: var(--accent-2); }
     </style>
 </head>
 <body>
@@ -144,17 +151,35 @@
                     </div>
                     <div class="fila-2">
                         <div class="form-group" style="margin-bottom:0;">
-                            <label>Precio ($)</label>
-                            <input type="number" step="1" min="1" name="tipo_precio[]" value="${precio}" required>
+                            <label>Precio base ($)</label>
+                            <input type="number" step="1" min="1" name="tipo_precio[]" value="${precio}" required class="precio-base">
                         </div>
                         <div class="form-group" style="margin-bottom:0;">
                             <label>Cupo disponible</label>
                             <input type="number" step="1" min="1" name="tipo_cupo[]" value="${cupo}" required>
                         </div>
                     </div>
+                    <!-- Solo lectura: no es un campo del formulario (no tiene name, no se
+                         envía y no se puede editar). Al organizador solo le importa un número,
+                         el que recibe él — todos los costos (nuestro servicio + la comisión de
+                         la pasarela) los absorbe el comprador vía gross-up, ver
+                         services/mercadopago.js -> tarifaPorEntrada. -->
+                    <p class="calculo-servicio">
+                        Recibes exactamente: <strong>$<span class="monto-recibe">0.00</span></strong>.
+                        El comprador absorbe los costos de servicio y pasarela de pagos.
+                    </p>
                 `;
                 contenedor.appendChild(bloque);
                 actualizarBotonesQuitar();
+                recalcularServicio(bloque);
+            }
+
+            // El organizador recibe EXACTAMENTE el precio base que escribe: no hay ninguna
+            // cuenta que hacer acá, justamente porque los costos los absorbe el comprador
+            // (el recargo lo calcula el servidor al mostrar la pantalla de compra).
+            function recalcularServicio(bloque) {
+                const precioBase = Number(bloque.querySelector('.precio-base').value) || 0;
+                bloque.querySelector('.monto-recibe').textContent = precioBase.toFixed(2);
             }
 
             // El "×" solo se ve si hay más de un bloque — no tiene sentido dejar sin ningún
@@ -172,6 +197,13 @@
                 if (!boton) return;
                 boton.closest('.tipo-bloque').remove();
                 actualizarBotonesQuitar();
+            });
+
+            // Delegado en el contenedor: sirve para los bloques que ya están y para los que se
+            // agreguen después con el "+", sin tener que enganchar un listener a cada input.
+            contenedor.addEventListener('input', (e) => {
+                if (!e.target.classList.contains('precio-base')) return;
+                recalcularServicio(e.target.closest('.tipo-bloque'));
             });
 
             btnAgregar.addEventListener('click', () => crearBloque());

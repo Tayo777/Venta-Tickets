@@ -36,6 +36,7 @@
         .tipo-info h4 { margin: 0 0 3px; font-size: 1rem; }
         .tipo-info .precio { color: var(--accent-2); font-weight: 700; font-size: 0.95rem; }
         .tipo-info .tarifa-unitaria { color: var(--text-faint); font-size: 0.75rem; margin-left: 6px; }
+        .tipo-info .etiqueta-precio { color: var(--text-muted); font-weight: 500; font-size: 0.78rem; }
         .tipo-info .desc { color: var(--text-muted); font-size: 0.82rem; margin: 5px 0 0; }
         .tipo-info .stock { color: var(--text-faint); font-size: 0.75rem; margin: 5px 0 0; }
 
@@ -136,8 +137,12 @@
                     <div class="tipo-card card">
                         <div class="tipo-info">
                             <h4><%= t.nombre %></h4>
-                            <span class="precio">$<%= Number(t.precio) %></span>
-                            <span class="tarifa-unitaria">+ $<%= t.tarifa %> de servicio</span>
+                            <span class="precio">$<%= Number(t.precio) %> <span class="etiqueta-precio">(Entrada)</span></span>
+                            <!-- Un solo recargo, ya combinado: incluye nuestro cargo por servicio
+                                 Y la comisión de Mercado Pago absorbida (ver el gross-up en
+                                 services/mercadopago.js -> tarifaPorEntrada). Al comprador no le
+                                 sirve verlos separados: lo que le importa es cuánto paga de más. -->
+                            <span class="tarifa-unitaria">+ $<%= t.tarifa %> (Cargo por servicio y costo financiero)</span>
                             <% if (t.descripcion) { %><p class="desc"><%= t.descripcion %></p><% } %>
                             <p class="stock">Quedan <%= t.cupo_disponible %></p>
                         </div>
@@ -175,7 +180,7 @@
             <span class="detalle-tipos" id="detalleTipos">Todavía no elegiste entradas.</span>
             <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal">0.00</span></span></p>
             <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento">0.00</span></span></p>
-            <p><span>Tarifa online</span> <span>$<span id="valTarifa">0.00</span></span></p>
+            <p><span>Cargo por servicio y costo financiero</span> <span>$<span id="valTarifa">0.00</span></span></p>
             <hr style="border-color:var(--border);">
             <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar">0.00</span></span></p>
         </div>
@@ -186,6 +191,14 @@
     <script>
         const eventoId = <%= evento.id %>;
         const MAX_ENTRADAS = 5; // tope por compra sumando TODOS los tipos (igual se valida en el server)
+        // Factor del gross-up (precio · 1.04 / (1 − comisión MP)), calculado en el servidor y
+        // congelado por evento. Con él, el total que se muestra acá es exactamente el que
+        // cobra el backend — incluso con un cupón aplicado.
+        const FACTOR_RECARGO = <%- JSON.stringify(factorRecargo) %>;
+
+        // Mismos redondeos que services/mercadopago.js, para que los dos lados den idéntico.
+        const redondear2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+        const redondear2Arriba = (n) => Math.ceil(n * 100 - Number.EPSILON) / 100;
         let cuponAplicado = null; // { codigo, tipo, valor, descuento } — null si no hay ninguno vigente
 
         document.getElementById('maxEntradas').textContent = MAX_ENTRADAS;
@@ -206,29 +219,33 @@
         function recalcular() {
             const carrito = carritoActual();
             const cantidadTotal = carrito.reduce((acc, i) => acc + i.cantidad, 0);
-            const subtotal = carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
-            // Igual criterio que el servidor (mp.tarifaPorEntrada): la tarifa sale del precio
-            // de cada tipo, no de un monto fijo por entrada.
-            const tarifaTotal = carrito.reduce((acc, i) => acc + i.tarifa * i.cantidad, 0);
+            const subtotal = redondear2(carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0));
 
             document.getElementById('detalleTipos').textContent = carrito.length === 0
                 ? 'Todavía no elegiste entradas.'
                 : carrito.map((i) => `${i.cantidad}x ${i.nombre}`).join(' · ');
 
             document.getElementById('valSubtotal').textContent = subtotal.toFixed(2);
-            document.getElementById('valTarifa').textContent = tarifaTotal.toFixed(2);
 
             const filaDescuento = document.getElementById('filaDescuento');
             let subtotalConDescuento = subtotal;
             if (cuponAplicado && cantidadTotal > 0) {
-                subtotalConDescuento = Math.max(subtotal - cuponAplicado.descuento, 0);
+                subtotalConDescuento = redondear2(Math.max(subtotal - cuponAplicado.descuento, 0));
                 document.getElementById('valDescuento').textContent = cuponAplicado.descuento.toFixed(2);
                 filaDescuento.hidden = false;
             } else {
                 filaDescuento.hidden = true;
             }
 
-            document.getElementById('totalPagar').textContent = (subtotalConDescuento + tarifaTotal).toFixed(2);
+            // MISMA secuencia que el servidor (mp.calcularTotales): primero se descuenta el
+            // cupón y recién sobre ese número se aplica el gross-up, una sola vez para todo el
+            // carrito. Si acá se sumaran los recargos unitarios (como antes), con un cupón
+            // aplicado este total no coincidiría con el que se termina cobrando.
+            const total = redondear2Arriba(subtotalConDescuento * FACTOR_RECARGO);
+            const tarifaTotal = redondear2(total - subtotalConDescuento);
+
+            document.getElementById('valTarifa').textContent = tarifaTotal.toFixed(2);
+            document.getElementById('totalPagar').textContent = total.toFixed(2);
 
             // El botón de pago solo se habilita si hay AL MENOS una entrada elegida.
             document.getElementById('btnPagar').disabled = cantidadTotal === 0;

@@ -54,6 +54,11 @@ app.locals.formatearFechaHora = (fecha) => {
 // lugares distintos, y para cambiarlo en un solo lugar cuando haya Play Store.
 app.locals.URL_APK_GUARDIAS = 'https://drive.google.com/file/d/1GqYema6b3oEHXcrWCLdWP3YH8oOh1l2i/view?usp=sharing';
 
+// Porcentaje del cargo por servicio, disponible en TODAS las vistas. Sale del mismo lugar que
+// usa el cálculo real (services/mercadopago.js) para que ninguna pantalla muestre un "4%"
+// escrito a mano que después no coincida con lo que se cobra.
+app.locals.TARIFA_SERVICIO_PCT = env.TARIFA_SERVICIO_PCT;
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
