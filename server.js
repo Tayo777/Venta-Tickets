@@ -88,6 +88,9 @@ app.use(session({
 app.use((req, res, next) => {
     res.locals.usuarioLogueado = Boolean(req.session.usuarioId);
     res.locals.usuarioNombre = req.session.nombre || null;
+    // Solo decide qué atajos de administración se DIBUJAN (el link del navbar, el botón de
+    // acreditar). Las rutas de admin están protegidas aparte por el middleware isAdmin.
+    res.locals.esAdminLogueado = Boolean(req.session.esAdmin || req.session.rol === 'admin');
     next();
 });
 

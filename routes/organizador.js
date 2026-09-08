@@ -26,6 +26,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 
 // feo que funciona a uno roto — y esDueñoOAdmin resuelve las dos formas.
 const urlPanel = (evento) => `/eventos/${evento.slug || evento.id}`;
 
+// Mismo criterio que el navbar (res.locals.esAdminLogueado en server.js). Solo se usa para
+// decidir qué se muestra; el permiso real lo verifica el middleware isAdmin contra la base.
+const esAdminEnSesion = (req) => Boolean(req.session.esAdmin || req.session.rol === 'admin');
+
 // "/mis-eventos" es el nombre histórico de la ruta (ya repartido en la barra de navegación,
 // bookmarks, etc.); "/dashboard" es el alias semántico que pide el nuevo enrutamiento — las
 // dos apuntan al mismo handler, así ningún link viejo se rompe.
@@ -42,7 +46,7 @@ router.get(['/mis-eventos', '/dashboard'], requiereLogin, async (req, res) => {
     // sepa que le falta ese paso.
     const usuario = await usuariosDb.obtenerPorId(req.session.usuarioId);
     res.render('mis-eventos', {
-        activos, finalizados, esAdmin: req.session.rol === 'admin',
+        activos, finalizados, esAdmin: esAdminEnSesion(req),
         emailVerificado: Boolean(usuario && usuario.email_verificado)
     });
 });
@@ -336,7 +340,7 @@ async function datosPanel(evento, extras = {}) {
 
 router.get('/eventos/:slug', requiereLogin, esDueñoOAdmin, async (req, res) => {
     res.render('evento-detalle', await datosPanel(req.evento, {
-        esAdmin: req.session.rol === 'admin',
+        esAdmin: esAdminEnSesion(req),
         conectado: req.query.conectado === '1',
         cortesia: req.query.cortesia === '1',
         reenviado: req.query.reenviado === '1',
@@ -385,7 +389,7 @@ router.post('/eventos/:slug/guardias', requiereLogin, esDueñoOAdmin, eventoEdit
     const filaNum = parseInt(fila_asignada);
 
     const rerenderConError = async (mensaje) => {
-        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje, tabInicial: 'guardias' }));
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: esAdminEnSesion(req), errorGuardia: mensaje, tabInicial: 'guardias' }));
     };
 
     if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');
@@ -409,7 +413,7 @@ router.post('/eventos/:slug/guardias/:guardiaId/editar', requiereLogin, esDueño
     const filaNum = parseInt(fila_asignada);
 
     const rerenderConError = async (mensaje) => {
-        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: req.session.rol === 'admin', errorGuardia: mensaje, tabInicial: 'guardias' }));
+        res.render('evento-detalle', await datosPanel(req.evento, { esAdmin: esAdminEnSesion(req), errorGuardia: mensaje, tabInicial: 'guardias' }));
     };
 
     if (!email || !String(email).trim()) return rerenderConError('Ingresá el email del guardia.');

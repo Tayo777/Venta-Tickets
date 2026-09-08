@@ -36,6 +36,13 @@ router.get('/admin/acreditar/:slug', isAdmin, async (req, res) => {
         await eventosDb.acreditarEvento(evento.id, true);
         console.log(`[admin] Evento "${evento.nombre}" (${evento.slug}) acreditado por ${req.usuarioAdmin.email}.`);
 
+        // A dónde volver. Se acepta SOLO la palabra "panel", nunca una URL suelta del query
+        // string: si redirigiéramos a lo que venga en ?volver=, cualquiera podría armar un
+        // link /admin/acreditar/...?volver=https://sitio-falso y usar nuestro dominio como
+        // trampolín (open redirect). El destino se arma acá, a partir del evento.
+        if (req.query.volver === 'panel') {
+            return res.redirect(`/eventos/${evento.slug || evento.id}`);
+        }
         res.redirect(`/admin/dashboard?acreditado=${encodeURIComponent(evento.nombre)}`);
     } catch (error) {
         console.error('Error al acreditar el evento:', error);

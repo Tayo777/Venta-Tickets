@@ -38,6 +38,7 @@ async function isAdmin(req, res, next) {
         // La sesión se mantiene al día con lo que dice la base, para que el resto de la app
         // (el navbar, requiereAdmin) no siga viendo un rol viejo.
         req.session.rol = usuario.rol;
+        req.session.esAdmin = true;
         req.usuarioAdmin = usuario;
         next();
     } catch (error) {

@@ -19,6 +19,12 @@
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
                     <a href="/mis-eventos">Mis eventos</a>
+                    <% if (typeof esAdminLogueado !== 'undefined' && esAdminLogueado) { %>
+                        <%# Solo se renderiza para administradores. Es un atajo visual: la ruta
+                            está protegida por el middleware isAdmin, que verifica contra la
+                            base — que este link no exista no es lo que da la seguridad. %>
+                        <a href="/admin/dashboard">Panel de Administración</a>
+                    <% } %>
                     <a href="/perfil">Editar perfil</a>
                     <hr>
                     <form action="/logout" method="POST">

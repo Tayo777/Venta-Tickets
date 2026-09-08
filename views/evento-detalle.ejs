@@ -208,6 +208,25 @@
         }
         .banner-no-publico strong { display: block; color: #fca5a5; font-size: 1.05rem; margin-bottom: 4px; }
 
+        /* Atajo de administrador. Va en violeta (acción), no en rojo (advertencia), para que
+           se lea distinto del banner de "no es público" que suele estar justo arriba. */
+        .acreditar-admin {
+            display: flex; justify-content: space-between; align-items: center; gap: 16px;
+            flex-wrap: wrap; margin: 18px 0; padding: 18px 20px; border-radius: 14px;
+            background: rgba(139, 92, 246, 0.10); border: 1px solid rgba(139, 92, 246, 0.45);
+        }
+        .acreditar-admin strong { color: var(--accent-2); font-size: 0.95rem; }
+        .acreditar-admin p { margin: 4px 0 0; color: var(--zinc-300); font-size: 0.85rem; }
+        .btn-acreditar-admin {
+            flex-shrink: 0; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: white; text-decoration: none; font-weight: 700; font-size: 0.9rem;
+            padding: 12px 24px; border-radius: 999px;
+            transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+        .btn-acreditar-admin:hover { box-shadow: 0 0 22px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
+        .btn-acreditar-admin:active { transform: scale(0.97); }
+        @media (max-width: 560px) { .btn-acreditar-admin { width: 100%; text-align: center; } }
+
         /* Tarjetas de guardias de la app móvil. */
         .lista-guardias { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
         .guardia-card {
@@ -314,6 +333,25 @@
             <div class="banner-no-publico">
                 <strong>🕓 Tu evento está en revisión.</strong>
                 Será acreditado a la brevedad por un administrador de TuEntradaYa para hacerse público.
+            </div>
+        <% } %>
+
+        <%# Atajo SOLO para administradores: acredita el evento sin salir de esta pantalla y
+            vuelve acá, así el banner rojo desaparece al instante. Se renderiza únicamente si
+            quien mira es admin Y el evento todavía no está acreditado.
+            Va como comentario EJS y no HTML a propósito: así la ruta de administración no
+            queda escrita en el código fuente que recibe cualquier organizador.
+            La seguridad no depende de que este botón exista: el endpoint está protegido por el
+            middleware isAdmin, que verifica contra la base en cada pedido. %>
+        <% if (esAdmin && !evento.is_admin_accredited) { %>
+            <div class="acreditar-admin">
+                <div>
+                    <strong>Sos administrador de TuEntradaYa.</strong>
+                    <p>Este evento está esperando acreditación. Podés aprobarlo ahora mismo.</p>
+                </div>
+                <a class="btn-acreditar-admin" href="/admin/acreditar/<%= evento.slug || evento.id %>?volver=panel">
+                    ✅ Acreditar Evento (Admin)
+                </a>
             </div>
         <% } %>
 

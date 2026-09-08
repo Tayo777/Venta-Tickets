@@ -112,6 +112,12 @@ router.post('/login', limitadorAuth, async (req, res) => {
         req.session.usuarioId = usuario.id;
         req.session.nombre = usuario.nombre;
         req.session.rol = usuario.rol;
+        // Se contemplan las DOS columnas (se mantienen sincronizadas en db/pool.js, pero
+        // aceptar cualquiera evita dejar afuera a un admin legítimo si una quedó desfasada).
+        // Ojo: esto es solo para DIBUJAR la interfaz. El permiso real lo decide el middleware
+        // isAdmin, que relee al usuario de la base en cada pedido — un flag de sesión editado
+        // o viejo no abre ninguna puerta.
+        req.session.esAdmin = Boolean(usuario.is_admin || usuario.rol === 'admin');
         req.session.aprobado = !!usuario.aprobado;
 
         // Guardado explícito (en vez de dejarlo implícito) para poder loguear el error real
