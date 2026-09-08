@@ -12,6 +12,7 @@ const mp = require('../services/mercadopago');
 const { subirImagen, eliminarImagen } = require('../services/imgbb');
 const { enviarMailBrevo } = require('../services/brevo');
 const { generarPdfBuffer } = require('../services/pdfEntradas');
+const { avisarEventoNuevo } = require('../services/avisosAdmin');
 const { requiereLogin, esDueñoOAdmin, eventoEditable, puedeEliminarEvento } = require('../middleware/auth');
 const { BASE_URL } = require('../config/env');
 const { ZONA_HORARIA } = require('../config/tiempo');
@@ -106,6 +107,15 @@ router.post(['/crear-evento', '/eventos/crear'], requiereLogin, upload.single('f
         for (const tipo of tipos) {
             await tiposEntradaDb.crearTipoEntrada({ eventoId: id, ...tipo });
         }
+
+        // Aviso al admin de que hay un evento nuevo esperando acreditación. NO se espera (await)
+        // ni se deja que un fallo del mail rompa la creación: el evento ya está guardado y el
+        // organizador tiene que ver su panel al toque, no quedarse esperando a un servidor SMTP.
+        // avisarEventoNuevo() no lanza: registra el error en el log (ver services/avisosAdmin.js).
+        avisarEventoNuevo(
+            { id, slug, nombre, fecha },
+            await usuariosDb.obtenerPorId(req.session.usuarioId)
+        );
 
         res.redirect(urlPanel({ id, slug }));
     } catch (error) {

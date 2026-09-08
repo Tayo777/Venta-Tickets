@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acreditación de eventos · TuEntradaYa</title>
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        .contenedor { max-width: 900px; margin: 0 auto; padding: 30px 20px 60px; }
+        h1 { margin-bottom: 4px; }
+        .subtitulo { color: var(--text-muted); margin-top: 0; font-size: 0.9rem; }
+        .volver { display: inline-block; margin-bottom: 12px; color: var(--text-muted); text-decoration: none; font-size: 0.88rem; }
+        .volver:hover { color: var(--accent-2); }
+
+        .aviso-ok {
+            background: var(--success-bg); color: var(--success); padding: 12px 16px;
+            border-radius: 10px; margin: 16px 0; border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+        .vacio { text-align: center; color: var(--text-faint); margin-top: 60px; }
+
+        .pendiente {
+            display: flex; justify-content: space-between; align-items: center; gap: 16px;
+            flex-wrap: wrap; padding: 18px 20px; margin-bottom: 12px;
+        }
+        .pendiente h3 { margin: 0 0 6px; font-size: 1.05rem; }
+        .pendiente .datos { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
+        .pendiente .datos code {
+            background: var(--bg-elevated-2); color: var(--accent-2);
+            padding: 2px 7px; border-radius: 6px; font-size: 0.8rem;
+        }
+
+        /* El estado del mail del creador es la OTRA condición para que el evento se haga
+           público: si está sin verificar, acreditarlo no alcanza — por eso se avisa acá. */
+        .badge { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; }
+        .badge.ok { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
+        .badge.falta { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
+
+        .acciones-pendiente { display: flex; gap: 8px; flex-shrink: 0; }
+        .acciones-pendiente form { margin: 0; }
+        .btn-acreditar {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white;
+            border: none; padding: 10px 20px; border-radius: 999px; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600;
+        }
+        .btn-acreditar:active { transform: scale(0.97); }
+        .btn-ver {
+            border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+            padding: 10px 18px; border-radius: 999px; text-decoration: none; font-size: 0.85rem;
+        }
+        .btn-ver:hover { border-color: var(--accent); color: var(--accent-2); }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="contenedor">
+    <a class="volver" href="/admin">&larr; Panel de administración</a>
+    <h1>Eventos pendientes de acreditación</h1>
+    <p class="subtitulo">
+        Un evento se hace público solo cuando está acreditado <strong>y</strong> su creador
+        verificó el mail. Acá aparecen los que todavía esperan tu visto bueno.
+    </p>
+
+    <% if (acreditado) { %>
+        <div class="aviso-ok">✅ "<%= acreditado %>" quedó acreditado.</div>
+    <% } %>
+
+    <% if (pendientes.length === 0) { %>
+        <p class="vacio">🎉 No hay eventos esperando acreditación.</p>
+    <% } else { %>
+        <% pendientes.forEach(evento => { %>
+            <div class="pendiente card">
+                <div>
+                    <h3><%= evento.nombre %></h3>
+                    <div class="datos">
+                        Creador: <strong><%= evento.creador_nombre || 'desconocido' %></strong>
+                        <%= evento.creador_email ? `(${evento.creador_email})` : '' %>
+                        <span class="badge <%= evento.creador_email_verificado ? 'ok' : 'falta' %>">
+                            <%= evento.creador_email_verificado ? 'mail verificado' : 'mail SIN verificar' %>
+                        </span>
+                        <br>
+                        Fecha del evento: <%= formatearFecha(evento.fecha) %><br>
+                        URL pública: <code>/evento/<%= evento.slug %></code>
+                    </div>
+                </div>
+                <div class="acciones-pendiente">
+                    <a class="btn-ver" href="/eventos/<%= evento.slug || evento.id %>">Ver panel</a>
+                    <form action="/admin/eventos/<%= evento.slug || evento.id %>/acreditar" method="POST">
+                        <input type="hidden" name="acreditar" value="1">
+                        <input type="hidden" name="volver_a" value="dashboard">
+                        <button type="submit" class="btn-acreditar">Acreditar</button>
+                    </form>
+                </div>
+            </div>
+        <% }) %>
+    <% } %>
+    </div>
+</body>
+</html>

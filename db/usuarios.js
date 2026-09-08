@@ -101,8 +101,8 @@ async function asegurarAdminSemilla() {
 
     const passwordHash = await bcrypt.hash(ADMIN_SEED_PASSWORD, 12);
     await pool.query(
-        `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, email_verificado, aprobado)
-         VALUES (?, ?, ?, ?, 'admin', 1, 1)`,
+        `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, is_admin, email_verificado, aprobado)
+         VALUES (?, ?, ?, ?, 'admin', 1, 1, 1)`,
         ['Admin', ADMIN_SEED_EMAIL, null, passwordHash]
     );
     console.log(`Usuario admin creado: ${ADMIN_SEED_EMAIL}. Cambiá la contraseña apenas puedas.`);

@@ -36,7 +36,15 @@ module.exports = {
 
     BREVO_API_KEY: process.env.BREVO_API_KEY,
     BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL,
-    BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME || 'Venta de Entradas',
+    BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME || 'TuEntradaYa',
+
+    // SMTP para Nodemailer (ver services/mailer.js). Son OPCIONALES: si no están cargadas, el
+    // envío sigue saliendo por la API HTTP de Brevo, que es lo que venía funcionando.
+    // Nunca van en el código: se cargan como variables de entorno en Railway.
+    SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+    SMTP_PORT: Number(process.env.SMTP_PORT || 587),
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASS: process.env.SMTP_PASS,
 
     IMGBB_API_KEY: process.env.IMGBB_API_KEY,
 

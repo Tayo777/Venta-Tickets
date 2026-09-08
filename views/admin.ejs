@@ -40,6 +40,9 @@
     <%- include('partials/navbar') %>
     <div class="contenedor">
     <h1>Panel de administración</h1>
+    <p style="margin-top:10px;">
+        <a class="btn-aprobar" href="/admin/dashboard">🎪 Ver eventos pendientes de acreditación →</a>
+    </p>
 
     <h3>Usuarios esperando aprobación</h3>
     <% if (pendientes.length === 0) { %>

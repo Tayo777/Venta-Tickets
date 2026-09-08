@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const usuariosDb = require('../db/usuarios');
 const { enviarMailBrevo } = require('../services/brevo');
+const { avisarUsuarioNuevo } = require('../services/avisosAdmin');
 const { BASE_URL, ADMIN_EMAIL } = require('../config/env');
 const { limitadorAuth } = require('../middleware/rateLimiters');
 
@@ -30,6 +31,11 @@ router.post('/registro', limitadorAuth, async (req, res) => {
     try {
         const { id, tokenVerificacion } = await usuariosDb.crearUsuario({ nombre, email, telefono, password });
         const linkVerificacion = `${BASE_URL}/verificar-email/${tokenVerificacion}`;
+
+        // Aviso al admin apenas se guarda el usuario (no espera a que verifique el mail): la
+        // idea es tener el control de quién entra a la plataforma en el momento. Sin await y
+        // sin poder romper el registro — ver services/avisosAdmin.js.
+        avisarUsuarioNuevo({ id, nombre, email, telefono });
 
         await enviarMailBrevo({
             to: email,

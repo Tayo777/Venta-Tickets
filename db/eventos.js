@@ -119,6 +119,21 @@ async function crearEvento({ usuarioId, nombre, descripcion, fecha, flyerUrl, fl
     return { id: resultado.insertId, token, slug };
 }
 
+// Eventos esperando acreditación del admin (is_admin_accredited = 0). Trae también los datos
+// del creador, porque es lo que el admin necesita para decidir: quién lo creó y si ese usuario
+// verificó su mail (la otra condición para que el evento se haga público).
+async function obtenerEventosPendientesAcreditacion() {
+    const [filas] = await pool.query(
+        `SELECT e.*, u.nombre AS creador_nombre, u.email AS creador_email,
+                u.email_verificado AS creador_email_verificado
+         FROM eventos e
+         LEFT JOIN usuarios u ON u.id = e.usuario_id
+         WHERE e.is_admin_accredited = 0
+         ORDER BY e.id DESC`
+    );
+    return filas;
+}
+
 // El admin acredita (o desacredita) un evento a mano desde /admin — es una de las dos
 // condiciones para que se haga público (ver eventoEsPublico).
 async function acreditarEvento(id, acreditado) {
@@ -296,5 +311,6 @@ module.exports = {
     obtenerEventosActivos, obtenerEventosConectados, obtenerTodos, obtenerEventosDeUsuario, obtenerEvento,
     obtenerEventoPorToken, obtenerEventoPorGuardiaToken, obtenerEventoPorSlug, obtenerEventoPorSlugOId, crearEvento, editarEvento, eliminarEvento,
     conectarMercadoPago, toggleActivo, resumenVentas, desgloseVentasPorTipo, listadoVentas, ventaVencidaPorTiempo,
-    eventoFinalizado, separarPorEstado, marcarFinalizado, generarSlugUnico, acreditarEvento, eventoEsPublico
+    eventoFinalizado, separarPorEstado, marcarFinalizado, generarSlugUnico, acreditarEvento, eventoEsPublico,
+    obtenerEventosPendientesAcreditacion
 };

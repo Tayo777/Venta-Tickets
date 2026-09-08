@@ -370,6 +370,19 @@ async function inicializarDB() {
         console.log(`is_admin_accredited: ${resultado.affectedRows} evento/s existente/s acreditados automáticamente (grandfathering). Los eventos NUEVOS de acá en más nacen sin acreditar.`);
     }
 
+    // is_admin: flag booleano de administrador. Convive con la columna `rol` que ya existía —
+    // para no dejar DOS fuentes de verdad sobre quién es admin (un agujero de seguridad
+    // clásico: revocás una y la otra sigue abierta), se sincroniza en los dos sentidos en cada
+    // arranque, y el middleware isAdmin acepta cualquiera de las dos como válida.
+    const columnaAdminNueva = await agregarColumnaSiNoExiste('usuarios', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0');
+    if (columnaAdminNueva) {
+        const [r] = await pool.query("UPDATE usuarios SET is_admin = 1 WHERE rol = 'admin'");
+        console.log(`is_admin activado en ${r.affectedRows} usuario/s que ya tenían rol = 'admin'.`);
+    }
+    // Y al revés: si alguien puso is_admin = 1 a mano en la base, que su rol acompañe. Así las
+    // dos columnas nunca quedan contradiciéndose.
+    await pool.query("UPDATE usuarios SET rol = 'admin' WHERE is_admin = 1 AND rol <> 'admin'");
+
     console.log('Base de datos MySQL lista (usuarios + eventos + tipos_entrada + tickets + compras + cupones + guardias).');
 }
 
