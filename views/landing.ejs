@@ -3,190 +3,559 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuEntradaYa — Vendé entradas para tu evento</title>
+    <title>TuEntradaYa — Comprá y vendé entradas para tu evento</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
-        .hero {
-            min-height: 62vh;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            text-align: center; padding: 32px 18px;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 45%),
-                radial-gradient(circle at 80% 30%, rgba(34, 211, 238, 0.22) 0%, transparent 45%),
-                linear-gradient(180deg, rgba(9,9,11,0.55) 0%, rgba(9,9,11,0.75) 55%, var(--bg) 100%),
-                url('/hero-evento.jpg') center/cover no-repeat,
-                var(--bg);
+        /* ============================================================
+           Landing "storefront": paleta clara propia de esta vista,
+           inspirada en TuEntrada.com. El resto del sitio (dashboard,
+           panel de organizador/admin) sigue con el tema oscuro de
+           theme.css — acá lo pisamos a propósito, solo en esta página.
+           ============================================================ */
+        :root {
+            --ty-navy-900: #081b36;
+            --ty-navy-800: #0e2b52;
+            --ty-navy-700: #163d70;
+            --ty-blue: #1e88f6;
+            --ty-blue-bright: #2f9bff;
+            --ty-orange: #f97316;
+            --ty-bg: #f4f6fb;
+            --ty-surface: #ffffff;
+            --ty-border: #e3e7f0;
+            --ty-text: #0f1830;
+            --ty-text-muted: #5b6478;
+        }
+        body { background: var(--ty-bg); color: var(--ty-text); }
+        a { color: inherit; }
+
+        /* ---------- 1. Navbar ---------- */
+        .ty-nav {
+            position: sticky; top: 0; z-index: 50;
+            background: linear-gradient(115deg, var(--ty-navy-900), var(--ty-navy-700));
+            padding: 14px 24px;
+            box-shadow: 0 2px 14px rgba(8, 27, 54, 0.25);
+        }
+        .ty-nav__row {
+            max-width: 1280px; margin: 0 auto;
+            display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .ty-nav__brand {
+            display: flex; align-items: center; gap: 8px;
+            text-decoration: none; color: #fff; font-weight: 800; font-size: 1.15rem;
+            letter-spacing: -0.02em; flex-shrink: 0;
+        }
+        .ty-nav__brand img { height: 34px; width: auto; object-fit: contain; }
+
+        .ty-nav__search {
+            flex: 1 1 320px; max-width: 640px; margin: 0 auto;
+            display: flex; align-items: center;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px; padding: 4px 4px 4px 18px;
+        }
+        .ty-nav__search input {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: #fff; font-family: var(--font); font-size: 0.92rem; padding: 8px 0;
+        }
+        .ty-nav__search input::placeholder { color: rgba(255, 255, 255, 0.65); }
+        .ty-nav__search button {
+            display: flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 50%; border: none; flex-shrink: 0;
+            background: var(--ty-blue-bright); color: #fff; cursor: pointer;
+        }
+        .ty-nav__search button:hover { background: var(--ty-blue); }
+
+        .ty-nav__links { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .ty-nav__link {
+            display: flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: 999px;
+            color: rgba(255, 255, 255, 0.92); text-decoration: none;
+            font-size: 0.88rem; font-weight: 600; white-space: nowrap;
+        }
+        .ty-nav__link:hover { background: rgba(255, 255, 255, 0.12); }
+        .ty-nav__link svg { flex-shrink: 0; }
+
+        @media (max-width: 720px) {
+            .ty-nav__row { justify-content: center; }
+            .ty-nav__search { order: 3; flex-basis: 100%; max-width: none; }
+            .ty-nav__link span { display: none; }
+            .ty-nav__link { padding: 9px; }
+        }
+
+        /* ---------- 2. Hero (carrusel de destacados) ---------- */
+        .ty-hero {
             position: relative; overflow: hidden;
+            min-height: 62vh;
         }
-        .hero::before {
-            content: ''; position: absolute; inset: 0;
-            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-        .hero-content { position: relative; z-index: 1; max-width: 700px; }
+        @media (min-width: 960px) { .ty-hero { min-height: 60vh; } }
 
-        /* Fade-in suave del título y los CTA al cargar la página (no un scroll-trigger:
-           la idea es que se sientan "listos" apenas entra el hero, sin saltos bruscos). */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(14px); }
-            to   { opacity: 1; transform: translateY(0); }
+        .ty-hero__slide {
+            position: absolute; inset: 0; opacity: 0; visibility: hidden;
+            transition: opacity 500ms ease-in-out, visibility 500ms;
+            display: flex; align-items: center;
         }
-        .hero h1, .hero p, .hero-cta-row {
-            opacity: 0;
-            animation: fadeInUp 0.8s ease-out forwards;
+        .ty-hero__slide.is-active {
+            position: relative; opacity: 1; visibility: visible;
         }
-        .hero h1 { animation-delay: 0.05s; }
-        .hero p { animation-delay: 0.2s; }
-        .hero-cta-row { animation-delay: 0.35s; }
+        .ty-hero__bg {
+            position: absolute; inset: 0; background-size: cover; background-position: center;
+            filter: blur(18px) brightness(0.55); transform: scale(1.1);
+        }
+        .ty-hero__overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(8,27,54,0.55) 0%, rgba(8,27,54,0.8) 100%);
+        }
+        .ty-hero__content {
+            position: relative; z-index: 1; width: 100%; max-width: 1180px; margin: 0 auto;
+            padding: 48px 24px; display: flex; flex-direction: column; align-items: center;
+            gap: 28px; text-align: center;
+        }
+        .ty-hero__poster {
+            width: 220px; border-radius: 18px; overflow: hidden;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+            flex-shrink: 0;
+        }
+        .ty-hero__poster img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+        .ty-hero__info { color: #fff; max-width: 560px; }
+        .ty-hero__info h1 {
+            font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin: 0 0 12px;
+            letter-spacing: -0.02em;
+        }
+        .ty-hero__lugar { font-size: 1rem; font-weight: 600; margin: 0 0 4px; color: #dbe6ff; }
+        .ty-hero__fecha { font-size: 0.92rem; margin: 0 0 22px; color: rgba(255,255,255,0.75); }
+        .ty-hero__cta {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--ty-blue-bright); color: #fff; text-decoration: none;
+            font-weight: 700; font-size: 1rem; padding: 14px 34px; border-radius: 999px;
+            box-shadow: 0 10px 26px rgba(47, 155, 255, 0.45);
+        }
+        .ty-hero__cta:hover { background: var(--ty-blue); transform: translateY(-1px); }
 
-        /* Mobile-first: arranca chico (~text-3xl) y crece a partir de tablet/desktop
-           (~text-5xl) — así el título nunca se corta ni fuerza scroll horizontal en un
-           celular angosto. */
-        .hero h1 { font-size: 1.9rem; margin-bottom: 15px; line-height: 1.2; letter-spacing: -0.02em; }
-        .hero p { font-size: 1rem; color: var(--text-muted); margin-bottom: 30px; }
-        .hero-cta-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
-        .cta { font-size: 0.95rem; padding: 14px 28px; }
-        .cta-secundario {
-            font-size: 0.9rem; padding: 13px 26px;
-            background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.35);
-        }
-        .cta-secundario:hover { background: rgba(255,255,255,0.08); border-color: var(--accent-2); color: var(--accent-2); }
-
-        @media (min-width: 640px) {
-            .hero h1 { font-size: 2.6rem; }
-            .hero p { font-size: 1.1rem; }
-            .cta, .cta-secundario { font-size: 1rem; padding: 15px 32px; }
+        @media (min-width: 720px) {
+            .ty-hero__content { flex-direction: row; text-align: left; padding: 56px 40px; }
+            .ty-hero__poster { width: 260px; }
+            .ty-hero__info h1 { font-size: 2.3rem; }
         }
         @media (min-width: 960px) {
-            .hero { min-height: 80vh; padding: 40px 20px; }
-            .hero h1 { font-size: 3rem; }
-            .hero p { font-size: 1.15rem; }
-            .cta { font-size: 1.05rem; padding: 16px 36px; }
+            .ty-hero__poster { width: 300px; }
+            .ty-hero__info h1 { font-size: 2.7rem; }
         }
 
-        /* Franja de confianza: minimalista, una sola línea, sin competir con el hero. */
-        .trust-badge {
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            padding: 18px 20px; background: var(--bg-elevated); border-bottom: 1px solid var(--border);
-            color: var(--text-muted); font-size: 0.88rem;
+        .ty-hero__dots {
+            position: absolute; z-index: 2; right: 24px; bottom: 20px;
+            display: flex; gap: 8px;
         }
-        .trust-badge svg { flex-shrink: 0; }
-        .trust-badge strong { color: var(--text); font-weight: 600; }
+        .ty-hero__dot {
+            width: 9px; height: 9px; border-radius: 50%; border: none; padding: 0;
+            background: rgba(255, 255, 255, 0.4); cursor: pointer;
+        }
+        .ty-hero__dot.is-active { background: #fff; width: 22px; border-radius: 999px; }
 
-        .features {
-            max-width: 900px; margin: 0 auto; padding: 70px 20px;
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; text-align: center;
-        }
-        .features .card { padding: 28px 20px; display: flex; flex-direction: column; align-items: center; }
-        .features h3 { margin: 0 0 8px; color: var(--text); }
-        .features p { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
-        /* Tamaño fijo + object-fit: contain: si el PNG todavía no existe o tarda en cargar,
-           el hueco reservado no colapsa y no rompe el alto de la tarjeta. */
-        .feature-icon { width: 48px; height: 48px; margin-bottom: 14px; object-fit: contain; }
+        /* Hero sin eventos: mismo look, sin poster ni dots. */
+        .ty-hero--vacio .ty-hero__content { flex-direction: column; text-align: center; }
 
-        .contacto-wrap { text-align: center; padding: 0 20px 70px; margin-top: -20px; }
-        .btn-contacto {
-            display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(255, 255, 255, 0.03); color: var(--text-muted);
-            border: 1px solid var(--border); padding: 13px 30px; border-radius: var(--radius-full);
-            text-decoration: none; font-size: 0.92rem; font-weight: 500;
+        /* ---------- 3. Cinta de avisos ---------- */
+        .ty-ticker {
+            background: #05101f; overflow: hidden; padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        .btn-contacto:hover { background: var(--bg-elevated-2); border-color: var(--accent); color: var(--text); }
+        .ty-ticker__track {
+            display: flex; gap: 64px; white-space: nowrap; width: max-content;
+            animation: ty-ticker-scroll 32s linear infinite;
+        }
+        .ty-ticker__track span {
+            color: rgba(255, 255, 255, 0.7); font-size: 0.76rem; letter-spacing: 0.02em;
+        }
+        @keyframes ty-ticker-scroll {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ty-ticker__track { animation: none; }
+        }
 
-        footer { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 0.85rem; border-top: 1px solid var(--border); }
-    
-        /* Catálogo de eventos en la portada — mismas tarjetas que /eventos (views/index.ejs). */
-        .seccion-eventos { max-width: 1100px; margin: 0 auto; padding: 20px 24px 10px; }
-        .seccion-eventos h2 { text-align: center; margin-bottom: 24px; }
-        .grilla-eventos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
-        .evento-card {
-            display: block; text-decoration: none; color: inherit; overflow: hidden;
-            transition: transform 220ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out;
+        /* ---------- 4. Menú de categorías ---------- */
+        .ty-categorias {
+            background: var(--ty-surface); border-bottom: 1px solid var(--ty-border);
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; flex-wrap: wrap; padding: 10px 16px;
         }
-        .evento-card:hover, .evento-card:focus-visible {
+        .ty-categoria {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 18px; border-radius: 10px; text-decoration: none;
+            color: var(--ty-text-muted); font-size: 0.88rem; font-weight: 600;
+        }
+        .ty-categoria svg { flex-shrink: 0; color: var(--ty-navy-700); }
+        .ty-categoria:hover { background: #eef3fb; color: var(--ty-navy-800); }
+
+        /* ---------- 5. Eventos destacados ---------- */
+        .ty-destacados { max-width: 1280px; margin: 0 auto; padding: 48px 24px 20px; }
+        .ty-destacados h2 {
+            color: var(--ty-navy-900); font-size: 1.5rem; font-weight: 800;
+            margin: 0 0 24px; text-align: left;
+        }
+        .ty-grid {
+            display: grid; grid-template-columns: 1fr; gap: 22px;
+        }
+        @media (min-width: 620px) { .ty-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1080px) { .ty-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .ty-card {
+            display: block; text-decoration: none; color: inherit;
+            background: var(--ty-surface); border: 1px solid var(--ty-border);
+            border-radius: 16px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(15, 24, 48, 0.06);
+            transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+        }
+        .ty-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 12px 28px -8px rgba(139, 92, 246, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.4);
-            border-color: var(--accent);
+            box-shadow: 0 16px 32px -12px rgba(15, 24, 48, 0.25);
         }
-        .evento-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
-        .evento-info { padding: 16px 18px 20px; }
-        .evento-info h3 { margin: 0 0 6px 0; font-size: 1.05rem; color: var(--text); }
-        .evento-info p { margin: 0; color: var(--text-muted); font-size: 0.88rem; }
-        .ver-todos-wrap { text-align: center; margin-top: 26px; }
+        .ty-card__img-wrap { position: relative; overflow: hidden; aspect-ratio: 4/3; }
+        .ty-card__img-wrap img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+            transition: transform 350ms ease-out;
+        }
+        .ty-card:hover .ty-card__img-wrap img { transform: scale(1.08); }
+        .ty-badge {
+            position: absolute; top: 10px; right: 10px; z-index: 1;
+            background: var(--ty-orange); color: #fff; font-size: 0.68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.03em;
+            padding: 5px 10px; border-radius: 999px;
+        }
+        .ty-card__info { padding: 14px 16px 18px; }
+        .ty-card__info h3 {
+            margin: 0 0 5px; font-size: 0.98rem; font-weight: 700; color: var(--ty-navy-900);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ty-card__info p { margin: 0; font-size: 0.82rem; color: var(--ty-text-muted); }
+        .ty-card__fecha { margin-top: 2px !important; }
+
+        .ty-ver-todos { text-align: center; margin-top: 30px; }
+        .ty-btn-outline {
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1.5px solid var(--ty-navy-700); color: var(--ty-navy-800);
+            font-weight: 700; font-size: 0.92rem; padding: 12px 28px; border-radius: 999px;
+            text-decoration: none;
+        }
+        .ty-btn-outline:hover { background: var(--ty-navy-700); color: #fff; }
+
+        .ty-vacio {
+            max-width: 640px; margin: 0 auto; padding: 60px 24px; text-align: center;
+        }
+        .ty-vacio h2 { color: var(--ty-navy-900); font-size: 1.3rem; margin-bottom: 10px; }
+        .ty-vacio p { color: var(--ty-text-muted); margin-bottom: 22px; }
+
+        /* ---------- Confianza / features / contacto (mismo contenido de siempre, adaptado
+           a la paleta clara de esta página) ---------- */
+        .ty-trust {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 16px 20px; background: var(--ty-surface); border-bottom: 1px solid var(--ty-border);
+            color: var(--ty-text-muted); font-size: 0.86rem;
+        }
+        .ty-trust strong { color: var(--ty-text); }
+
+        .ty-features {
+            max-width: 1000px; margin: 0 auto; padding: 50px 24px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;
+        }
+        .ty-features .card {
+            background: var(--ty-surface); border-color: var(--ty-border);
+            padding: 26px 20px; text-align: center;
+        }
+        .ty-features h3 { margin: 0 0 6px; color: var(--ty-navy-900); font-size: 1rem; }
+        .ty-features p { color: var(--ty-text-muted); font-size: 0.88rem; margin: 0; }
+        .ty-feature-icon { width: 44px; height: 44px; margin-bottom: 12px; object-fit: contain; }
+
+        .ty-contacto-wrap { text-align: center; padding: 0 20px 60px; }
+        .ty-btn-contacto {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--ty-surface); color: var(--ty-text-muted);
+            border: 1px solid var(--ty-border); padding: 12px 28px; border-radius: 999px;
+            text-decoration: none; font-size: 0.88rem; font-weight: 600;
+        }
+        .ty-btn-contacto:hover { border-color: var(--ty-navy-700); color: var(--ty-navy-900); }
+
+        .ty-footer {
+            text-align: center; padding: 26px 20px; color: var(--ty-text-muted);
+            font-size: 0.82rem; border-top: 1px solid var(--ty-border); background: var(--ty-surface);
+        }
     </style>
 </head>
 <body>
-    <%- include('partials/navbar') %>
 
-    <div class="hero">
-        <div class="hero-content">
-            <h1>Vendé las entradas de tu evento sin complicaciones</h1>
-            <p>Creá tu evento, conectá tu Mercado Pago y empezá a vender en minutos. El dinero llega directo a tu cuenta.</p>
-            <div class="hero-cta-row">
-                <a class="btn btn-primary cta" href="/crear-evento">Creá tu evento gratis</a>
-                <a class="btn cta-secundario" href="/eventos">Ver eventos →</a>
+    <!-- ============ 1. NAVBAR ============ -->
+    <header class="ty-nav">
+        <div class="ty-nav__row">
+            <a class="ty-nav__brand" href="/">
+                <img src="/img/logo-placeholder.png" alt="Logo de TuEntradaYa">
+                <span>TuEntradaYa</span>
+            </a>
+
+            <!-- Búsqueda: navega al catálogo con el texto como query "q". El filtrado en
+                 /eventos todavía no lee ese parámetro — queda listo para engancharlo del
+                 lado del servidor sin tocar este formulario. -->
+            <form class="ty-nav__search" action="/eventos" method="GET" role="search">
+                <input type="search" name="q" placeholder="Buscar eventos, artistas, ciudades..." aria-label="Buscar eventos, artistas o ciudades">
+                <button type="submit" aria-label="Buscar">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+                        <path d="M20 20L16.5 16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </form>
+
+            <div class="ty-nav__links">
+                <a class="ty-nav__link" href="https://wa.me/5493735535096?text=Hola,%20tengo%20una%20consulta%20sobre%20TuEntradaYa" target="_blank" rel="noopener noreferrer">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/>
+                        <path d="M9.5 9.2c.3-1 1.2-1.6 2.3-1.6 1.3 0 2.3.8 2.3 1.9 0 1.6-2.1 1.5-2.1 3.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                        <circle cx="12" cy="16.3" r="0.9" fill="currentColor"/>
+                    </svg>
+                    <span>Centro de Ayuda</span>
+                </a>
+                <% if (typeof usuarioLogueado !== 'undefined' && usuarioLogueado) { %>
+                    <a class="ty-nav__link" href="/perfil">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <circle cx="12" cy="8.2" r="3.4" stroke="currentColor" stroke-width="1.7"/>
+                            <path d="M4.8 19.5c1.2-3.1 3.9-5 7.2-5s6 1.9 7.2 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                        </svg>
+                        <span>Mi Cuenta</span>
+                    </a>
+                <% } else { %>
+                    <a class="ty-nav__link" href="/login">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <circle cx="12" cy="8.2" r="3.4" stroke="currentColor" stroke-width="1.7"/>
+                            <path d="M4.8 19.5c1.2-3.1 3.9-5 7.2-5s6 1.9 7.2 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                        </svg>
+                        <span>Mi Cuenta</span>
+                    </a>
+                <% } %>
             </div>
+        </div>
+    </header>
+
+    <% const destacados = (typeof eventos !== 'undefined' ? eventos : []).slice(0, 3); %>
+
+    <!-- ============ 2. HERO (carrusel) ============ -->
+    <% if (destacados.length > 0) { %>
+        <section class="ty-hero" id="tyHero">
+            <% destacados.forEach((evento, i) => { %>
+                <div class="ty-hero__slide <%= i === 0 ? 'is-active' : '' %>">
+                    <div class="ty-hero__bg" style="background-image: url('<%= evento.flyer_url || '/flyer.png' %>');"></div>
+                    <div class="ty-hero__overlay"></div>
+                    <div class="ty-hero__content">
+                        <div class="ty-hero__poster">
+                            <img src="<%= evento.flyer_url || '/flyer.png' %>" alt="Flyer de <%= evento.nombre %>"
+                                 loading="<%= i === 0 ? 'eager' : 'lazy' %>" onerror="this.onerror=null; this.src='/flyer.png';">
+                        </div>
+                        <div class="ty-hero__info">
+                            <h1><%= evento.nombre %></h1>
+                            <p class="ty-hero__lugar"><%= evento.lugar_nombre || 'Lugar a confirmar' %></p>
+                            <p class="ty-hero__fecha"><%= formatearFecha(evento.fecha) %></p>
+                            <a class="ty-hero__cta" href="/evento/<%= evento.slug || evento.id %>">Comprar entradas</a>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+
+            <% if (destacados.length > 1) { %>
+                <div class="ty-hero__dots">
+                    <% destacados.forEach((_, i) => { %>
+                        <button type="button" class="ty-hero__dot <%= i === 0 ? 'is-active' : '' %>" data-dot="<%= i %>" aria-label="Ver evento destacado <%= i + 1 %>"></button>
+                    <% }) %>
+                </div>
+            <% } %>
+        </section>
+    <% } else { %>
+        <section class="ty-hero ty-hero--vacio">
+            <div class="ty-hero__bg" style="background-image: url('/hero-evento.jpg');"></div>
+            <div class="ty-hero__overlay"></div>
+            <div class="ty-hero__content">
+                <div class="ty-hero__info">
+                    <h1>Vendé las entradas de tu evento sin complicaciones</h1>
+                    <p class="ty-hero__fecha">Creá tu evento, conectá tu Mercado Pago y empezá a vender en minutos.</p>
+                    <a class="ty-hero__cta" href="/crear-evento">Creá tu evento gratis</a>
+                </div>
+            </div>
+        </section>
+    <% } %>
+
+    <!-- ============ 3. CINTA DE AVISOS ============ -->
+    <div class="ty-ticker" role="note" aria-label="Avisos de seguridad">
+        <div class="ty-ticker__track">
+            <span>Comprá siempre por canales oficiales de TuEntradaYa — no compartas tu QR ni lo revendas fuera de la plataforma.</span>
+            <span>El dinero de cada venta llega directo a la cuenta de Mercado Pago del organizador.</span>
+            <span>Ante cualquier duda con tu compra, usá el Centro de Ayuda antes de operar con terceros.</span>
+            <!-- Duplicado para que el loop de la animación (translateX -50%) sea continuo, sin salto. -->
+            <span>Comprá siempre por canales oficiales de TuEntradaYa — no compartas tu QR ni lo revendas fuera de la plataforma.</span>
+            <span>El dinero de cada venta llega directo a la cuenta de Mercado Pago del organizador.</span>
+            <span>Ante cualquier duda con tu compra, usá el Centro de Ayuda antes de operar con terceros.</span>
         </div>
     </div>
 
-    <div class="trust-badge">
+    <!-- ============ 4. MENÚ DE CATEGORÍAS ============ -->
+    <!-- Los eventos todavía no tienen una columna "categoria" en la base, así que estos
+         filtros son visuales por ahora y llevan todos al catálogo completo (/eventos). El
+         día que se agregue esa columna, cada href puede pasar a /eventos?categoria=teatro
+         y el backend filtrar el array antes de renderizar. -->
+    <nav class="ty-categorias" aria-label="Categorías de eventos">
+        <a class="ty-categoria" href="/eventos">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M4 5h16v3a4 4 0 01-4 4v0M4 5v3a4 4 0 004 4v0m8-7v0a4 4 0 01-8 0v0M12 12v4m-3 4h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Teatro</span>
+        </a>
+        <a class="ty-categoria" href="/eventos">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span>Deportes</span>
+        </a>
+        <a class="ty-categoria" href="/eventos">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="8.5" cy="8" r="2.3" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="16" cy="9.5" r="1.8" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M3.5 19c.6-3 2.6-4.8 5-4.8s4.4 1.8 5 4.8M14.5 19c.4-2.3 1.9-3.7 3.8-3.7 1.4 0 2.6.7 3.2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span>Familia</span>
+        </a>
+        <a class="ty-categoria" href="/eventos">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M9 18V6.5L20 4v11.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="17.5" cy="15.5" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Música</span>
+        </a>
+        <a class="ty-categoria" href="/eventos">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M4 20V10l8-6 8 6v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 20v-6h6v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Cultura</span>
+        </a>
+    </nav>
+
+    <!-- ============ 5. EVENTOS DESTACADOS ============ -->
+    <% if (typeof eventos !== 'undefined' && eventos.length > 0) { %>
+        <section class="ty-destacados">
+            <h2>Eventos Destacados</h2>
+            <div class="ty-grid">
+                <%# Iterá acá el array de eventos que llega desde routes/landing.js
+                    (eventosDb.obtenerEventosActivos(), ya filtrado a públicos y no
+                    finalizados). Cada tarjeta usa evento.flyer_url, evento.nombre,
+                    evento.lugar_nombre, evento.fecha y evento.slug (con fallback a
+                    evento.id para eventos viejos sin slug todavía). %>
+                <% eventos.forEach((evento) => { %>
+                    <a class="ty-card" href="/evento/<%= evento.slug || evento.id %>">
+                        <div class="ty-card__img-wrap">
+                            <img src="<%= evento.flyer_url || '/flyer.png' %>" alt="Flyer de <%= evento.nombre %>"
+                                 loading="lazy" onerror="this.onerror=null; this.src='/flyer.png';">
+                            <%# El badge de "Últimas Entradas" solo se muestra si el evento trae
+                                un flag real de stock bajo (evento.ultimas_entradas). Hoy esa
+                                columna no existe: cuando se calcule el cupo restante contra
+                                tiposEntrada, alcanza con sumarla acá para que el badge aparezca
+                                solo, sin tocar esta plantilla ni inventar datos en el frontend. %>
+                            <% if (typeof evento.ultimas_entradas !== 'undefined' && evento.ultimas_entradas) { %>
+                                <span class="ty-badge">Últimas Entradas</span>
+                            <% } %>
+                        </div>
+                        <div class="ty-card__info">
+                            <h3><%= evento.nombre %></h3>
+                            <p><%= evento.lugar_nombre || 'Lugar a confirmar' %></p>
+                            <p class="ty-card__fecha"><%= formatearFecha(evento.fecha) %></p>
+                        </div>
+                    </a>
+                <% }) %>
+            </div>
+            <div class="ty-ver-todos">
+                <a class="ty-btn-outline" href="/eventos">Ver todos los eventos →</a>
+            </div>
+        </section>
+    <% } else { %>
+        <div class="ty-vacio">
+            <h2>Todavía no hay eventos publicados</h2>
+            <p>¿Organizás algo? Publicá tu evento y empezá a vender entradas en minutos.</p>
+            <a class="ty-btn-outline" href="/crear-evento">Creá tu evento gratis</a>
+        </div>
+    <% } %>
+
+    <div class="ty-trust">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="2" y="5" width="20" height="14" rx="3" stroke="#009ee3" stroke-width="1.8"/>
             <path d="M2 9.5H22" stroke="#009ee3" stroke-width="1.8"/>
             <circle cx="17.5" cy="14.5" r="1.6" fill="#009ee3"/>
         </svg>
-        Operamos con <strong>Mercado Pago</strong> — el dinero llega directo a tu cuenta.
+        Operamos con <strong>Mercado Pago</strong> — el dinero llega directo a la cuenta del organizador.
     </div>
 
-    <!-- Catálogo de eventos públicos: lo que la mayoría de la gente viene a buscar a la
-         portada. Solo aparecen los que ya son públicos (acreditados + dueño verificado), que
-         es lo que devuelve eventosDb.obtenerEventosActivos(). Si no hay ninguno, la sección
-         entera se omite en vez de mostrar un hueco vacío. -->
-    <% if (typeof eventos !== 'undefined' && eventos.length > 0) { %>
-        <section class="seccion-eventos">
-            <h2>Próximos eventos</h2>
-            <div class="grilla-eventos">
-                <% eventos.slice(0, 6).forEach(evento => { %>
-                    <a class="evento-card card" href="/evento/<%= evento.slug || evento.id %>">
-                        <img src="<%= evento.flyer_url %>" alt="Flyer de <%= evento.nombre %>"
-                             loading="lazy" onerror="this.onerror=null; this.src='/flyer.png';">
-                        <div class="evento-info">
-                            <h3><%= evento.nombre %></h3>
-                            <p><%= formatearFecha(evento.fecha) %></p>
-                        </div>
-                    </a>
-                <% }) %>
-            </div>
-            <% if (eventos.length > 6) { %>
-                <div class="ver-todos-wrap"><a class="btn cta-secundario" href="/eventos">Ver todos los eventos →</a></div>
-            <% } %>
-        </section>
-    <% } %>
-
-    <div class="features">
+    <div class="ty-features">
         <div class="card">
-            <img class="feature-icon" src="/img/icon-cobros.png" alt="Icono de cobro directo con Mercado Pago">
+            <img class="ty-feature-icon" src="/img/icon-cobros.png" alt="Icono de cobro directo con Mercado Pago">
             <h3>Cobrás vos directo</h3>
             <p>El dinero entra a tu propia cuenta de Mercado Pago, no a la nuestra.</p>
         </div>
         <div class="card">
-            <img class="feature-icon" src="/img/icon-qr.png" alt="Icono de entrada con código QR">
+            <img class="ty-feature-icon" src="/img/icon-qr.png" alt="Icono de entrada con código QR">
             <h3>Entradas con QR</h3>
             <p>Cada comprador recibe su entrada por mail con un código QR único.</p>
         </div>
         <div class="card">
-            <img class="feature-icon" src="/img/icon-informe.png" alt="Icono de informe de ventas en vivo">
+            <img class="ty-feature-icon" src="/img/icon-informe.png" alt="Icono de informe de ventas en vivo">
             <h3>Informe en vivo</h3>
             <p>Mirá cuánto vendiste y cuánta gente ya ingresó, actualizado en tiempo real.</p>
         </div>
     </div>
 
-    <div class="contacto-wrap">
-        <a class="btn-contacto" href="https://wa.me/5493735535096?text=Hola,%20te%20escribo%20desde%20la%20p%C3%A1gina%20de%20eventos,%20me%20gustar%C3%ADa%20coordinar%20una%20consulta" target="_blank" rel="noopener noreferrer">
+    <div class="ty-contacto-wrap">
+        <a class="ty-btn-contacto" href="https://wa.me/5493735535096?text=Hola,%20te%20escribo%20desde%20la%20p%C3%A1gina%20de%20eventos,%20me%20gustar%C3%ADa%20coordinar%20una%20consulta" target="_blank" rel="noopener noreferrer">
             Contactanos
         </a>
     </div>
 
-    <footer>Hecho para organizadores de eventos que quieren vender simple.</footer>
+    <footer class="ty-footer">Hecho para organizadores de eventos que quieren vender simple.</footer>
+
+    <script>
+        // Carrusel del hero: auto-rotación + dots. Vanilla JS, sin dependencias — si hay
+        // 1 solo evento destacado no hay dots y esto no hace nada (slides.length <= 1).
+        (function () {
+            const hero = document.getElementById('tyHero');
+            if (!hero) return;
+
+            const slides = Array.from(hero.querySelectorAll('.ty-hero__slide'));
+            const dots = Array.from(hero.querySelectorAll('.ty-hero__dot'));
+            if (slides.length <= 1) return;
+
+            let actual = 0;
+            let temporizador;
+
+            function mostrar(indice) {
+                slides[actual].classList.remove('is-active');
+                if (dots[actual]) dots[actual].classList.remove('is-active');
+                actual = indice;
+                slides[actual].classList.add('is-active');
+                if (dots[actual]) dots[actual].classList.add('is-active');
+            }
+
+            function avanzar() { mostrar((actual + 1) % slides.length); }
+            function iniciarAuto() { temporizador = setInterval(avanzar, 6000); }
+            function pausarAuto() { clearInterval(temporizador); }
+
+            dots.forEach((dot, indice) => {
+                dot.addEventListener('click', () => {
+                    mostrar(indice);
+                    pausarAuto();
+                    iniciarAuto();
+                });
+            });
+
+            hero.addEventListener('mouseenter', pausarAuto);
+            hero.addEventListener('mouseleave', iniciarAuto);
+
+            iniciarAuto();
+        })();
+    </script>
 </body>
 </html>
