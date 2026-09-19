@@ -6,187 +6,482 @@
     <title><%= evento.nombre %> · TuEntradaYa</title>
     <link rel="stylesheet" href="/css/theme.css">
     <style>
-        .contenedor { max-width: 600px; margin: 0 auto; padding: 30px 20px; }
-        img.flyer { width: 100%; max-height: 400px; object-fit: cover; border-radius: var(--radius-md); display: block; margin-bottom: 16px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; }
-        input, select { width: 100%; }
-        .summary { padding: 16px; margin-top: 15px; }
-        .summary h3 { margin-top: 0; }
-        button { width: 100%; font-size: 1rem; padding: 13px; }
-        .volver { display: inline-block; margin-bottom: 15px; color: var(--text-muted); text-decoration: none; }
+        /* ============================================================
+           Detalle del evento: mismo lenguaje de alto contraste que la
+           portada (views/landing.ejs) — cabecera oscura/navy arriba,
+           cuerpo claro abajo. Paleta local a esta vista, igual que en
+           la portada (cada view es dueña de su propio <style>).
+           ============================================================ */
+        :root {
+            --ev-navy-900: #081b36;
+            --ev-navy-800: #0e2b52;
+            --ev-navy-700: #163d70;
+            --ev-blue: #1e88f6;
+            --ev-blue-bright: #2f9bff;
+            --ev-bg: #f4f6fb;
+            --ev-surface: #ffffff;
+            --ev-border: #e3e7f0;
+            --ev-text: #0f1830;
+            --ev-text-muted: #5b6478;
+            --ev-text-faint: #8890a3;
+        }
+        body { background: var(--ev-bg); color: var(--ev-text); }
 
-        /* Descripción del evento */
-        .descripcion { padding: 18px; margin-top: 18px; border-left: 3px solid var(--accent); }
-        .descripcion h3 { margin: 0 0 8px; font-size: 1rem; }
-        .descripcion p {
-            margin: 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;
-            white-space: pre-line; /* respeta los saltos de línea que escribió el organizador */
+        /* ---------- 1. CABECERA DEL EVENTO (Header Banner) ---------- */
+        .ev-hero {
+            position: relative; overflow: hidden;
+            background: linear-gradient(125deg, #05101f 0%, var(--ev-navy-900) 45%, var(--ev-navy-700) 100%);
+            padding: 20px 20px 40px;
+        }
+        .ev-hero::before {
+            /* Textura sutil de puntos, mismo recurso que el hero original de la portada. */
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 26px 26px;
+        }
+        .ev-volver {
+            position: relative; z-index: 1;
+            display: inline-block; margin-bottom: 22px;
+            color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.88rem;
+        }
+        .ev-volver:hover { color: #fff; }
+
+        .ev-hero__inner {
+            position: relative; z-index: 1; max-width: 1180px; margin: 0 auto;
+            display: flex; flex-direction: column; align-items: center; gap: 26px; text-align: center;
+        }
+        .ev-hero__poster {
+            width: 220px; flex-shrink: 0; border-radius: 18px; overflow: hidden;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 20px 46px rgba(0,0,0,0.55);
+        }
+        .ev-hero__poster img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+
+        /* Fade-in + leve deslizamiento desde abajo, solo en el bloque de información
+           (no en el póster): así el título "entra" apenas carga la página. */
+        @keyframes evFadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .ev-hero__info {
+            max-width: 620px; color: #fff;
+            animation: evFadeInUp 0.6s ease-out both;
+        }
+        .ev-hero__badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(52, 211, 153, 0.15); color: #6ee7b7;
+            border: 1px solid rgba(52, 211, 153, 0.35);
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em;
+            padding: 6px 14px; border-radius: 999px; margin-bottom: 16px;
+        }
+        .ev-hero__badge.ev-hero__badge--preview {
+            background: rgba(248, 113, 113, 0.15); color: #fca5a5; border-color: rgba(248, 113, 113, 0.35);
+        }
+        .ev-hero__badge svg { flex-shrink: 0; }
+        .ev-hero__info h1 {
+            font-size: 1.7rem; font-weight: 800; line-height: 1.18; margin: 0 0 14px;
+            letter-spacing: -0.02em;
+        }
+        .ev-hero__meta { display: flex; flex-direction: column; gap: 6px; }
+        .ev-hero__meta p {
+            margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 0.92rem; color: rgba(255,255,255,0.8);
+        }
+        .ev-hero__meta svg { flex-shrink: 0; opacity: 0.85; }
+
+        @media (min-width: 760px) {
+            .ev-hero { padding: 28px 40px 56px; }
+            .ev-hero__inner { flex-direction: row; align-items: flex-end; text-align: left; }
+            .ev-hero__poster { width: 240px; }
+            .ev-hero__info h1 { font-size: 2.3rem; }
+            .ev-hero__meta { align-items: flex-start; }
+            .ev-hero__meta p { justify-content: flex-start; }
+        }
+        @media (min-width: 1080px) {
+            .ev-hero__poster { width: 270px; }
+            .ev-hero__info h1 { font-size: 2.6rem; }
         }
 
-        /* Ubicación */
-        .ubicacion { padding: 16px; margin-top: 18px; }
-        .ubicacion h3 { margin: 0 0 8px; font-size: 1rem; }
-        .ubicacion p { margin: 2px 0; color: var(--text-muted); font-size: 0.9rem; }
-        .ubicacion a { display: inline-block; margin-top: 8px; font-size: 0.85rem; }
+        /* ---------- 2. CUERPO (fondo claro, dos columnas) ---------- */
+        .ev-body { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
 
-        /* Un selector por tipo de entrada, todos arrancan en 0 */
+        .ev-alerta-preview { margin-bottom: 22px; }
+
+        .ev-layout { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+        @media (min-width: 960px) {
+            .ev-layout { grid-template-columns: 7fr 3fr; gap: 26px; }
+        }
+
+        .ev-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .ev-sidebar { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        /* En celular, la sidebar va DESPUÉS del formulario de compra (orden natural del
+           HTML): pagos/ayuda son información de apoyo, no lo primero que hay que ver. */
+
+        .ev-card {
+            background: var(--ev-surface); border: 1px solid var(--ev-border);
+            border-radius: 16px; padding: 22px;
+        }
+        .ev-card h2 {
+            margin: 0 0 16px; font-size: 1.05rem; font-weight: 800; color: var(--ev-navy-900);
+        }
+        .ev-card h3 {
+            margin: 0 0 12px; font-size: 0.95rem; font-weight: 800; color: var(--ev-navy-900);
+        }
+
+        /* Datos del comprador */
+        .ev-form-group { margin-bottom: 14px; }
+        .ev-form-group:last-child { margin-bottom: 0; }
+        .ev-form-group label {
+            display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem;
+            color: var(--ev-text-muted);
+        }
+        .ev-form-group input {
+            width: 100%; background: var(--ev-bg); color: var(--ev-text);
+            border: 1px solid var(--ev-border); border-radius: 10px; padding: 11px 14px;
+            font-family: var(--font); font-size: 0.94rem;
+        }
+        .ev-form-group input:focus {
+            outline: none; border-color: var(--ev-blue-bright);
+            box-shadow: 0 0 0 3px rgba(47, 155, 255, 0.18);
+        }
+
+        /* Selección de entradas (misma lógica/IDs que siempre, look clarito) */
         .tipos-lista { display: flex; flex-direction: column; gap: 12px; }
-        .tipo-card { padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px; }
-        .tipo-info h4 { margin: 0 0 3px; font-size: 1rem; }
-        .tipo-info .precio { color: var(--accent-2); font-weight: 700; font-size: 0.95rem; }
-        .tipo-info .tarifa-unitaria { color: var(--text-faint); font-size: 0.75rem; margin-left: 6px; }
-        .tipo-info .etiqueta-precio { color: var(--text-muted); font-weight: 500; font-size: 0.78rem; }
-        .tipo-info .desc { color: var(--text-muted); font-size: 0.82rem; margin: 5px 0 0; }
-        .tipo-info .stock { color: var(--text-faint); font-size: 0.75rem; margin: 5px 0 0; }
+        .tipo-card {
+            background: var(--ev-bg); border: 1px solid var(--ev-border); border-radius: 14px;
+            padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px;
+        }
+        .tipo-info h4 { margin: 0 0 3px; font-size: 0.98rem; color: var(--ev-text); }
+        .tipo-info .precio { color: var(--ev-navy-800); font-weight: 700; font-size: 0.95rem; }
+        .tipo-info .tarifa-unitaria { color: var(--ev-text-faint); font-size: 0.75rem; margin-left: 6px; }
+        .tipo-info .etiqueta-precio { color: var(--ev-text-muted); font-weight: 500; font-size: 0.78rem; }
+        .tipo-info .desc { color: var(--ev-text-muted); font-size: 0.82rem; margin: 5px 0 0; }
+        .tipo-info .stock { color: var(--ev-text-faint); font-size: 0.75rem; margin: 5px 0 0; }
 
         .stepper { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .stepper button {
             width: 34px; height: 34px; padding: 0; font-size: 1.1rem; line-height: 1;
-            border-radius: 50%; border: 1px solid var(--border); background: var(--bg-elevated-2);
-            color: var(--text); cursor: pointer;
+            border-radius: 50%; border: 1px solid var(--ev-border); background: #fff;
+            color: var(--ev-text); cursor: pointer;
         }
-        .stepper button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-2); }
+        .stepper button:hover:not(:disabled) { border-color: var(--ev-blue-bright); color: var(--ev-blue-bright); }
         .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
         .stepper input {
             width: 46px; text-align: center; padding: 6px 4px; font-weight: 700;
+            background: #fff; color: var(--ev-text); border: 1px solid var(--ev-border); border-radius: 8px;
             -moz-appearance: textfield;
         }
         .stepper input::-webkit-outer-spin-button,
         .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-        .aviso-maximo { font-size: 0.78rem; color: var(--text-faint); margin: 10px 0 0; }
+        .aviso-maximo { font-size: 0.78rem; color: var(--ev-text-faint); margin: 12px 0 0; }
+
+        /* Acordeones: "Promociones" y "Más información" */
+        .ev-accordion { background: var(--ev-surface); border: 1px solid var(--ev-border); border-radius: 16px; overflow: hidden; }
+        .ev-accordion__trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            background: none; border: none; cursor: pointer; text-align: left;
+            padding: 18px 22px; font-family: var(--font); font-size: 1.02rem; font-weight: 800;
+            color: var(--ev-navy-900);
+        }
+        .ev-accordion__chevron { flex-shrink: 0; transition: transform 250ms ease; color: var(--ev-text-muted); }
+        .ev-accordion__trigger.is-open .ev-accordion__chevron { transform: rotate(180deg); }
+        .ev-accordion__panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 300ms ease;
+        }
+        .ev-accordion__panel-inner { padding: 0 22px 22px; }
 
         .cupon-fila { display: flex; gap: 8px; align-items: stretch; }
-        .cupon-fila input { flex: 1; text-transform: uppercase; transition: border-color 150ms ease, box-shadow 150ms ease; }
+        .cupon-fila input {
+            flex: 1; text-transform: uppercase; background: var(--ev-bg); color: var(--ev-text);
+            border: 1px solid var(--ev-border); border-radius: 10px; padding: 11px 14px;
+            font-family: var(--font); font-size: 0.92rem;
+            transition: border-color 150ms ease, box-shadow 150ms ease;
+        }
         .cupon-fila input.aplicado { border-color: var(--success); }
         .cupon-fila input.rechazado { border-color: var(--danger); }
-        .cupon-fila button { width: auto; white-space: nowrap; padding: 0 18px; font-size: 0.88rem; }
-        .cupon-mensaje { font-size: 0.84rem; margin: 8px 0 0; font-weight: 600; }
-        .cupon-mensaje.ok { color: var(--success); }
-        .cupon-mensaje.error { color: var(--danger); }
+        .cupon-fila button {
+            width: auto; white-space: nowrap; padding: 0 18px; font-size: 0.88rem;
+        }
+        .cupon-mensaje { font-size: 0.84rem; margin: 10px 0 0; font-weight: 600; }
+        .cupon-mensaje.ok { color: #16a34a; }
+        .cupon-mensaje.error { color: #dc2626; }
 
-        .summary p { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; color: var(--text-muted); font-size: 0.92rem; }
-        .summary p.fila-total { color: var(--text); font-size: 1.05rem; font-weight: 700; margin-top: 10px; }
-        .summary p.fila-descuento { color: var(--success); }
-        .summary .detalle-tipos { display: block; color: var(--text-faint); font-size: 0.8rem; margin: 0 0 10px; }
+        .ev-descripcion p {
+            margin: 0; color: var(--ev-text-muted); font-size: 0.92rem; line-height: 1.65;
+            white-space: pre-line;
+        }
+
+        /* Ubicación / mapa */
+        .ev-mapa-preview {
+            position: relative; border-radius: 14px; overflow: hidden;
+            background: var(--ev-bg); border: 1px solid var(--ev-border);
+            height: 140px; display: flex; align-items: center; justify-content: center;
+            margin-bottom: 16px;
+            background-image: radial-gradient(circle, #d7deec 1.5px, transparent 1.5px);
+            background-size: 18px 18px;
+        }
+        .ev-mapa-preview svg { color: var(--ev-blue-bright); }
+        .ev-ubicacion-datos p { margin: 2px 0; color: var(--ev-text-muted); font-size: 0.9rem; }
+        .ev-ubicacion-datos strong { color: var(--ev-text); }
+        .ev-ubicacion-datos a {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            color: var(--ev-blue-bright); font-size: 0.88rem; font-weight: 600; text-decoration: none;
+        }
+        .ev-ubicacion-datos a:hover { text-decoration: underline; }
+
+        /* Resumen y pago */
+        .summary p { display: flex; justify-content: space-between; gap: 10px; margin: 7px 0; color: var(--ev-text-muted); font-size: 0.92rem; }
+        .summary p.fila-total { color: var(--ev-text); font-size: 1.08rem; font-weight: 800; margin-top: 12px; }
+        .summary p.fila-descuento { color: #16a34a; }
+        .summary .detalle-tipos { display: block; color: var(--ev-text-faint); font-size: 0.8rem; margin: 0 0 12px; }
+        .summary hr { border: none; border-top: 1px solid var(--ev-border); }
 
         button[disabled] { opacity: 0.45; cursor: not-allowed; }
+        #btnPagar { width: 100%; font-size: 1rem; padding: 14px; margin-top: 16px; }
+
+        /* ---------- Sidebar: métodos de pago + ayuda ---------- */
+        .ev-metodos-pago { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+        .ev-tarjeta-badge {
+            display: flex; align-items: center; justify-content: center;
+            min-width: 56px; height: 36px; padding: 0 10px; border-radius: 8px;
+            font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; color: #fff;
+        }
+        .ev-tarjeta-badge--visa { background: #1a1f71; }
+        .ev-tarjeta-badge--master { background: linear-gradient(90deg, #eb001b 50%, #f79e1b 50%); color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+        .ev-tarjeta-badge--amex { background: #006fcf; }
+        .ev-tarjeta-badge--mp { background: #009ee3; }
+        .ev-mp-nota {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ev-border);
+            color: var(--ev-text-muted); font-size: 0.82rem;
+        }
+
+        .ev-ayuda p { margin: 0 0 14px; color: var(--ev-text-muted); font-size: 0.88rem; line-height: 1.5; }
+        .ev-btn-ayuda {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; background: var(--ev-navy-900); color: #fff;
+            border: none; border-radius: 999px; padding: 12px 18px;
+            font-size: 0.88rem; font-weight: 700; text-decoration: none;
+        }
+        .ev-btn-ayuda:hover { background: var(--ev-navy-700); }
     </style>
 </head>
 <body>
     <%- include('partials/navbar') %>
-    <div class="contenedor">
-    <a class="volver" href="/eventos">&larr; Ver todos los eventos</a>
 
-    <% if (typeof vistaPreviaPrivada !== 'undefined' && vistaPreviaPrivada) { %>
-        <div class="alerta-error" style="margin-bottom:15px;">
-            👁️ <strong>Vista previa privada</strong> — este evento todavía no es público, solo vos
-            (como dueño o admin) podés ver esta página. Andá al panel del evento para ver qué falta.
+    <!-- ============ 1. CABECERA DEL EVENTO (Header Banner) ============ -->
+    <section class="ev-hero">
+        <div style="position:relative; z-index:1; max-width:1180px; margin:0 auto;">
+            <a class="ev-volver" href="/eventos">&larr; Ver todos los eventos</a>
         </div>
-    <% } %>
-
-    <!-- El flyer va arriba de todo, como cabecera del evento: es lo primero que ve el
-         comprador al entrar, antes incluso del nombre. onerror cubre el caso de una URL de
-         flyer rota (hosting externo caído/borrado) para no mostrar el ícono de imagen rota. -->
-    <img class="flyer" src="<%= evento.flyer_url %>" alt="Flyer del evento"
-         onerror="this.onerror=null; this.src='/flyer.png';">
-    <h1><%= evento.nombre %></h1>
-    <p style="color:var(--text-muted);"><%= formatearFecha(evento.fecha) %></p>
-
-    <% if (evento.descripcion) { %>
-        <div class="descripcion card">
-            <h3>Sobre el evento</h3>
-            <!-- Se escapa con <%%= %> (no <%%- %>) para que nadie pueda inyectar HTML desde la
-                 descripción; los saltos de línea se respetan por CSS con white-space: pre-line. -->
-            <p><%= evento.descripcion %></p>
+        <div class="ev-hero__inner">
+            <div class="ev-hero__poster">
+                <!-- Mismo onerror que siempre: si la URL del flyer está caída, cae al
+                     placeholder local en vez de mostrar el ícono de imagen rota. -->
+                <img src="<%= evento.flyer_url %>" alt="Flyer del evento"
+                     onerror="this.onerror=null; this.src='/flyer.png';">
+            </div>
+            <div class="ev-hero__info">
+                <% if (typeof vistaPreviaPrivada !== 'undefined' && vistaPreviaPrivada) { %>
+                    <span class="ev-hero__badge ev-hero__badge--preview">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        Vista previa privada
+                    </span>
+                <% } else { %>
+                    <span class="ev-hero__badge">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="4" cy="4" r="4"/></svg>
+                        Venta General Habilitada
+                    </span>
+                <% } %>
+                <h1><%= evento.nombre %></h1>
+                <div class="ev-hero__meta">
+                    <p>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 9.5h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <%= formatearFecha(evento.fecha) %>
+                    </p>
+                    <% if (evento.lugar_nombre || evento.ciudad) { %>
+                        <p>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 21s7-6.8 7-12a7 7 0 10-14 0c0 5.2 7 12 7 12z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="9" r="2.4" stroke="currentColor" stroke-width="1.6"/></svg>
+                            <%= [evento.lugar_nombre, evento.ciudad].filter(Boolean).join(' · ') %>
+                        </p>
+                    <% } %>
+                </div>
+            </div>
         </div>
-    <% } %>
+    </section>
 
-    <% if (evento.lugar_nombre || evento.direccion || evento.ciudad) { %>
-        <div class="ubicacion card">
-            <h3>📍 Dónde es</h3>
-            <% if (evento.lugar_nombre) { %><p><strong style="color:var(--text);"><%= evento.lugar_nombre %></strong></p><% } %>
-            <% if (evento.direccion) { %><p><%= evento.direccion %></p><% } %>
-            <% if (evento.ciudad) { %><p><%= evento.ciudad %></p><% } %>
-            <% if (evento.maps_url) { %>
-                <a href="<%= evento.maps_url %>" target="_blank" rel="noopener noreferrer">Ver en Google Maps →</a>
-            <% } %>
-        </div>
-    <% } %>
+    <!-- ============ 2. CUERPO (fondo claro, dos columnas) ============ -->
+    <div class="ev-body">
+        <% if (typeof vistaPreviaPrivada !== 'undefined' && vistaPreviaPrivada) { %>
+            <div class="alerta-error ev-alerta-preview">
+                👁️ <strong>Vista previa privada</strong> — este evento todavía no es público, solo vos
+                (como dueño o admin) podés ver esta página. Andá al panel del evento para ver qué falta.
+            </div>
+        <% } %>
 
-    <form action="/crear-pago" method="POST" id="ticketForm" style="margin-top: 20px;">
-        <input type="hidden" name="evento_id" value="<%= evento.id %>">
-        <!-- Marca de versión del formulario. Si el navegador manda una página vieja guardada
-             en su caché (pasó tras un deploy), el servidor lo detecta por la ausencia de este
-             campo y le pide recargar, en vez de tirar un error genérico que no explica nada. -->
-        <input type="hidden" name="form_version" value="2">
-        <div class="form-group">
-            <label for="nombre_apellido">Nombre y apellido:</label>
-            <input type="text" id="nombre_apellido" name="nombre_apellido" required placeholder="Como figura en tu documento">
-        </div>
-        <div class="form-group">
-            <label for="email">Correo Electrónico (Obligatorio para recibir tu entrada):</label>
-            <input type="email" id="email" name="email" required placeholder="tucorreo@email.com">
-        </div>
+        <div class="ev-layout">
+            <!-- ---------- Columna principal (70%) ---------- -->
+            <div class="ev-main">
+                <form action="/crear-pago" method="POST" id="ticketForm">
+                    <input type="hidden" name="evento_id" value="<%= evento.id %>">
+                    <!-- Marca de versión del formulario. Si el navegador manda una página vieja
+                         guardada en su caché (pasó tras un deploy), el servidor lo detecta por la
+                         ausencia de este campo y le pide recargar, en vez de tirar un error
+                         genérico que no explica nada. -->
+                    <input type="hidden" name="form_version" value="2">
 
-        <div class="form-group">
-            <label>Elegí tus entradas:</label>
-            <div class="tipos-lista">
-                <% tipos.forEach(t => { %>
-                    <div class="tipo-card card">
-                        <div class="tipo-info">
-                            <h4><%= t.nombre %></h4>
-                            <span class="precio">$<%= Number(t.precio) %> <span class="etiqueta-precio">(Entrada)</span></span>
-                            <!-- Un solo recargo, ya combinado: incluye nuestro cargo por servicio
-                                 Y la comisión de Mercado Pago absorbida (ver el gross-up en
-                                 services/mercadopago.js -> tarifaPorEntrada). Al comprador no le
-                                 sirve verlos separados: lo que le importa es cuánto paga de más. -->
-                            <span class="tarifa-unitaria">+ $<%= t.tarifa %> (Cargo por servicio y costo financiero)</span>
-                            <% if (t.descripcion) { %><p class="desc"><%= t.descripcion %></p><% } %>
-                            <p class="stock">Quedan <%= t.cupo_disponible %></p>
+                    <div class="ev-card">
+                        <h2>Tus datos</h2>
+                        <div class="ev-form-group">
+                            <label for="nombre_apellido">Nombre y apellido:</label>
+                            <input type="text" id="nombre_apellido" name="nombre_apellido" required placeholder="Como figura en tu documento">
                         </div>
-                        <div class="stepper">
-                            <button type="button" class="menos" data-tipo="<%= t.id %>" aria-label="Quitar una entrada">−</button>
-                            <!-- Arranca SIEMPRE en 0: nadie compra sin elegir explícitamente.
-                                 El nombre lleva el prefijo "t" a propósito: con items[9] el
-                                 parser de Express (qs) toma el 9 como ÍNDICE DE ARRAY, compacta
-                                 el array y pierde el id del tipo. Con items[t9] lo trata como
-                                 clave de objeto y el id llega intacto. -->
-                            <input type="number" name="items[t<%= t.id %>]" id="cant_<%= t.id %>"
-                                   class="cantidad-tipo" value="0" min="0" max="<%= t.cupo_disponible %>"
-                                   data-precio="<%= t.precio %>" data-tarifa="<%= t.tarifa %>"
-                                   data-stock="<%= t.cupo_disponible %>" readonly>
-                            <button type="button" class="mas" data-tipo="<%= t.id %>" aria-label="Agregar una entrada">+</button>
+                        <div class="ev-form-group">
+                            <label for="email">Correo Electrónico (Obligatorio para recibir tu entrada):</label>
+                            <input type="email" id="email" name="email" required placeholder="tucorreo@email.com">
                         </div>
                     </div>
-                <% }) %>
+
+                    <div class="ev-card" style="margin-top: 18px;">
+                        <h2>Selección de Entradas</h2>
+                        <div class="tipos-lista">
+                            <% tipos.forEach(t => { %>
+                                <div class="tipo-card">
+                                    <div class="tipo-info">
+                                        <h4><%= t.nombre %></h4>
+                                        <span class="precio">$<%= Number(t.precio) %> <span class="etiqueta-precio">(Entrada)</span></span>
+                                        <!-- Un solo recargo, ya combinado: incluye nuestro cargo por
+                                             servicio Y la comisión de Mercado Pago absorbida (ver el
+                                             gross-up en services/mercadopago.js -> tarifaPorEntrada).
+                                             Al comprador no le sirve verlos separados: lo que le
+                                             importa es cuánto paga de más. -->
+                                        <span class="tarifa-unitaria">+ $<%= t.tarifa %> (Cargo por servicio y costo financiero)</span>
+                                        <% if (t.descripcion) { %><p class="desc"><%= t.descripcion %></p><% } %>
+                                        <p class="stock">Quedan <%= t.cupo_disponible %></p>
+                                    </div>
+                                    <div class="stepper">
+                                        <button type="button" class="menos" data-tipo="<%= t.id %>" aria-label="Quitar una entrada">−</button>
+                                        <!-- Arranca SIEMPRE en 0: nadie compra sin elegir
+                                             explícitamente. El nombre lleva el prefijo "t" a
+                                             propósito: con items[9] el parser de Express (qs) toma
+                                             el 9 como ÍNDICE DE ARRAY, compacta el array y pierde el
+                                             id del tipo. Con items[t9] lo trata como clave de objeto
+                                             y el id llega intacto. -->
+                                        <input type="number" name="items[t<%= t.id %>]" id="cant_<%= t.id %>"
+                                               class="cantidad-tipo" value="0" min="0" max="<%= t.cupo_disponible %>"
+                                               data-precio="<%= t.precio %>" data-tarifa="<%= t.tarifa %>"
+                                               data-stock="<%= t.cupo_disponible %>" readonly>
+                                        <button type="button" class="mas" data-tipo="<%= t.id %>" aria-label="Agregar una entrada">+</button>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                        <p class="aviso-maximo">Podés llevar hasta <span id="maxEntradas"></span> entradas por compra, combinando los tipos que quieras.</p>
+                    </div>
+
+                    <!-- Acordeón: Promociones (cupón de descuento) -->
+                    <div class="ev-accordion" style="margin-top: 18px;">
+                        <button type="button" class="ev-accordion__trigger" data-accordion-target="accPromociones">
+                            Promociones
+                            <svg class="ev-accordion__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="ev-accordion__panel" id="accPromociones">
+                            <div class="ev-accordion__panel-inner">
+                                <label for="cupon_input" style="display:block; margin-bottom:8px; font-weight:600; font-size:0.85rem; color:var(--ev-text-muted);">¿Tenés un cupón de descuento?</label>
+                                <div class="cupon-fila">
+                                    <input type="text" id="cupon_input" placeholder="Código del cupón">
+                                    <button type="button" class="btn btn-ghost" id="btnAplicarCupon">Aplicar cupón</button>
+                                </div>
+                                <p id="cuponMensaje" class="cupon-mensaje" hidden></p>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="cupon_codigo" id="cupon_codigo_hidden" value="">
+
+                    <!-- Acordeón: Más información (descripción del organizador) -->
+                    <% if (evento.descripcion) { %>
+                        <div class="ev-accordion" style="margin-top: 18px;">
+                            <button type="button" class="ev-accordion__trigger" data-accordion-target="accInfo">
+                                Más información
+                                <svg class="ev-accordion__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <div class="ev-accordion__panel" id="accInfo">
+                                <!-- Se escapa con <%%= %> (no <%%- %>) para que nadie pueda inyectar
+                                     HTML desde la descripción; los saltos de línea se respetan por
+                                     CSS con white-space: pre-line. -->
+                                <div class="ev-accordion__panel-inner ev-descripcion">
+                                    <p><%= evento.descripcion %></p>
+                                </div>
+                            </div>
+                        </div>
+                    <% } %>
+
+                    <!-- Ubicación / mapa del recinto -->
+                    <% if (evento.lugar_nombre || evento.direccion || evento.ciudad) { %>
+                        <div class="ev-card" style="margin-top: 18px;">
+                            <h2>Dónde es</h2>
+                            <div class="ev-mapa-preview">
+                                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 21s7-6.8 7-12a7 7 0 10-14 0c0 5.2 7 12 7 12z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="9" r="2.6" stroke="currentColor" stroke-width="1.6"/></svg>
+                            </div>
+                            <div class="ev-ubicacion-datos">
+                                <% if (evento.lugar_nombre) { %><p><strong><%= evento.lugar_nombre %></strong></p><% } %>
+                                <% if (evento.direccion) { %><p><%= evento.direccion %></p><% } %>
+                                <% if (evento.ciudad) { %><p><%= evento.ciudad %></p><% } %>
+                                <% if (evento.maps_url) { %>
+                                    <a href="<%= evento.maps_url %>" target="_blank" rel="noopener noreferrer">
+                                        Abrir en Google Maps
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 17L17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </a>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% } %>
+
+                    <div class="ev-card summary" style="margin-top: 18px;">
+                        <h3>Detalle del Pago:</h3>
+                        <span class="detalle-tipos" id="detalleTipos">Todavía no elegiste entradas.</span>
+                        <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal">0.00</span></span></p>
+                        <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento">0.00</span></span></p>
+                        <p><span>Cargo por servicio y costo financiero</span> <span>$<span id="valTarifa">0.00</span></span></p>
+                        <hr>
+                        <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar">0.00</span></span></p>
+
+                        <button class="btn btn-primary" type="submit" id="btnPagar" disabled>Pagar con Mercado Pago</button>
+                    </div>
+                </form>
             </div>
-            <p class="aviso-maximo">Podés llevar hasta <span id="maxEntradas"></span> entradas por compra, combinando los tipos que quieras.</p>
-        </div>
 
-        <div class="form-group">
-            <label for="cupon_input">¿Tenés un cupón de descuento?</label>
-            <div class="cupon-fila">
-                <input type="text" id="cupon_input" placeholder="Código del cupón">
-                <button type="button" class="btn btn-ghost" id="btnAplicarCupon">Aplicar cupón</button>
-            </div>
-            <p id="cuponMensaje" class="cupon-mensaje" hidden></p>
-        </div>
-        <input type="hidden" name="cupon_codigo" id="cupon_codigo_hidden" value="">
+            <!-- ---------- Sidebar (30%) ---------- -->
+            <aside class="ev-sidebar">
+                <div class="ev-card ev-metodos-pago-card">
+                    <h3>Métodos de Pago</h3>
+                    <div class="ev-metodos-pago">
+                        <span class="ev-tarjeta-badge ev-tarjeta-badge--visa">VISA</span>
+                        <span class="ev-tarjeta-badge ev-tarjeta-badge--master">MC</span>
+                        <span class="ev-tarjeta-badge ev-tarjeta-badge--amex">AMEX</span>
+                        <span class="ev-tarjeta-badge ev-tarjeta-badge--mp">MP</span>
+                    </div>
+                    <p style="margin:10px 0 0; color:var(--ev-text-muted); font-size:0.82rem;">
+                        Tarjetas de crédito, débito y dinero en cuenta, procesado por Mercado Pago.
+                    </p>
+                    <div class="ev-mp-nota">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3" stroke="#009ee3" stroke-width="1.8"/><path d="M2 9.5H22" stroke="#009ee3" stroke-width="1.8"/><circle cx="17.5" cy="14.5" r="1.6" fill="#009ee3"/></svg>
+                        El pago se hace directo en Mercado Pago, nunca en TuEntradaYa.
+                    </div>
+                </div>
 
-        <div class="summary card">
-            <h3>Detalle del Pago:</h3>
-            <span class="detalle-tipos" id="detalleTipos">Todavía no elegiste entradas.</span>
-            <p><span>Subtotal (entradas)</span> <span>$<span id="valSubtotal">0.00</span></span></p>
-            <p id="filaDescuento" class="fila-descuento" hidden><span>Descuento aplicado</span> <span>-$<span id="valDescuento">0.00</span></span></p>
-            <p><span>Cargo por servicio y costo financiero</span> <span>$<span id="valTarifa">0.00</span></span></p>
-            <hr style="border-color:var(--border);">
-            <p class="fila-total"><span>Total Final</span> <span>$<span id="totalPagar">0.00</span></span></p>
+                <div class="ev-card ev-ayuda">
+                    <h3>Centro de Ayuda</h3>
+                    <p>¿Tenés dudas sobre esta compra o tu entrada? Escribinos y te respondemos a la brevedad.</p>
+                    <a class="ev-btn-ayuda" href="https://wa.me/5493735535096?text=Hola,%20tengo%20una%20consulta%20sobre%20una%20compra%20en%20TuEntradaYa" target="_blank" rel="noopener noreferrer">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M9.5 9.2c.3-1 1.2-1.6 2.3-1.6 1.3 0 2.3.8 2.3 1.9 0 1.6-2.1 1.5-2.1 3.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="16.3" r="0.9" fill="currentColor"/></svg>
+                        Contactar por WhatsApp
+                    </a>
+                </div>
+            </aside>
         </div>
-
-        <button class="btn btn-primary" type="submit" id="btnPagar" style="margin-top: 15px;" disabled>Pagar con Mercado Pago</button>
-    </form>
+    </div>
 
     <script>
         const eventoId = <%= evento.id %>;
@@ -360,7 +655,31 @@
         });
 
         recalcular();
+
+        // Acordeones "Promociones" / "Más información": alto animado con transition sobre
+        // max-height. Se calcula scrollHeight en vez de un valor fijo porque el contenido
+        // (descripción del organizador, mensaje de cupón) tiene largo variable.
+        document.querySelectorAll('.ev-accordion__trigger').forEach((boton) => {
+            boton.addEventListener('click', () => {
+                const panel = document.getElementById(boton.dataset.accordionTarget);
+                const abrir = !boton.classList.contains('is-open');
+
+                boton.classList.toggle('is-open', abrir);
+                boton.setAttribute('aria-expanded', String(abrir));
+                panel.style.maxHeight = abrir ? panel.scrollHeight + 'px' : '0px';
+            });
+        });
+
+        // Si el cupón se aplica/rechaza con el acordeón de Promociones cerrado, el mensaje
+        // cambia de alto y el max-height (fijado en píxeles al abrir) queda corto y lo corta.
+        // Se re-mide cada vez que cambia el mensaje del cupón, solo si el panel ya está abierto.
+        const panelPromociones = document.getElementById('accPromociones');
+        const triggerPromociones = document.querySelector('[data-accordion-target="accPromociones"]');
+        new MutationObserver(() => {
+            if (triggerPromociones.classList.contains('is-open')) {
+                panelPromociones.style.maxHeight = panelPromociones.scrollHeight + 'px';
+            }
+        }).observe(document.getElementById('cuponMensaje'), { attributes: true, childList: true, characterData: true });
     </script>
-    </div>
 </body>
 </html>

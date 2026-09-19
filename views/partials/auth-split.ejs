@@ -1,0 +1,203 @@
+<%
+/* Partial compartido por login.ejs y registro.ejs — una sola pantalla con pestañas,
+   igual que en TuEntrada.com. Se espera:
+     - activeTab: 'login' | 'registro' (cuál pestaña arranca activa)
+     - error: string | null (mensaje de error de la ÚLTIMA acción, si hubo una)
+   Los DOS formularios (login y registro) están siempre presentes en el HTML — cambiar
+   de pestaña es solo mostrar/ocultar con JS, sin recargar la página. Cada <form> sigue
+   apuntando a su ruta real (/login, /registro) así que el submit funciona igual que
+   antes, esté la pestaña que esté activa. */
+%>
+<div class="as-shell">
+    <div class="as-media" aria-hidden="true">
+        <div class="as-media__overlay"></div>
+        <div class="as-media__brand">
+            <h2>Viví el show, no la fila.</h2>
+            <p>Comprá tus entradas en minutos y recibilas al instante por mail, con QR listo para entrar.</p>
+        </div>
+    </div>
+
+    <div class="as-panel">
+        <a class="as-logo" href="/">
+            <img src="/img/logo-placeholder.png" alt="Logo de TuEntradaYa">
+            <span>TuEntradaYa</span>
+        </a>
+
+        <div class="as-form-wrap">
+            <div class="as-tabs <%= activeTab === 'registro' ? 'is-registro' : '' %>" id="asTabs" role="tablist">
+                <button type="button" class="as-tab <%= activeTab === 'login' ? 'is-active' : '' %>" data-tab="login" role="tab" aria-selected="<%= activeTab === 'login' %>">Iniciar sesión</button>
+                <button type="button" class="as-tab <%= activeTab === 'registro' ? 'is-active' : '' %>" data-tab="registro" role="tab" aria-selected="<%= activeTab === 'registro' %>">Creá tu cuenta</button>
+                <span class="as-tab-indicator"></span>
+            </div>
+
+            <!-- ============ VISTA: INICIAR SESIÓN ============ -->
+            <div class="as-view <%= activeTab === 'login' ? 'is-active' : '' %>" id="viewLogin">
+                <ul class="as-benefits">
+                    <li>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.6 2.6L16 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Completar tu compra de forma rápida y segura
+                    </li>
+                    <li>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.6 2.6L16 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Acceder a tus entradas cuando quieras
+                    </li>
+                    <li>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.6 2.6L16 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        No volver a cargar tus datos en cada compra
+                    </li>
+                </ul>
+
+                <!-- El login con Google todavía no está conectado del lado del servidor (no
+                     hay ruta /auth/google ni credenciales de OAuth configuradas) — se deja
+                     deshabilitado y marcado como "Próximamente" en vez de simular que
+                     funciona o apuntar a una ruta que daría 404. -->
+                <button type="button" class="as-google-btn" disabled title="Inicio de sesión con Google — todavía no está disponible">
+                    <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
+                        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.5 0-14 4.2-17.7 10.7z"/>
+                        <path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 34.9 26.9 36 24 36c-5.2 0-9.6-3.4-11.2-8.1l-6.6 5.1C9.9 39.6 16.4 44 24 44z"/>
+                        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.6 5.6C41.2 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+                    </svg>
+                    Iniciar sesión con Google
+                    <span class="as-badge-soon">Próximamente</span>
+                </button>
+
+                <div class="as-divider"><span>o</span></div>
+
+                <% if (activeTab === 'login' && error) { %>
+                    <div class="alerta-error as-alerta"><%= error %></div>
+                <% } %>
+
+                <form action="/login" method="POST" class="as-form">
+                    <div class="as-field">
+                        <label for="loginEmail">Usuario o email</label>
+                        <input type="email" id="loginEmail" name="email" required autocomplete="username">
+                    </div>
+                    <div class="as-field">
+                        <label for="loginPassword">Contraseña</label>
+                        <div class="as-password-wrap">
+                            <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                            <button type="button" class="as-toggle-pass" data-target="loginPassword" aria-label="Mostrar contraseña">
+                                <svg class="icon-ojo" width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+                                <svg class="icon-ojo-tachado" width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" hidden><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="as-forgot"><a href="/recuperar-password">¿Has olvidado tu contraseña?</a></p>
+                    <button class="btn btn-primary as-submit" type="submit">Acceder</button>
+                </form>
+            </div>
+
+            <!-- ============ VISTA: CREA TU CUENTA ============ -->
+            <div class="as-view <%= activeTab === 'registro' ? 'is-active' : '' %>" id="viewRegistro">
+                <% if (activeTab === 'registro' && error) { %>
+                    <div class="alerta-error as-alerta"><%= error %></div>
+                <% } %>
+
+                <form action="/registro" method="POST" class="as-form" id="formRegistro">
+                    <!-- El backend (routes/auth.js -> POST /registro) guarda un solo campo
+                         "nombre" (así es la tabla usuarios, sin columnas separadas). Nombre y
+                         Apellido se piden por separado solo para la grilla visual, y se
+                         combinan acá antes de enviar el form. -->
+                    <input type="hidden" name="nombre" id="regNombreCompleto">
+                    <div class="as-grid">
+                        <div class="as-field">
+                            <label for="regNombre">Nombre</label>
+                            <input type="text" id="regNombre" required>
+                        </div>
+                        <div class="as-field">
+                            <label for="regApellido">Apellido</label>
+                            <input type="text" id="regApellido" required>
+                        </div>
+                        <div class="as-field as-field--full">
+                            <label for="regEmail">Email</label>
+                            <input type="email" id="regEmail" name="email" required>
+                        </div>
+                        <div class="as-field as-field--full">
+                            <label for="regTelefono">Teléfono</label>
+                            <input type="tel" id="regTelefono" name="telefono" required placeholder="Ej: 3624123456">
+                        </div>
+                        <div class="as-field as-field--full">
+                            <label for="regPassword">Contraseña (mínimo 8 caracteres)</label>
+                            <div class="as-password-wrap">
+                                <input type="password" id="regPassword" name="password" required minlength="8">
+                                <button type="button" class="as-toggle-pass" data-target="regPassword" aria-label="Mostrar contraseña">
+                                    <svg class="icon-ojo" width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+                                    <svg class="icon-ojo-tachado" width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" hidden><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary as-submit" type="submit" style="margin-top:6px;">Crear usuario</button>
+                </form>
+            </div>
+
+            <p class="as-switch-link" id="asSwitchLink">
+                <% if (activeTab === 'login') { %>
+                    ¿No tenés cuenta? <a href="/registro" data-tab-link="registro">Creá una</a>
+                <% } else { %>
+                    ¿Ya tenés cuenta? <a href="/login" data-tab-link="login">Iniciá sesión</a>
+                <% } %>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const tabsEl = document.getElementById('asTabs');
+        const vistas = { login: document.getElementById('viewLogin'), registro: document.getElementById('viewRegistro') };
+        const botones = Array.from(tabsEl.querySelectorAll('.as-tab'));
+        const switchLink = document.getElementById('asSwitchLink');
+
+        function activar(tab) {
+            botones.forEach((b) => {
+                const activo = b.dataset.tab === tab;
+                b.classList.toggle('is-active', activo);
+                b.setAttribute('aria-selected', String(activo));
+            });
+            Object.entries(vistas).forEach(([nombre, el]) => el.classList.toggle('is-active', nombre === tab));
+            tabsEl.classList.toggle('is-registro', tab === 'registro');
+
+            // El link de abajo ("¿No tenés cuenta? Creá una") se actualiza para que, si
+            // se recarga la página en este estado, se abra directo en la pestaña correcta.
+            const otro = tab === 'login' ? 'registro' : 'login';
+            const enlace = switchLink.querySelector('a');
+            enlace.href = '/' + otro;
+            enlace.dataset.tabLink = otro;
+            switchLink.firstChild.textContent = tab === 'login' ? '¿No tenés cuenta? ' : '¿Ya tenés cuenta? ';
+            enlace.textContent = tab === 'login' ? 'Creá una' : 'Iniciá sesión';
+        }
+
+        botones.forEach((b) => b.addEventListener('click', () => activar(b.dataset.tab)));
+
+        // El link inferior también cambia de pestaña al toque (sin recargar), pero conserva
+        // el href real como respaldo por si el JS no llegó a cargar.
+        switchLink.addEventListener('click', (e) => {
+            const link = e.target.closest('[data-tab-link]');
+            if (!link) return;
+            e.preventDefault();
+            activar(link.dataset.tabLink);
+        });
+
+        // Mostrar/ocultar contraseña — un botón de ojo por cada input de tipo password.
+        document.querySelectorAll('.as-toggle-pass').forEach((boton) => {
+            boton.addEventListener('click', () => {
+                const input = document.getElementById(boton.dataset.target);
+                const abierto = input.type === 'password';
+                input.type = abierto ? 'text' : 'password';
+                boton.querySelector('.icon-ojo').hidden = abierto;
+                boton.querySelector('.icon-ojo-tachado').hidden = !abierto;
+                boton.setAttribute('aria-label', abierto ? 'Ocultar contraseña' : 'Mostrar contraseña');
+            });
+        });
+
+        // Antes de enviar el registro, combina Nombre + Apellido en el campo oculto
+        // "nombre" (único campo que espera el backend).
+        document.getElementById('formRegistro').addEventListener('submit', () => {
+            const nombre = document.getElementById('regNombre').value.trim();
+            const apellido = document.getElementById('regApellido').value.trim();
+            document.getElementById('regNombreCompleto').value = [nombre, apellido].filter(Boolean).join(' ');
+        });
+    })();
+</script>
