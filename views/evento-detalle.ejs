@@ -7,10 +7,12 @@
     <link rel="stylesheet" href="/css/theme.css">
     <style>
         :root {
-            --zinc-900: #18181b;
-            --zinc-800: #27272a;
-            --zinc-300: #d4d4d8;
-            --zinc-400: #a1a1aa;
+            /* Alias de la vieja paleta oscura local a los tokens claros globales (theme.css) —
+               unifica este panel con el resto del sitio sin reescribir cada regla de abajo. */
+            --zinc-900: var(--bg-elevated);
+            --zinc-800: var(--border);
+            --zinc-300: var(--text-muted);
+            --zinc-400: var(--text-faint);
         }
         .contenedor { max-width: 800px; margin: 0 auto; padding: 30px 20px 60px; }
         .volver {
@@ -55,13 +57,13 @@
         /* Tarjeta de Mercado Pago destacada: borde violeta brillante sutil (doble capa de
            box-shadow, no un simple "border") para que resalte como EL método recomendado. */
         .conectar-box {
-            background: var(--zinc-900); color: white; padding: 30px; border-radius: 14px; margin: 20px 0;
+            background: var(--zinc-900); color: var(--text); padding: 30px; border-radius: 14px; margin: 20px 0;
             text-align: center; position: relative;
-            box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.55), 0 0 32px rgba(139, 92, 246, 0.28);
+            box-shadow: 0 0 0 1px rgba(47, 155, 255, 0.4), 0 0 32px rgba(47, 155, 255, 0.16);
         }
         .conectar-box .badge-recomendado {
             position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white; font-size: 0.7rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; font-size: 0.7rem;
             font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
             padding: 5px 14px; border-radius: 999px;
         }
@@ -72,18 +74,18 @@
             text-align: left; display: flex; flex-direction: column; gap: 9px;
         }
         .beneficios-mp li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--zinc-300); }
-        .beneficios-mp li::before { content: '✓'; color: #22d3ee; font-weight: bold; }
+        .beneficios-mp li::before { content: '✓'; color: var(--accent-2); font-weight: bold; }
         .btn-mp {
-            display: inline-block; background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white;
+            display: inline-block; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white;
             font-weight: bold; padding: 14px 34px; border-radius: 50px; text-decoration: none;
             margin-top: 10px; transition: transform 150ms ease, box-shadow 150ms ease;
         }
-        .btn-mp:hover { box-shadow: 0 0 24px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
+        .btn-mp:hover { box-shadow: 0 0 24px rgba(47, 155, 255, 0.4); transform: translateY(-1px); }
         .btn-mp:active { transform: scale(0.97); }
 
         /* Aviso simple, tono neutro, para cuando una pestaña necesita MP conectado. */
         .aviso-info {
-            border: 1px solid rgba(34, 211, 238, 0.3); background: rgba(34, 211, 238, 0.08);
+            border: 1px solid rgba(47, 155, 255, 0.3); background: rgba(47, 155, 255, 0.08);
             border-radius: 10px; padding: 14px 16px; margin: 10px 0; color: var(--zinc-300); font-size: 0.88rem;
         }
         .aviso-info a { color: var(--accent-2); font-weight: 600; }
@@ -129,8 +131,8 @@
         .link-box strong { display: block; margin-bottom: 4px; color: var(--text); }
         /* Link del guardia: rojo oscuro/translúcido, para que se lea como "manejar con cuidado". */
         .link-box.peligro { background: rgba(248, 113, 113, 0.08); border-color: rgba(248, 113, 113, 0.35); }
-        .link-box.peligro a { color: #fca5a5; }
-        .link-box .aviso { color: #fca5a5; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
+        .link-box.peligro a { color: var(--danger); }
+        .link-box .aviso { color: var(--danger); font-weight: bold; font-size: 0.8rem; display: block; margin-top: 6px; }
 
         .acciones { display: flex; gap: 10px; margin-top: 20px; }
         .acciones button, .acciones a { flex: 1; padding: 10px; border-radius: 999px; text-align: center; text-decoration: none; cursor: pointer; border: 1px solid var(--zinc-800); font-size: 0.9rem; }
@@ -143,7 +145,7 @@
            es más alto que antes (min-height, no un tope bajo) para que 10 filas entren sin
            cortarse — la paginación (ver JS) se encarga de que nunca haya más de 10 a la vez. */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.82rem; background: transparent; }
-        th { text-align: left; padding: 8px; color: var(--zinc-400); font-weight: 600; border-bottom: 1px solid var(--zinc-800); position: sticky; top: 0; background: var(--bg, #09090b); }
+        th { text-align: left; padding: 8px; color: var(--zinc-400); font-weight: 600; border-bottom: 1px solid var(--zinc-800); position: sticky; top: 0; background: var(--bg, #f4f6fb); }
         td { text-align: left; padding: 8px; color: var(--zinc-300); border-bottom: 1px solid var(--zinc-800); }
         tbody tr:hover, table tr:hover td { background: var(--zinc-900); }
         .tabla-ventas-scroll { max-height: 620px; overflow-y: auto; }
@@ -184,13 +186,13 @@
             background: transparent; color: var(--accent-2); text-decoration: none; font-size: 0.85rem;
             border: 1px solid var(--zinc-800);
         }
-        .btn-export:hover { border-color: var(--accent-2); background: rgba(34, 211, 238, 0.08); }
+        .btn-export:hover { border-color: var(--accent-2); background: rgba(47, 155, 255, 0.08); }
 
         /* Aviso de SPAM: tonos mostaza/amarillo oscuro (no rojo — no es un error, es una guía). */
         .aviso-spam {
-            border: 1px solid rgba(217, 164, 6, 0.4); background: rgba(133, 100, 4, 0.18);
+            border: 1px solid rgba(217, 164, 6, 0.35); background: var(--warning-bg);
             border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-size: 0.82rem;
-            color: #facc15; font-weight: 600;
+            color: var(--warning); font-weight: 600;
         }
 
         .aviso-solo-lectura {
@@ -202,18 +204,18 @@
         /* Banner de "evento no público" — grande y rojo a propósito: no es un detalle menor,
            es la razón por la que nadie puede comprar entradas todavía. */
         .banner-no-publico {
-            background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.5);
+            background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.35);
             border-radius: 14px; padding: 18px 20px; margin: 18px 0;
-            color: #fecaca; font-size: 0.95rem; line-height: 1.5;
+            color: #991b1b; font-size: 0.95rem; line-height: 1.5;
         }
-        .banner-no-publico strong { display: block; color: #fca5a5; font-size: 1.05rem; margin-bottom: 4px; }
+        .banner-no-publico strong { display: block; color: #7f1d1d; font-size: 1.05rem; margin-bottom: 4px; }
 
-        /* Atajo de administrador. Va en violeta (acción), no en rojo (advertencia), para que
+        /* Atajo de administrador. Va en azul (acción), no en rojo (advertencia), para que
            se lea distinto del banner de "no es público" que suele estar justo arriba. */
         .acreditar-admin {
             display: flex; justify-content: space-between; align-items: center; gap: 16px;
             flex-wrap: wrap; margin: 18px 0; padding: 18px 20px; border-radius: 14px;
-            background: rgba(139, 92, 246, 0.10); border: 1px solid rgba(139, 92, 246, 0.45);
+            background: rgba(47, 155, 255, 0.08); border: 1px solid rgba(47, 155, 255, 0.35);
         }
         .acreditar-admin strong { color: var(--accent-2); font-size: 0.95rem; }
         .acreditar-admin p { margin: 4px 0 0; color: var(--zinc-300); font-size: 0.85rem; }
@@ -223,7 +225,7 @@
             padding: 12px 24px; border-radius: 999px;
             transition: transform 150ms ease, box-shadow 150ms ease;
         }
-        .btn-acreditar-admin:hover { box-shadow: 0 0 22px rgba(139, 92, 246, 0.5); transform: translateY(-1px); }
+        .btn-acreditar-admin:hover { box-shadow: 0 0 22px rgba(47, 155, 255, 0.45); transform: translateY(-1px); }
         .btn-acreditar-admin:active { transform: scale(0.97); }
         @media (max-width: 560px) { .btn-acreditar-admin { width: 100%; text-align: center; } }
 
@@ -248,8 +250,8 @@
         .campo-password .ojo:hover { opacity: 1; }
         .campo-password .ojo.visible { opacity: 1; }
         .badge-fila {
-            display: inline-block; margin-left: 8px; background: rgba(139, 92, 246, 0.15);
-            color: var(--accent-2); border: 1px solid rgba(139, 92, 246, 0.3);
+            display: inline-block; margin-left: 8px; background: rgba(47, 155, 255, 0.12);
+            color: var(--accent-2); border: 1px solid rgba(47, 155, 255, 0.3);
             border-radius: 999px; padding: 2px 9px; font-size: 0.72rem; font-weight: 600;
         }
         .guardia-acciones { display: flex; gap: 6px; flex-shrink: 0; }
@@ -258,22 +260,22 @@
             border: 1px solid var(--zinc-800); background: var(--zinc-900); color: var(--text);
             border-radius: 999px; padding: 5px 12px; font-size: 0.75rem; cursor: pointer;
         }
-        .guardia-acciones button.eliminar { color: #fca5a5; }
-        .guardia-acciones button.eliminar:hover { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.35); }
+        .guardia-acciones button.eliminar { color: var(--danger); }
+        .guardia-acciones button.eliminar:hover { background: var(--danger-bg); border-color: rgba(220, 38, 38, 0.35); }
 
         /* Tarjeta bien visible de la app de guardias — mismo look que .conectar-box (borde
-           violeta brillante), para que salte a la vista igual que la de Mercado Pago. */
+           azul brillante), para que salte a la vista igual que la de Mercado Pago. */
         .app-guardias-card {
             background: var(--zinc-900); border-radius: 14px; padding: 22px; margin: 20px 0;
-            box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 24px rgba(139, 92, 246, 0.18);
+            box-shadow: 0 0 0 1px rgba(47, 155, 255, 0.35), 0 0 24px rgba(47, 155, 255, 0.14);
         }
         .app-guardias-header { display: flex; gap: 14px; align-items: flex-start; }
         .app-guardias-icono { font-size: 1.8rem; line-height: 1; }
-        .app-guardias-header strong { color: white; font-size: 1.05rem; }
+        .app-guardias-header strong { color: var(--text); font-size: 1.05rem; }
         .app-guardias-header p { color: var(--zinc-400); font-size: 0.85rem; margin: 4px 0 0; }
         .app-guardias-acciones { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
         .app-guardias-acciones .btn { width: auto; }
-        .app-guardias-copiado { display: block; margin-top: 10px; color: #34d399; font-size: 0.82rem; font-weight: 600; }
+        .app-guardias-copiado { display: block; margin-top: 10px; color: var(--success); font-size: 0.82rem; font-weight: 600; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -655,17 +657,17 @@
 
     <script>
         // Gráfico de líneas de ventas en el tiempo, con Chart.js. Paleta pensada para calzar
-        // con el Dark Mode Premium del resto del panel: línea en el color de acento, ejes y
+        // con la paleta navy/blue del resto del panel: línea en el color de acento, ejes y
         // textos en gris tenue, sin grilla invasiva (solo una línea horizontal muy sutil).
         (function () {
             const canvas = document.getElementById('graficoVentas');
             if (!canvas || typeof Chart === 'undefined') return; // evento sin MP conectado, o el CDN no cargó
 
             const ESTILOS = getComputedStyle(document.documentElement);
-            const COLOR_ACENTO = ESTILOS.getPropertyValue('--accent').trim() || '#8b5cf6';
-            const COLOR_ACENTO_2 = ESTILOS.getPropertyValue('--accent-2').trim() || '#22d3ee';
-            const COLOR_TEXTO_TENUE = '#a1a1aa'; // text-zinc-400
-            const COLOR_GRILLA = 'rgba(161, 161, 170, 0.08)'; // casi invisible, solo una guía leve
+            const COLOR_ACENTO = ESTILOS.getPropertyValue('--accent').trim() || '#163d70';
+            const COLOR_ACENTO_2 = ESTILOS.getPropertyValue('--accent-2').trim() || '#2f9bff';
+            const COLOR_TEXTO_TENUE = ESTILOS.getPropertyValue('--text-muted').trim() || '#5b6478';
+            const COLOR_GRILLA = 'rgba(15, 24, 48, 0.08)'; // casi invisible, solo una guía leve
 
             let grafico = null;
 
@@ -693,8 +695,8 @@
                                     const { chartArea, ctx: c } = ctx.chart;
                                     if (!chartArea) return 'transparent';
                                     const gradiente = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                                    gradiente.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
-                                    gradiente.addColorStop(1, 'rgba(139, 92, 246, 0)');
+                                    gradiente.addColorStop(0, 'rgba(47, 155, 255, 0.22)');
+                                    gradiente.addColorStop(1, 'rgba(47, 155, 255, 0)');
                                     return gradiente;
                                 },
                                 fill: true,
@@ -711,11 +713,11 @@
                             plugins: {
                                 legend: { display: false }, // un solo dataset: la leyenda no aporta nada
                                 tooltip: {
-                                    backgroundColor: '#18181b',
-                                    borderColor: '#27272a',
+                                    backgroundColor: '#0e2b52',
+                                    borderColor: '#163d70',
                                     borderWidth: 1,
-                                    titleColor: '#f4f4f5',
-                                    bodyColor: COLOR_TEXTO_TENUE,
+                                    titleColor: '#ffffff',
+                                    bodyColor: '#c7d3e8',
                                     padding: 10,
                                     displayColors: false
                                 }

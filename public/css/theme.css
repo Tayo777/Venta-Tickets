@@ -1,39 +1,53 @@
 /* ============================================================
-   Design system — "Dark Mode Premium"
-   Tokens centralizados: cambiar acá se propaga a toda vista que
-   incluya este archivo. No mezclar colores hardcodeados nuevos
-   fuera de estas variables.
+   Design system — paleta clara "navy/blue", unificada con
+   views/landing.ejs (la vitrina pública). Tokens centralizados:
+   cambiar acá se propaga a toda vista que incluya este archivo.
+   No mezclar colores hardcodeados nuevos fuera de estas variables.
+
+   El navbar (y solo el navbar) sigue siendo oscuro a propósito —
+   mismo lenguaje "cabecera navy, cuerpo claro" que landing/evento:
+   por eso sus reglas más abajo usan colores explícitos en vez de
+   --text/--border (que ahora son claros, pensados para el cuerpo).
    ============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg: #09090b;
-    --bg-elevated: #131316;
-    --bg-elevated-2: #1c1c21;
-    --border: #2a2a31;
+    --bg: #f4f6fb;
+    --bg-elevated: #ffffff;
+    --bg-elevated-2: #eef2f9;
+    --border: #e3e7f0;
 
-    --text: #f4f4f5;
-    --text-muted: #a1a1aa;
-    --text-faint: #71717a;
+    --text: #0f1830;
+    --text-muted: #5b6478;
+    --text-faint: #8890a3;
 
-    --accent: #8b5cf6;       /* violeta */
-    --accent-2: #22d3ee;     /* cian */
+    /* Navy/blue de marca (mismos valores que landing.ejs/evento.ejs/auth-split.css). */
+    --navy-900: #081b36;
+    --navy-800: #0e2b52;
+    --navy-700: #163d70;
+    --blue: #1e88f6;
+    --blue-bright: #2f9bff;
+
+    --accent: var(--navy-700);
+    --accent-2: var(--blue-bright);
     --accent-contrast: #ffffff;
 
-    --danger: #f87171;
-    --danger-bg: #2a1518;
-    --success: #34d399;
-    --success-bg: #0f2420;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --warning: #92400e;
+    --warning-bg: #fffbeb;
 
     --radius-sm: 10px;
     --radius-md: 16px;
     --radius-full: 999px;
 
-    --shadow-glow: 0 0 0 1px rgba(139, 92, 246, 0.35), 0 8px 24px rgba(139, 92, 246, 0.18);
+    --shadow-glow: 0 0 0 1px rgba(47, 155, 255, 0.35), 0 8px 24px rgba(47, 155, 255, 0.18);
 
     --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    color-scheme: dark;
+    color-scheme: light;
 }
 
 *, *::before, *::after {
@@ -59,40 +73,46 @@ body {
 
 a { color: var(--accent-2); }
 
-/* ---------- Navbar ---------- */
+/* ---------- Contenedor principal compartido ---------- */
+/* Uso: envolvé el contenido de una vista interna en <div class="main-container"> para que
+   el ancho máximo, el centrado y los márgenes sean iguales en toda la navegación. Vistas
+   angostas (formularios de una columna) pueden combinarlo con "main-container--angosto". */
+.main-container { max-width: 1100px; margin: 0 auto; padding: 30px 20px 60px; }
+.main-container--angosto { max-width: 640px; }
+
+/* ---------- Navbar (oscura, mismo criterio que el hero de landing/evento) ---------- */
 .navbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 16px 28px;
-    background: rgba(9, 9, 11, 0.75);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    background: linear-gradient(115deg, var(--navy-900), var(--navy-700));
+    box-shadow: 0 2px 14px rgba(8, 27, 54, 0.25);
     position: sticky;
     top: 0;
     z-index: 50;
 }
 
-/* El logo + "TuEntrada" van juntos dentro de un botón con borde, mismo lenguaje visual que
-   .profile-trigger (borde sutil, pill, glow suave al pasar el mouse) — así queda claro que
-   todo el conjunto es clickeable y lleva al inicio, no solo el ícono. */
+/* El logo + "TuEntrada" van juntos dentro de un botón con borde translúcido claro (sobre el
+   navy de fondo), mismo lenguaje visual que .profile-trigger — así queda claro que todo el
+   conjunto es clickeable y lleva al inicio, no solo el ícono. */
 .navbar-brand {
     display: flex;
     align-items: center;
     gap: 8px;
     font-weight: 800;
     font-size: 1.05rem;
-    color: var(--text);
+    color: #ffffff;
     text-decoration: none;
     letter-spacing: -0.02em;
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: var(--radius-full);
     padding: 6px 16px 6px 10px;
     min-height: 40px;
     transition: background 150ms ease, border-color 150ms ease;
 }
-.navbar-brand:hover { background: var(--bg-elevated-2); border-color: var(--accent); }
+.navbar-brand:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.35); }
 @media (max-width: 480px) {
     .navbar-brand { padding: 6px 12px 6px 8px; gap: 6px; font-size: 0.98rem; }
 }
@@ -109,16 +129,51 @@ a { color: var(--accent-2); }
     .navbar-logo { height: 40px; }
 }
 
+/* Buscador central del navbar (opcional — solo lo usan las vistas que pasan mostrarBusqueda). */
+.navbar-search {
+    flex: 1 1 320px; max-width: 560px; margin: 0 16px;
+    display: flex; align-items: center;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px; padding: 4px 4px 4px 18px;
+}
+.navbar-search input {
+    flex: 1; background: transparent; border: none; outline: none; box-shadow: none;
+    color: #fff; font-family: var(--font); font-size: 0.92rem; padding: 8px 0;
+}
+.navbar-search input::placeholder { color: rgba(255, 255, 255, 0.65); }
+.navbar-search button {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; border: none; flex-shrink: 0;
+    background: var(--blue-bright); color: #fff; cursor: pointer;
+}
+.navbar-search button:hover { background: var(--blue); }
+@media (max-width: 780px) {
+    .navbar-search { order: 3; flex-basis: 100%; max-width: none; margin: 10px 0 0; }
+}
+
 .navbar-actions {
     display: flex;
     align-items: center;
     gap: 10px;
 }
+.navbar-link {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 14px; border-radius: 999px;
+    color: rgba(255, 255, 255, 0.92); text-decoration: none;
+    font-size: 0.88rem; font-weight: 600; white-space: nowrap;
+}
+.navbar-link:hover { background: rgba(255, 255, 255, 0.12); }
+.navbar-link svg { flex-shrink: 0; }
+@media (max-width: 480px) {
+    .navbar-link span { display: none; }
+    .navbar-link { padding: 9px; }
+}
 
 /* Navbar en celular: menos padding lateral (el contenido no debe pegarse al borde de la
    pantalla) y menos gap entre acciones para que entren cómodas sin apretarse. */
 @media (max-width: 480px) {
-    .navbar { padding: 12px 16px; gap: 8px; }
+    .navbar { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
     .navbar-actions { gap: 6px; }
 }
 
@@ -171,13 +226,15 @@ a { color: var(--accent-2); }
 /* ---------- Menú de perfil (navbar) ---------- */
 .profile-menu { position: relative; }
 
+/* Sigue sobre fondo navy: usa el mismo tratamiento translúcido claro que .navbar-brand, no
+   var(--text)/var(--border) (esos son para texto sobre fondo CLARO). */
 .profile-trigger {
     display: flex;
     align-items: center;
     gap: 8px;
     background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ffffff;
     font-family: var(--font);
     font-size: 0.88rem;
     font-weight: 600;
@@ -186,19 +243,21 @@ a { color: var(--accent-2); }
     border-radius: var(--radius-full);
     cursor: pointer;
 }
-.profile-trigger:hover { background: var(--bg-elevated-2); border-color: var(--accent); }
-.profile-icon { width: 22px; height: 22px; color: var(--text-muted); flex-shrink: 0; }
-.profile-caret { color: var(--text-faint); transition: transform 150ms ease; }
+.profile-trigger:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.35); }
+.profile-icon { width: 22px; height: 22px; color: rgba(255, 255, 255, 0.8); flex-shrink: 0; }
+.profile-caret { color: rgba(255, 255, 255, 0.6); transition: transform 150ms ease; }
 .profile-trigger[aria-expanded="true"] .profile-caret { transform: rotate(180deg); }
 
-/* En celular el nombre completo ("Agustin Lopez") no entra cómodo junto al logo sin
-   apretar el header: se oculta el texto y queda el ícono + flechita (sigue siendo
-   perfectamente tocable, min-height/padding no cambian). */
+/* En celular el nombre completo no entra cómodo junto al logo sin apretar el header: se
+   oculta el texto y queda el ícono + flechita (sigue siendo perfectamente tocable, min-height
+   /padding no cambian). */
 @media (max-width: 480px) {
     .profile-name { display: none; }
     .profile-trigger { padding: 7px 10px; }
 }
 
+/* El dropdown en sí flota SOBRE el cuerpo claro de la página (no sobre el navbar), así que
+   usa los tokens normales de superficie clara — mismo lenguaje que cualquier .card. */
 .profile-dropdown {
     position: absolute;
     top: calc(100% + 10px);
@@ -208,7 +267,7 @@ a { color: var(--accent-2); }
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 12px 32px rgba(15, 24, 48, 0.18);
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -246,8 +305,8 @@ a { color: var(--accent-2); }
 .profile-dropdown a:hover { background: var(--bg-elevated-2); }
 .profile-dropdown form { margin: 0; }
 .profile-dropdown hr { border: none; border-top: 1px solid var(--border); margin: 6px 4px; }
-.profile-dropdown .dropdown-logout { color: #fca5a5; }
-.profile-dropdown .dropdown-logout:hover { background: rgba(248, 113, 113, 0.1); }
+.profile-dropdown .dropdown-logout { color: var(--danger); }
+.profile-dropdown .dropdown-logout:hover { background: var(--danger-bg); }
 
 /* ---------- Cards / superficies ---------- */
 .card {
@@ -270,7 +329,7 @@ input, select, textarea { border-radius: var(--radius-sm); }
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+    box-shadow: 0 0 0 3px rgba(47, 155, 255, 0.2);
     /* Contorno gris -> acento brillante en un golpe rápido, no en 300ms (se sentía "flojo"). */
     transition-duration: 120ms;
 }
@@ -279,14 +338,14 @@ label { color: var(--text-muted); }
 .alerta-error {
     background: var(--danger-bg);
     color: var(--danger);
-    border: 1px solid rgba(248, 113, 113, 0.3);
+    border: 1px solid rgba(220, 38, 38, 0.25);
     padding: 12px 16px;
     border-radius: var(--radius-sm);
 }
 .alerta-ok {
     background: var(--success-bg);
     color: var(--success);
-    border: 1px solid rgba(52, 211, 153, 0.3);
+    border: 1px solid rgba(22, 163, 74, 0.25);
     padding: 12px 16px;
     border-radius: var(--radius-sm);
 }

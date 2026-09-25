@@ -32,8 +32,8 @@
         /* El estado del mail del creador es la OTRA condición para que el evento se haga
            público: si está sin verificar, acreditarlo no alcanza — por eso se avisa acá. */
         .badge { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; }
-        .badge.ok { color: #34d399; background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.3); }
-        .badge.falta { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); }
+        .badge.ok { color: var(--success); background: var(--success-bg); border-color: rgba(22, 163, 74, 0.3); }
+        .badge.falta { color: var(--warning); background: var(--warning-bg); border-color: rgba(146, 64, 14, 0.3); }
 
         .acciones-pendiente { display: flex; gap: 8px; flex-shrink: 0; }
         .acciones-pendiente form { margin: 0; }
